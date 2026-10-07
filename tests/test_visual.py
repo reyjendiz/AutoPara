@@ -84,7 +84,9 @@ class TestCardsDoNotHideEachOther:
 
             # Ten pixels into the 09:00 row, inside the first card and above the second.
             card_point = first.mapTo(grid, first.rect().bottomLeft())
-            x, y = card_point.x() + first.width() // 2, card_point.y() - 8
+            # Near the right edge, where no text can be: the card's time sits low on the left, and its
+            # exact place depends on the platform's font.
+            x, y = card_point.x() + first.width() - 12, card_point.y() - 8
             painted = QColor(image.pixel(x, y))
             card_bg = QColor(theme.token("card_bg"))
             assert painted == card_bg, f"the bottom of the card is covered: {painted.name()}"
