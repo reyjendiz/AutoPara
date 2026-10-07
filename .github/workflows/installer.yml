@@ -1,4 +1,5 @@
-# Builds the Windows installer on every push to main and publishes it as a GitHub release.
+# Builds the Windows installer and the macOS disk image on every push to main and publishes them as a
+# GitHub release.
 #
 # The installer used to be built by hand on the maintainer's machine, which meant the download
 # link in the README could point at a build nobody could reproduce. This job runs the same two
@@ -127,11 +128,85 @@ jobs:
               exit 0
           }
           $notes = @"
-          Встановлення: завантажте **${{ steps.version.outputs.setup }}** нижче та запустіть його.
+          **Windows:** завантажте **${{ steps.version.outputs.setup }}** нижче та запустіть його.
           Нічого більше встановлювати не треба — ні Python, ні інших програм.
+
+          **macOS (Apple Silicon):** завантажте **AutoPara-${{ steps.version.outputs.version }}.dmg**,
+          відкрийте його й перетягніть AutoPara у «Програми». Застосунок не підписано, тож при першому
+          запуску відкрийте його через контекстне меню → «Відкрити».
 
           Зібрано з ${{ github.sha }}.
           "@
           gh release create $tag "dist/${{ steps.version.outputs.setup }}" `
               --title "AutoPara ${{ steps.version.outputs.version }}" `
               --notes $notes
+
+  # The macOS disk image. It runs after the Windows job because that job is the one that creates the
+  # release; this one only adds its file to it. It also fills the gap when a release exists without
+  # an image (the first release was cut before this job did), so a push builds the image only when
+  # the release for this version has none yet.
+  build-mac:
+    needs: build
+    runs-on: macos-14 # Apple Silicon
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Decide whether this version needs an image
+        id: plan
+        run: |
+          version=$(sed -n 's/^!define[[:space:]]*APP_VERSION[[:space:]]*"\([^"]*\)".*/\1/p' installer/AutoPara.nsi | head -1)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "dmg=AutoPara-$version.dmg" >> "$GITHUB_OUTPUT"
+          have=$(gh release view "v$version" --json assets -q '[.assets[].name | select(endswith(".dmg"))] | length' 2>/dev/null || echo none)
+          if [ "$have" = "none" ]; then
+            echo "No release v$version exists, so there is nothing to attach an image to."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          elif [ "$have" != "0" ]; then
+            echo "v$version already has its disk image."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-python@v5
+        if: steps.plan.outputs.build == 'true'
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        if: steps.plan.outputs.build == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install pyinstaller pytest
+
+      - name: Run the tests
+        if: steps.plan.outputs.build == 'true'
+        run: python -m pytest -q
+
+      - name: Build the application and the disk image
+        if: steps.plan.outputs.build == 'true'
+        run: python build_mac.py
+
+      - name: Check the image was produced
+        if: steps.plan.outputs.build == 'true'
+        run: |
+          test -f "dist/${{ steps.plan.outputs.dmg }}"
+          ls -lh "dist/${{ steps.plan.outputs.dmg }}"
+
+      - name: Upload the image as a workflow artifact
+        if: steps.plan.outputs.build == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoPara-${{ steps.plan.outputs.version }}-macOS
+          path: dist/${{ steps.plan.outputs.dmg }}
+          if-no-files-found: error
+
+      - name: Attach the image to the release
+        if: steps.plan.outputs.build == 'true'
+        run: gh release upload "v${{ steps.plan.outputs.version }}" "dist/${{ steps.plan.outputs.dmg }}" --clobber

@@ -278,3 +278,22 @@ class TestUpdateAssetNaming:
         if not urls:
             pytest.skip("no remote configured")
         assert any(updater.GITHUB_REPO.lower() in url.lower() for url in urls)
+
+
+class TestMacImage:
+    """The Mac disk image is built by build_mac.py and found by the updater by its name."""
+
+    def test_the_image_the_build_writes_matches_what_the_updater_looks_for(self):
+        from autopara import __version__
+        from autopara.core import updater
+
+        build = (Path(__file__).resolve().parents[1] / "build_mac.py").read_text(encoding="utf-8")
+        assert 'f"AutoPara-{__version__}.dmg"' in build
+        assert updater.MAC_ASSET.match(f"AutoPara-{__version__}.dmg")
+
+    def test_the_workflow_builds_and_attaches_it(self):
+        flow = (Path(__file__).resolve().parents[1] / ".github" / "workflows" / "installer.yml").read_text(
+            encoding="utf-8"
+        )
+        assert "python build_mac.py" in flow and "gh release upload" in flow
+        assert "AutoPara-$version.dmg" in flow

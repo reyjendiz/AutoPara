@@ -65,7 +65,13 @@ def main() -> int:
         return 1
     print(f"    Application bundle created at: {app_path}")
 
-    print("==> 3. Creating drag-and-drop installer DMG (dist/AutoPara.dmg)...")
+    # Named like the Windows installer, with the version in it: the in-app update check looks for
+    # ``AutoPara*.dmg`` among a release's files, and a version in the name tells a downloaded
+    # image from the one it replaces.
+    sys.path.insert(0, str(root))
+    from autopara import __version__
+
+    print(f"==> 3. Creating drag-and-drop installer DMG (dist/AutoPara-{__version__}.dmg)...")
     dmg_staging = build_dir / "dmg_staging"
     if dmg_staging.exists():
         shutil.rmtree(dmg_staging)
@@ -78,7 +84,7 @@ def main() -> int:
     apps_link = dmg_staging / "Applications"
     os.symlink("/Applications", str(apps_link))
 
-    dmg_path = root / "dist" / "AutoPara.dmg"
+    dmg_path = root / "dist" / f"AutoPara-{__version__}.dmg"
     if dmg_path.exists():
         dmg_path.unlink()
 
@@ -96,7 +102,9 @@ def main() -> int:
     ]
     res = subprocess.run(hdiutil_cmd, capture_output=True, text=True)
     if res.returncode != 0:
-        print(f"Warning: hdiutil failed: {res.stderr}", file=sys.stderr)
+        # A build that produced no installer has not succeeded: CI must not call it done.
+        print(f"Error: hdiutil failed: {res.stderr}", file=sys.stderr)
+        return 1
     else:
         print(f"    DMG installer created at: {dmg_path} ({dmg_path.stat().st_size // (1024*1024)} MB)")
 

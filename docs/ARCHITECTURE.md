@@ -200,6 +200,14 @@ Two stages, both runnable on their own:
 
 ### The installer that people download is built by CI
 
+Two files go on every release: `AutoPara-<version>-Setup.exe` (Windows, built by the job below) and
+`AutoPara-<version>.dmg` (macOS, Apple Silicon: a second job, `build-mac`, runs `python build_mac.py`
+on a macOS runner after the Windows job has created the release and attaches the image to it). The
+Mac job builds only when the release for this version has no `.dmg` yet, which is also how a release
+cut before the job existed gets its image. The app inside is not signed or notarised, so a downloaded
+copy is opened the first time from its context menu ("Відкрити"). An Intel Mac would need its own
+image; there is none. The names are what the in-app update check looks for.
+
 `.github/workflows/installer.yml` runs those same two stages on a clean `windows-latest` runner on
 every push to `main`, and attaches `AutoPara-<version>-Setup.exe` to a GitHub release. It calls
 `build.cmd`, not a copy of its steps, so CI cannot pass along a path a local build does not take.
