@@ -135,6 +135,7 @@ Read these before changing anything:
 - [docs/BACKEND.md](docs/BACKEND.md) — the `.docx` parsing rules, data model, scheduler.
 - [docs/FRONTEND.md](docs/FRONTEND.md) — screens, widgets, styling.
 - [CONTRIBUTING.md](CONTRIBUTING.md) — commands, test environment and the invariants not to break.
+- [docs/HANDOFF.md](docs/HANDOFF.md) — current state, known gaps and the traps already found.
 - [docs/RELEASING.md](docs/RELEASING.md) — how a version number becomes a published release.
 
 ## Tests
