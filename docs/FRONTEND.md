@@ -1,0 +1,575 @@
+# FRONTEND — screens, widgets, state, styling
+
+> Read `ARCHITECTURE.md` and `BACKEND.md` first. Update this file whenever a screen, widget, or
+> styling convention changes.
+
+## Language
+
+**Every string the user can see is Ukrainian.** Not a preference — a requirement of the product.
+The importer accepts documents in other languages (`BACKEND.md` R10) and converts what it reads
+into Ukrainian labels; the interface itself has no other language and no translation layer, because
+one locale needs no machinery. `tests/test_ui.py::test_interface_is_ukrainian` walks the live widget
+tree and fails on Latin words other than the product and provider names.
+
+Subject and teacher text is the exception, and only because it is data: it is reproduced exactly as
+the document wrote it.
+
+## Screen map
+
+| Screen | Module | Role |
+|---|---|---|
+| Main window | `ui/main_window.py` | Icon rail, navigation bar, catch-up banner, week grid. |
+| Navigation bar | `ui/nav_bar.py` | The period title, the День / Тиждень / Місяць segmented control, the arrows and "Сьогодні". Owns no dates; reports presses. |
+| Month view | `ui/month_view.py` | Six weeks of day tiles, each with up to three chips for its classes. |
+| Week grid | `ui/week_grid.py` | The calendar surface: one column per date x hourly rows, plus the drop target. |
+| Class card | `ui/class_card.py` | One lesson inside a grid cell; also the drag source. |
+| Catch-up banner | `ui/catchup_banner.py` | The in-app "пара вже почалася" prompt. |
+| Update strip | `ui/update_banner.py` | "Доступна нова версія": download, skip, later; progress; install and restart. |
+| Import landing | `ui/import_landing.py` | The first-run screen and its `.docx` drop well. |
+| Setup / import | `ui/setup_dialog.py` | Pick `.docx` -> pick course -> pick group. |
+| Course and group | `ui/group_dialog.py` | Switch to another course and group of the timetable already imported, without reading the file again. |
+| Add / edit class | `ui/edit_dialog.py` | Create or modify a lesson; also used to add a missing link. |
+| Settings | `ui/settings_dialog.py` | Lead time, class length, theme, notifications, catch-up policy, autostart. |
+| Tray | `ui/tray.py` | The app mark, context menu, notifications. |
+| Glyphs | `ui/icons.py` | Every interface icon, painted with `QPainter` rather than shipped. |
+
+## Sidebar
+
+The window's chrome is a **72 px rail down the left**, not a strip across the top. The week grid is
+wide and short: a top bar spent the height the calendar is always short of and left the width it
+does not need, and it cost a day column outright once the window was anything but maximised.
+
+Top to bottom: the app mark, a stretch, then the **black pill** that floats over the canvas and
+holds the circular add button and a tight cluster of four icon buttons (import, another course and group, settings, theme). **Nothing on it is
+written.** Its width is the width of one button plus air, which is what
+it can be once no label has to fit — `test_the_sidebar_carries_no_words_at_all` walks the rail and
+fails on any label or button that has text.
+
+**The mark replaces the word "AutoPara".** An app does not need to say its own name inside its own
+window; the tray, the taskbar and the title bar all carry it already. `ui/tray.icon_pixmap()` scales
+the one shipped picture (`ui/assets/logo.png`, a 1024 px square with transparent corners) to whatever
+size is asked for, so the 30 px rail badge, the 16 px tray glyph, the `.ico` and the `.icns` are one
+image. It is fixed rather than themed, and on the first screen it stands alone (96 px) because it is
+already a rounded tile and needs no plate behind it.
+
+**The course and group are the mark's tooltip.** They were four lines printed down the rail, and
+they do not change from one week to the next — permanent cost, occasional value. `_set_subtitle`
+now writes them into `brand.setToolTip`, where they appear when someone actually asks.
+
+**Every button is an icon.** That is what this design language uses for the actions of a window, and
+it happens to serve the Ukrainian rule too: a word that is not on screen cannot be in the wrong
+language. Each one's meaning lives in a tooltip, which is where an icon button's meaning is
+*supposed* to live — `TestIconOnlyToolbar` fails if any of the five loses its tooltip or gains a
+label.
+
+`Додати пару` is a 40 px **circle**, white on the black pill (inverted in the dark theme), not a
+pill: a pill with nothing written on it is only a circle that has been stretched. It is still the
+one prominent control on the screen.
+
+The import glyph is `square.and.arrow.up` — the arrow points **up**. Pointing it down made the
+button read as "download", which is what a schedule arriving from a website looks like from the
+outside; the button does the opposite, handing a file the user already has to AutoPara.
+
+The icon buttons are 36x36 rather than a 44 px touch target: this is a mouse-driven desktop window,
+where a 44 px button reads as oversized chrome.
+
+Glyphs come from `ui/icons.py`, which paints them with `QPainter` in whatever colour it is handed.
+Same reasoning as `theme.checkmark_icon` (the app mark is the one shipped picture): the repository has no asset
+pipeline, and adding a `.qrc`, an image directory and two build-script entries for seven small
+shapes costs more than it saves. Because the colour is a parameter, `MainWindow._refresh_icons`
+repaints every glyph after a theme change — a shipped PNG would need two of each.
+
+## There is no status bar
+
+The strip along the bottom counted today's classes and named the next one. It is gone with the top
+bar: the grid already shows today tinted, the next class outlined, and every class's state on its
+own card, so the line restated in words what the calendar was saying in place — and it did so in the
+one row of height a short grid could least afford.
+
+## There is no edit mode
+
+The grid is editable from the moment it opens. The old **Edit** toggle is gone: it guarded against
+a stray click on a read-only calendar, but every interesting action — open, edit, mark, delete —
+now lives behind the right-click menu, so nothing destructive happens without a second, named
+choice, while the one harmless action — joining the class — stays on the left button. A mode that must be switched on before the app can be used is a mode nobody
+wants.
+
+## Views: day, week, month
+
+A segmented control in the navigation bar picks what the calendar shows; the choice is the
+`view_mode` setting, so it survives a restart, while the date being looked at (`MainWindow.anchor`)
+does not — the app opens on today. The arrows and the title follow the view: a day, a week or a month
+at a time (a month step from the 31st lands on the last day of a shorter month), and "Сьогодні"
+returns to today from any of them.
+
+- **День** is the week grid with one column, stretched across the whole work area, at the same
+  hour height as the week, the way a day is drawn in a calendar app. The weekday and the date circle
+  sit in the corner over the time gutter rather than floating in the middle of the wide column. A
+  class has the whole width, so it shows every chip, and a tall one (a block of several pairs) also
+  gets a detail line: the groups that share it, else where its link leads. The class outlined in ink
+  is today's soonest one that has not been settled.
+- **Тиждень** is the week grid described below.
+- **Місяць** (`MonthView`) is one rounded card of six weeks, always six so it never changes height.
+  A tile shows the date in a circle (today's is the black pill; days of a neighbouring month are
+  quiet) and up to three chips, in time order, each a bar in the subject's colour, the time and the
+  name; the rest are counted as "ще N". A verdict is spelled in the chip (✓ opened, ✕ skipped, ! not
+  opened), not only coloured. A chip is only a label for its day, so **clicking anywhere on a tile
+  opens that day** in the day view; the small plus that appears under the pointer creates a class on
+  that date. Like the grid it is rebuilt by hiding and deleting, never by `setParent(None)`.
+
+## Week grid
+
+- **Columns** = dates, headed by the weekday name over the day number in a circle; today's circle is
+  the black pill, and a thin black "now" line with the time on it crosses today's column at the
+  minute the clock says (`WeekGrid._place_now`, refreshed every 30 s, hidden when today is not on
+  screen or the time is outside the grid). The grid is
+  no longer pinned to the current week: the navigation bar above it moves the window's `anchor`
+  a week at a time and "Сьогодні" returns to today. `WeekGrid.render_days(days, ...)` draws any list
+  of dates; `render_week(..., monday=)` is the week's way in. A lesson is drawn on every date it
+  `occurs_on` (`BACKEND.md` section 3), so a one-off shows only in its own week and a series in each
+  of its weeks.
+- Mon–Sat are shown because the source document never uses Sunday; Sunday is fully supported
+  (`day_index = 6`) and its column appears automatically if a lesson lands there.
+- **Rows** = hours, 08:00 through 18:00. The teaching day ends well before that — the latest
+  class in the source document finishes at 17:30 — and every hour past it was a band of empty grid
+  the week had to scroll through to reach nothing. One spare row is an affordance; five are a
+  waste of the screen. A class outside the window is not lost: `span_for` clamps it to the last
+  row, and the edit dialog accepts any time at all.
+- **A class is placed by its real time, not by a slot.** 09:30–10:50 covers the bottom half of the
+  09:00 row and most of the 10:00 one. Slot-shaped placement was what made the times down the side
+  look arbitrary — a 09:30 class sitting flush inside a cell labelled 09:00 says the label is a
+  decoration.
+- "Today" is tinted; the current hour is marked.
+- A lesson spanning several hours (`BACKEND.md` R5, R12) is one card, spanning them. A double class
+  is one card for the same reason it is one browser tab: it never stopped.
+
+### One minute, a fixed number of pixels
+
+Every row is exactly `HOUR_HEIGHT` px, so a card's offset inside its span is just its start
+minute, scaled: `WeekGrid.span_for()` returns `(first_row, row_span, top_min, bottom_min)` where
+the margins are the **minutes** the class does not use at either end, and `minutes_to_pixels()`
+converts them at the single place that draws. Keeping `span_for` in minutes is what lets it stay a
+pure function of the timetable, testable without a window. No fractional layout, no sub-rows, no
+custom paint.
+
+`HOUR_HEIGHT` is **66**, not the tidier 60 that would make a minute a pixel. At 60 the standard
+80-minute pair got 80 px and needed 87 to show its subject, teacher and time, so every card in the
+week clipped a line. Eleven rows at 66 still fit the default window without scrolling, which is
+what shortening the day to 18:00 bought.
+
+Three things this depends on, all easy to undo by accident:
+
+- Rows must not stretch. Spare height goes to the trailing row instead.
+- **A card's container must be a fixed height** — `span * HOUR_HEIGHT`. An `Ignored` vertical size
+  policy is not enough on its own, and believing it was cost this grid its honesty for a long
+  time: `QGridLayout` still honours a *spanning* item's `minimumSizeHint`, so a card whose text
+  wanted more room than its class lasted pushed the rows it covered apart. Hours quietly became
+  74, 82, even 106 px tall, every card below them sat at the wrong time, and the labels down the
+  side described a scale the grid was no longer using.
+- Text that does not fit is **clipped**, exactly as in any calendar. The card's tooltip carries the
+  whole subject, the full teacher name, the time and the groups, so nothing is only half-knowable.
+
+### Empty slots
+
+Clicking an empty hour raises a small menu — `➕ Створити пару · Четвер, 8 жовтня, 13:00` — which
+opens the edit dialog with that date and hour already filled in, as a one-off class. Google Calendar's gesture, and the reason
+the grid does not need an "add" mode: the empty space *is* the affordance. The rail's
+**add** button stays for keyboard-first users and for an empty schedule.
+
+### Drag and drop
+
+A card is a drag source (`ClassCard.mouseMoveEvent`, mime type `application/x-autopara-lesson`
+carrying only the lesson id). Dropping it on an hour moves the class to that date and hour, keeping
+its length: `MainWindow._lesson_dropped` -> `storage.move_lesson`. A weekly template moves to the
+dropped weekday (it is the same class every week); a dated lesson moves to the dropped date, and a
+series carries its end date with it, so dragging any one occurrence shifts the whole series.
+
+The drop is handled by `GridCanvas`, not by the individual cells. A card that spans several pairs
+sits *on top of* the cells it covers and would swallow the event; the canvas maps the drop point
+onto a cell rectangle instead. The payload is an id rather than the lesson itself so a stale card
+can never carry stale data across.
+
+A press only counts as a click when the pointer never travelled far enough to start a drag —
+otherwise every drag would also join the class on release. The menu is raised from
+`contextMenuEvent` rather than from a right-button release, so the keyboard's Menu key works too
+and the event never falls through to the grid underneath.
+
+### Rebuilding the grid
+
+`WeekGrid._clear()` **hides and deletes**; it must never `setParent(None)`. Detaching a live widget
+makes it a top-level window for the moment between the rebuild and the event loop running
+`deleteLater`, and rebuilding a whole week that way threw dozens of stray top-levels at the window
+manager — small empty windows flashing across the screen on every reload, most visibly right after
+left-clicking a class, because opening its link triggers one. For the same reason, an action that opens
+a link does *not* reload: `Scheduler.lesson_opened` already does, and a second full rebuild landing
+while the browser starts is exactly the churn to avoid.
+
+## Class card
+
+A chip row — what became of the class, where it is held, and a group chip for a shared session —
+then the subject, the teacher, and the time range. The subject's colour is a 3 px bar set in from
+the left edge (its own widget: a coloured `border-left` follows the corner and reads as a bent
+stripe, and came out dashed on a dashed card).
+
+**Text is cut in whole lines, with an ellipsis.** A card is exactly as long as its class, so a long
+subject cannot always be shown. A wrapped label whose height is merely capped shows the middle of its
+text with the top and bottom lines sliced through; `ClampedLabel` wraps to the width itself, keeps
+whole lines, ends the last in "…", and re-lays out at once. The tooltip has the full text.
+
+**Chips give way to width.** A column is about 150 px, and a chip squeezed below its text reads
+"Zoon" and "✓від". `ClassCard._fit_chips` shows chips in priority order — state, provider, group —
+for as long as they fit, and hides the rest; the tooltip says everything a hidden chip would have. A
+class with no link names no provider, since its state chip already says so.
+
+### The card is told how tall it will be
+
+`WeekGrid` passes `height=` to `ClassCard`, because a card is exactly as tall as its class is long
+and a long subject simply will not fit. Knowing the height, the card picks the richest of its
+`LAYOUTS` that does: two lines of subject, then the teacher, and last the time — which the card's
+own position on the grid already says and the tooltip repeats. Each label is then capped to a whole
+number of lines, so a card that runs out of room loses a line rather than being cut through the
+middle of one, which reads as a rendering fault rather than a calendar.
+
+The group chip rides on the badge row rather than beside the time for exactly this reason: a card
+too short for a time row must still be able to say that the class is shared.
+
+Nothing is only half-knowable — the tooltip carries the whole subject, the full teacher name, the
+exact times, every group and the link.
+
+| State | Treatment |
+|---|---|
+| upcoming | normal card, subject-coloured left border |
+| next up (soonest today) | accent outline |
+| opened | `✓ відкрито`, muted |
+| missed | `не відкрито`, warning stripe |
+| skipped | `пропущено`, dashed and muted |
+| no link | dashed border + `без посилання` |
+
+### Clicking a card
+
+**Left click joins the class** — it opens the link straight away, with no menu in between. That is
+the one thing the app exists to do, so it costs one click. If the lesson has no link there is
+nothing to open, and the click raises the menu below instead, whose first item is exactly the
+remedy.
+
+**Right click opens the actions menu**, built from what the lesson actually is:
+
+- **With a link** — Відкрити посилання · Редагувати… · Позначити як відкриту · Позначити як
+  пропущену · (Зняти позначку) · Видалити пару.
+- **Without a link** — the first item becomes **Додати посилання…**, since opening is not on offer
+  and adding the URL is the thing the user came to do.
+
+A click on a date that has not come yet opens the link but does **not** claim that date's occurrence
+(`Scheduler.open_now(..., claim=False)`): claiming it would tell the scheduler the class had already
+happened and leave it unopened on the day. The menu's marks ("відкрита", "пропущена") do apply to
+the date on screen, which is how a future class is skipped in advance.
+
+"Зняти позначку" appears only when the class already has an occurrence for this week's date.
+Marks are per `(lesson, date)`, so this week's verdict does not follow the class into the next.
+
+## Catch-up banner
+
+A strip above the grid, hidden unless a class is waiting for an answer. It names
+the class and offers **Підключитися зараз** and **Закрити**; nothing opens until one is pressed,
+and `app.py` brings the window forward when one arrives.
+
+This replaces opening the meeting automatically. A class the user has already missed the start of
+is not something to act on unasked: the tabs arrive after the fact, sometimes several at once, and
+the user is left closing windows and leaving calls. `Закрити` marks the class missed, so it does
+not ask again.
+
+Several missed classes queue and are shown one at a time, with `ще N у черзі` on the current one.
+
+## Edit dialog
+
+A class is one of three kinds, chosen in **Повторення**: *Один раз* (a date), *Щотижня до дати* (a
+series with an end) or *Щотижня, без кінця* (a row of the weekly timetable, with a weekday instead of
+a date). The form shows only the fields the kind needs — the date, the end date, or the weekday — and
+a line under it says in words what will happen ("Щотижня, у понеділок: з 12 жовтня по 9 листопада —
+5 разів."). The end date cannot precede the start date: the field's minimum follows the start.
+
+Every gesture that has a date opens the dialog as *Один раз* on that date: an empty hour on the
+grid, the rail's add button (the date on screen). Weekly is one click away. Editing an imported class
+shows no kind at all — it is a row of the timetable and stays one — while a manual weekly class can
+be turned into a dated one. The date fields use a Ukrainian locale **on the popup calendar too** (it
+is a separate widget and otherwise names its months in the system language), start the week on
+Monday, and draw weekends in the quiet text colour rather than Qt's red, which this interface keeps
+for "not opened".
+
+Deleting a series asks about the whole series, since it is one row; skipping a single date is
+"Позначити як пропущену".
+
+Start and end times are **entered directly** (two `QTimeEdit`s) rather than picked as a pair
+number, and the dialog echoes back the resulting length. The end time follows the start
+automatically until the user moves it themselves. `pair` is still stored — it is part of a lesson's
+`source_key` — but it no longer decides anything about where the class is drawn.
+
+## Settings
+
+Lead time · class length · theme · notifications (on/off and how many minutes ahead) · what to do
+about a missed class (notify and open on confirmation / open immediately / mark missed) · autostart.
+
+The catch-up section states plainly that a class already running when AutoPara starts is never
+opened unquestioned, even in "open immediately" mode — otherwise that option reads as a promise the
+app deliberately does not keep (`ARCHITECTURE.md`, "Catch-up never ambushes on a cold start").
+
+## Import landing
+
+The screen a fresh install opens on. It replaced a centred grey `QLabel` and, above it, a modal
+import dialog that `app.py` fired on the first tick — so the first thing the app ever showed was a
+form, over a window the user had not seen yet. Now `app.py` opens nothing; the landing *is* the
+first-run experience and its own button opens the dialog.
+
+A hero plate with the app glyph, a title, one line of explanation, a **drop well**, and
+`Обрати файл…`.
+
+### Dropping a file
+
+`DropWell` accepts the drop, not the window, because the same widget is reused inside the import
+dialog — the gesture has to work identically in both places. `ImportLanding` and `SetupDialog` both
+`setAcceptDrops(True)` and forward their drag events to their well, so the target is the whole
+screen while the highlight stays on the thing that explains what will happen.
+
+- Only `.docx` is accepted, and the check happens in `dragEnterEvent`: refusing the drag there is
+  what makes the cursor say "no" *before* the user lets go.
+- Several files at once take the first `.docx` among them. A drop is a gesture, not a form
+  submission; answering it with an error dialog would be answering the wrong question.
+- The well shows the chosen file's **name**, never its path. The path is not what anyone checks.
+
+`empty_label` still exists as a `MainWindow` attribute — it is the landing's explanation line,
+re-exported — so the rest of the window, and the tests that predate this screen, never learn that
+it moved.
+
+## Update strip
+
+A neutral card above the calendar (a new version is news, not trouble), in three states: *available*
+("Доступна нова версія AutoPara 1.6.0", the first line of the release notes, and **Завантажити**,
+**Пропустити версію**, **Пізніше**, **Що нового**), *downloading* (a progress bar, nothing to
+decide) and *ready* ("Оновлення 1.6.0 завантажено": **Встановити й перезапустити**, or on a Mac
+**Відкрити образ**, with the instruction to drag the app across). Where the copy cannot install
+itself (run from source; a release with no file for this platform) the button is **Відкрити
+сторінку**. A failed download puts the strip back to the offer. Settings has an "Оновлення" section
+(notify / download automatically / do not check, the running version, **Перевірити зараз**), and the
+tray menu has "Перевірити оновлення". A manual check with nothing new answers "Оновлень немає"; an
+automatic one says nothing.
+
+## Motion
+
+`ui/transitions.py`. Motion is decoration, so it never delays or changes what the window does: the
+state has already changed when the first frame is drawn, a newer move finishes the older one at
+once, and it is skipped altogether for a window that is not on screen or when `transitions.ENABLED`
+is off (the test suite turns it off in `conftest`, so nothing waits on a clock).
+
+- **Between periods** — the arrows, "Сьогодні", a click on a month day, the segmented control. The
+  calendar surface is photographed before the change and again after it (one event-loop turn later,
+  when the layout has settled) and a `SlideOverlay` draws the two over the real surface: forward in
+  time the new picture comes from the right, back from the left, and a change of *view* has no
+  direction and dissolves. The old picture is gone by the middle and the new one starts a little
+  before it, so two weeks of text are never both at full strength on top of each other. Pictures are
+  used rather than moving live widgets because the live ones are rebuilt from the database on every
+  change — there is nothing steady to move. The overlay lets every click through.
+- **The segmented control** — the selected pill is a widget of its own (`#SegThumb`) behind the
+  three segments, and it *glides* to the one chosen (220 ms) rather than the fill jumping between
+  buttons. The buttons paint no fill themselves; the segment the pill has reached lights its text,
+  and the one it left keeps its lit text until the pill is nearer the new one, so pale text is never
+  on the bare bar and dark text never on the pill. A resize or a first show parks the pill behind
+  the chosen segment without travel.
+- **Popups** — menus, dialogs and tooltips fade in by animating the window's own opacity
+  (`fade_in`); a tooltip that is already showing just moves on to the next text rather than blinking.
+
+## Choosing another course and group
+
+Import keeps **every** course of the document; which course and group are showing is only the
+`selected_course_id` / `selected_group_id` setting. So when the file is already open but the wrong
+group was picked, the people icon on the rail (`Обрати інший курс і групу…`) opens `GroupDialog`:
+the imported courses in a combo, the chosen course's groups below it with their size ("12 пар",
+"немає пар"), opening on the current choice, and **Обрати** just writes the two settings. Nothing is
+parsed, no occurrence is touched, and the button is disabled until something has been imported. A
+re-import is still how a *new* document arrives.
+
+## Import dialog
+
+The file step is the same `DropWell` as the landing screen, so a `.docx` can be dropped straight
+onto the dialog. The old read-only path field survives, hidden, because the import still needs the
+source path — but it is no longer something the user is asked to read.
+
+Picking a `.docx` preselects the **previously chosen course and group**, matched by course ordinal
+and group name — read from storage before the import overwrites it. Re-importing an updated
+timetable is then two clicks rather than a re-run of first-time setup.
+
+The dialog reopens **AutoPara's own copy** of the last document rather than the path the user
+originally picked: the original is usually a download that has since been tidied away. See
+`BACKEND.md`, "The imported document is copied".
+
+## Theme
+
+Light and dark, toggled from the rail. The stored setting is `system` | `light` | `dark`,
+defaulting to `system`, which reads the OS app theme — so a fresh install matches the desktop it was
+installed on. The toggle pins the opposite of what is currently showing.
+
+Styling lives in `ui/styles.qss`, a template whose colours are `$tokens` substituted by
+`core/theme.py`. **Never hard-code a colour in the QSS**: a literal looks right in one theme and
+wrong in the other.
+
+### The look: "Education Hub"
+
+White cards on a soft grey canvas, one near-black anchor for whatever is active or primary, and
+pastel colour only where it means something. Three layers carry it:
+
+| Token | Light | Dark | |
+|---|---|---|---|
+| `canvas` | `#f5f5f6` | `#0a0a0b` | the window; `#Canvas` widgets and the rail's column |
+| `surface` | `#ffffff` | `#151517` | a card, a dialog, an input — also the default `QWidget` background |
+| `sunken` | `#f5f5f6` | `#1d1d20` | inner panels, drop wells, grouped lists |
+| `text` | `#0e0e10` | `#f2f2f4` | text and icons |
+
+**The accent is ink, not a hue.** `accent`, `accent_fill` and `accent_ink` are the near-black in the
+light theme and the near-white in the dark one; `accent_text` is what is written on the pill. The
+dark theme inverts that pair rather than inventing a second accent, so "active" is always the
+high-contrast pill: today's date, the primary button, the selected row, the next class's outline,
+the "now" line. Hue is spent on meaning only — a subject, or a status chip (green / red / amber /
+blue, each a tinted fill with a darker text of the same hue).
+
+The rail has its own tokens (`rail_bg`, `rail_icon`, `rail_hover`, `rail_primary_*`): a black pill in
+the light theme, a raised dark one in the dark, with the add button inverted on it. Values are opaque
+hex rather than translucent: Qt's stylesheet parser is inconsistent about alpha, and one translucent
+grey would composite differently on a card, a tinted cell and the rail. Every pair that carries text
+was picked to clear WCAG AA; `text_faint` (hour labels, the year in the title) is the one quiet
+step below it and is never used for anything that has to be read.
+
+**Everything on the canvas is a card.** The week grid is a rounded white card, the landing screen is
+one, the catch-up banner is one in amber. A card's children are transparent where they reach its
+rounded corners (`#GridScroll` and everything in it), because a child with a square background
+paints a square over the curve.
+
+## State management
+
+There is no separate state container. The **SQLite database is the single source of truth**; the UI
+reads through `core/storage.py` and re-renders on change. Widgets never cache lesson data across
+operations — after any mutation the affected view reloads from storage. Cross-component updates use
+Qt signals:
+
+- `Scheduler.lesson_opened(lesson_id)` -> the card flips to `opened`, the banner drops that class.
+- `Scheduler.lesson_missed(lesson_id)` -> grid reloads.
+- `Scheduler.catchup_available(lesson_id)` -> banner + window surfaced.
+- `Scheduler.reminder_due(lesson_id)` -> tray notification.
+
+The window's only state is the date it is looking at (`MainWindow.anchor`, today at launch). It is
+where the window is pointing, not data about a lesson, so it can never go stale: `reload()` is a
+pure function of the database and the anchor.
+
+### Indicators must be styled for every state
+
+As soon as *any* stylesheet rule applies to a `QCheckBox` or `QRadioButton`, Qt stops drawing the
+native indicator and paints only what the stylesheet asks for. Styling nothing but `spacing` left
+the **checked** radio button with no indicator at all — the selected option looked like plain text
+with a gap in front of it. `styles.qss` therefore defines `::indicator` for unchecked, checked,
+hover and disabled, and the indicator box is the same size in every state so checking an option
+cannot shift the row it sits in.
+
+The radio's dot is a radial gradient. The checkbox's tick cannot be: QSS has no way to draw a
+shape, and `image:` wants a file. So `theme.checkmark_icon()` paints a tick once per theme into a
+small PNG beside the database and the stylesheet points `$check_icon` at it. Filling the box with
+the accent colour was the alternative, and a solid coloured square does not read as "ticked".
+
+## Styling conventions
+
+- 8 px spacing unit, 4 px for tight gaps. Radii are **one family**: fully round for every button, the
+  rail, the segmented control and the date circles; 14 for a big card and a popup (close to the
+  corner macOS gives a window, so the calendar card echoes the window around it); 10 for a plate —
+  an event card, an input, a list; 6 for a chip. A control nested inside a container is always
+  smaller than it, or the two curves fight.
+- **Qt draws a corner square, not slightly less round, when the radius exceeds half the box's
+  height.** That is how every button came out as a plain rectangle on a real Mac while looking right
+  in an offscreen render. So each round-ended control has an *exact* height — `min-height` and
+  `max-height` together, which also stops it drifting with the font — and a radius of exactly half:
+  buttons 36 (34 + a 1 px border), the rail's icon buttons 36, its add circle 40, the nav arrows 36,
+  segments 32 inside a 40 px control, the month's plus 28. `TestRoundEnds` measures the heights and
+  looks at the pixel where each corner should be.
+- Three button tiers, and only ever one prominent button on a screen: `#Primary` (the ink pill),
+  the default `QPushButton` (white, a hairline, round), and `#Plain` (muted text, no fill).
+  Footers put the plain action left of the prominent one — Qt's `QDialogButtonBox` puts it the other
+  way round on Windows, which is why the dialogs lay their footers out by hand.
+- **No shadows.** Cards are told apart by tint and a hairline. Besides matching the language, that
+  removed a real fault: a `QGraphicsDropShadowEffect` is clipped to the widget's slot.
+- Subject colour: deterministic hash of the subject name into seven pastels (coral, lemon, sky,
+  violet, mint, pink, dusty blue) — the same in both themes, so a subject is one colour. It is only
+  ever a 3 px bar and a chip, never behind text, which is what lets a pale yellow be one of them.
+- Font: **Manrope**, bundled in `ui/fonts` (Regular / Medium / SemiBold / Bold / ExtraBold) under
+  the SIL Open Font License. It covers Cyrillic and has real weights, so `font-weight: 600` resolves
+  to 600 rather than jumping to Bold. 10 pt body, 8–9 pt for metadata, 700 for anything that leads. Point sizes in the stylesheet are
+  scaled by 1.15 on macOS (`theme.MAC_POINT_SCALE`, applied by `theme.scaled_points`): Qt counts a
+  point as a pixel there and as 4/3 of one on Windows, so the same 10 pt looked shrunken on a Mac.
+  The full correction (4/3) was too large for so dense a window, so a Mac gets a step between the
+  two and Windows none.
+  The system entries after it in `FONT_STACK` exist only for the case where the bundled files fail
+  to load.
+- Never encode meaning in colour alone — every coloured state also carries an icon or text label.
+
+### Things Qt does not do for you
+
+- **A QSS `min-height` overrides `setFixedSize`.** `min-height: 0` on an icon button released its
+  fixed 40 px height and the layout shrank the button to its 20 px hint. Fixed-size buttons get
+  their height from Python only, and button height comes from padding.
+- **A spin box does not report its stylesheet padding in its size hint**, so a form of spin boxes
+  was measured too short and its rows were drawn on top of one another. `metrics.INPUT_HEIGHT` pins
+  every input to one height, and `metrics.settle()` re-measures a dialog once the stylesheet has
+  reached it — resizing it directly, because `adjustSize()` caps a top-level window at two thirds of
+  the screen.
+- **A popup's corners are square unless the popup window is translucent**, and a stylesheet cannot
+  make it so. `ui/popups.py` installs one application-wide filter: a tooltip request is answered with
+  `RoundedTip` (frameless, translucent, painting its own plate in the tooltip colours, flipped above
+  the pointer near the screen's edge) instead of Qt's, and every `QMenu` is made frameless and
+  translucent just before it is first shown, so the stylesheet's `border-radius` has something to
+  round.
+- **A card's slot must not paint.** Two classes that touch within an hour share a grid row, and the
+  later one's opaque slot covered the bottom of the earlier card. `#CardSlot` is transparent;
+  `tests/test_visual.py` checks the pixels.
+- **A scroll area sizes its widget when something resizes it, not when the widget's layout grows.**
+  While a week is being built the grid's layout is briefly empty and answers "726 px, no width";
+  the scroll area kept that, and every hour came out 60 px, the header was cut through and the
+  cards were too narrow for their chips. `WeekGrid._pin_canvas_size` states the size outright (a
+  header and one pinned row per hour, a gutter and a minimum width per column) instead of leaving it
+  to the layout's mid-build answer. `test_a_grid_shown_empty_and_filled_later_keeps_full_hours`
+  shows the window first and fills it after, on a window shorter than the grid, which is the only
+  way the bug appears.
+- **Hiding a widget only schedules a layout.** `ClassCard._fit_chips` hides the chips that do not
+  fit, and until the next layout ran the ones that stayed were as narrow as when all competed for
+  the room. It re-lays out at once.
+- **A grid layout remembers a column's stretch after its widgets are gone.** Going from a week to a
+  day left columns two to six still claiming their share, and the day's one column was a sixth of the
+  width — the bug behind "the day does not stretch across the screen". `render_days` resets every
+  column before setting its own, and `test_it_is_as_wide_as_the_work_area...` switches from the week
+  first, which is the only way it shows.
+- **A column's width must not depend on its cards.** The slot's size policy is `Ignored`, or the
+  week came out in columns of different widths according to which subject was longest.
+
+### Three things QSS will not do, and where they went instead
+
+`box-shadow` -> nowhere; the design has no shadows. `letter-spacing` -> nowhere; the hierarchy is
+carried by size and weight. `transition` -> nowhere; state changes are instant. There is no backdrop
+blur either, so the rail is opaque rather than a poor imitation of glass.
+
+### The font family is chosen in Python, not in the QSS
+
+Qt honours only the **first** family named in a stylesheet `font-family`, so the usual CSS fallback
+list is a trap: with the family missing, `"Manrope", "Segoe UI", sans-serif` does not fall
+through to Segoe UI — it falls through to a default with no glyphs, and the entire interface renders
+as empty boxes. `theme.interface_font()` therefore walks `FONT_STACK` for a family Qt actually has
+and substitutes the single winner as `$font_family`. `app._load_fonts()` registers the bundled faces
+before the stylesheet is applied, and only logs if it cannot.
+
+### A styled QWidget background reaches every label
+
+`QWidget { background: $surface; }` gives *labels* an opaque background too, so each one paints a
+rectangle of the surface colour over whatever it sits on — invisible on a card, a block on the
+canvas. `QLabel { background: transparent; }` puts it back; badges and chips override it with
+their own ID rules.
+
+### Sub-controls need their arrows supplied
+
+The same rule as the checkbox indicator: style any part of a sub-control and Qt stops drawing the
+native one. Styling `QComboBox::drop-down` left the combo boxes as empty rounded fields with nothing
+to say they open, and the spin boxes with no arrows at all. `theme.chevron_icon()` paints an up and
+a down chevron per theme beside the database, exactly as `checkmark_icon` does, and the stylesheet
+points `$chevron_up` / `$chevron_down` at them.
