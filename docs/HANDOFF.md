@@ -9,12 +9,17 @@ first — this file does not repeat them.
 
 - **Repository:** https://github.com/sevcenkoa864-oss/AutoPara (public, `main`). It was deleted and
   recreated once, so history starts at the 1.6.0 commit. No tooling-specific files are in it.
-- **Release v1.6.0** is published with both installers: `AutoPara-1.6.0-Setup.exe` (Windows) and
-  `AutoPara-1.6.0.dmg` (macOS, Apple Silicon only). CI (`.github/workflows/installer.yml`) builds both
+- **Latest release is v1.7.x**, published with both installers: `AutoPara-<version>-Setup.exe`
+  (Windows) and `AutoPara-<version>.dmg` (macOS, Apple Silicon only). CI (`.github/workflows/installer.yml`) builds both
   on every push to `main`; a release is cut only when `APP_VERSION` names a version without a tag.
 - **What 1.6.0 added** over 1.5.0: dated classes (one-off and "weekly until a date"), day / week /
   month views with navigation, the "Education Hub" redesign (Inter, black-pill accent, pastel
   subjects), course/group switcher, animations, in-app updates from GitHub, a new app logo.
+- **What 1.7.x added** over 1.6.0: a system clock under the rail pill at 50 % opacity
+  (`ui/clock_bar.py`); an eased hover fill on the round "+" buttons (`transitions.FadeButton`); the
+  interface font is Inter bundled in `ui/fonts`, except on Windows where it is Segoe UI (Inter is its
+  fallback, see `theme.font_stack`); and text is drawn unhinted (`app._smooth_text`) because Qt's
+  default hinting on Windows reads as a jagged pixel font.
 
 ## Run and verify
 
@@ -61,8 +66,8 @@ python tools/bump_version.py --show    # version + release state; --set X.Y.Z to
 
 ## Known gaps / candidate next work
 
-- **Updater is untested end to end.** 1.6.0 is the newest release, so the check can only say "up to
-  date". Cut 1.6.1 and run 1.6.0 against it to exercise download → verify → install. The Windows
+- **Updater is untested end to end.** There are now several releases, so install an older one (1.6.0)
+  and let it find the newest to exercise download → verify → install. The Windows
   apply step (`updater.windows_command`) has never run on Windows hardware.
 - **macOS:** the image is arm64 only, unsigned and un-notarised (first launch: right-click → Open).
   The update path opens the `.dmg`; it does not replace the app itself.
