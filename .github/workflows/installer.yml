@@ -15,6 +15,10 @@ name: Installer
 on:
   push:
     branches: [main]
+    # The Android app is built by its own workflow; a change confined to it has nothing to release.
+    paths-ignore:
+      - "android/**"
+      - ".github/workflows/android.yml"
   workflow_dispatch:
 
 permissions:
