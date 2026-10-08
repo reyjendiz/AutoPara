@@ -1021,3 +1021,21 @@ class TestTextSmoothing:
         label.ensurePolished()
         assert label.font().hintingPreference() == QFont.PreferNoHinting
         assert label.font().styleStrategy() & QFont.PreferAntialias
+
+
+class TestRailIndents:
+    def test_the_pill_has_the_same_air_on_both_sides(self, tmp_path, gui_app):
+        """Left of the pill is the window's edge, right of it the calendar card."""
+        from autopara.ui.main_window import MainWindow
+
+        storage = Storage(tmp_path / "rail.db")
+        window = MainWindow(storage, Scheduler(storage))
+        window.resize(1240, 800)
+        window.show()
+        gui_app.processEvents()
+        pill = window.findChild(type(window.brand.parent()), "RailPill")
+        left = pill.mapTo(window.centralWidget(), pill.rect().topLeft()).x()
+        card = window.grid.mapTo(window.centralWidget(), window.grid.rect().topLeft()).x()
+        right = card - (left + pill.width())
+        assert left == right, f"{left}px on the left, {right}px on the right"
+        window.close()

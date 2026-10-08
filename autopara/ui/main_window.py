@@ -62,7 +62,9 @@ from .week_grid import WeekGrid
 
 
 # A rail, not a panel: with no text on it, its width is the width of one button plus air.
-SIDEBAR_WIDTH = 72
+# The pill is centred in the rail and the content starts right where the rail ends, so the air on
+# either side of the pill is the same: (SIDEBAR_WIDTH - RAIL_PILL_WIDTH) / 2 = 14 px.
+SIDEBAR_WIDTH = 80
 RAIL_PILL_WIDTH = 52
 
 
@@ -105,7 +107,7 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(content)
         # Cards float on the canvas, so the content has a margin of its own and the cards have
         # room between them; the rail is its own column and keeps its own air.
-        layout.setContentsMargins(8, 20, 24, 24)
+        layout.setContentsMargins(0, 20, 24, 24)
         layout.setSpacing(16)
 
         self.nav = NavBar()
