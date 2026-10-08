@@ -979,8 +979,9 @@ class TestInterfaceFont:
         from autopara.app import _load_fonts
 
         _load_fonts()
-        # Windows is set in Segoe UI and everything else in Inter, but Inter is always registered.
-        assert theme.interface_font() == theme.font_stack()[0]
+        # Windows leads with Segoe UI and everything else with Inter. Inter is always registered, so
+        # it is also what a machine without Segoe UI (a bare CI runner) falls back to.
+        assert theme.interface_font() in {theme.font_stack()[0], "Inter"}
         assert {"Regular", "Medium", "SemiBold", "Bold", "ExtraBold"} <= set(
             QFontDatabase.styles("Inter")
         )
