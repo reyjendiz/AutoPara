@@ -136,6 +136,7 @@ class MainWindow(QMainWindow):
         self.month = MonthView()
         self.month.day_selected.connect(self.open_day)
         self.month.add_requested.connect(lambda day: self._edit_lesson(None, day=day))
+        self.month.lesson_dropped.connect(self._month_dropped)
         self.month.hide()
         layout.addWidget(self.month, 1)
 
@@ -694,14 +695,12 @@ class MainWindow(QMainWindow):
         lesson = self.storage.lesson(lesson_id)
         if lesson is None:
             return
-        if lesson.day_index == day.weekday() and lesson.start_time == start and not lesson.is_dated:
-            return
-        if lesson.is_dated and lesson.on_date == day and lesson.start_time == start:
-            return
         duration = minutes_between(lesson.start_time, lesson.end_time) or (
             self.storage.settings().class_duration_minutes
         )
         if from_day is not None and lesson.repeats:
+            if from_day == day and lesson.start_time == start:
+                return  # dropped back where it was
             scope = self._ask_move_scope(lesson, from_day)
             if scope is None:
                 return
@@ -716,6 +715,10 @@ class MainWindow(QMainWindow):
                 )
                 self.reload()
                 return
+        if lesson.day_index == day.weekday() and lesson.start_time == start and not lesson.is_dated:
+            return  # the whole series would not change
+        if lesson.is_dated and lesson.on_date == day and lesson.start_time == start:
+            return
         self.storage.move_lesson(
             lesson.id,
             day.weekday(),
@@ -725,6 +728,12 @@ class MainWindow(QMainWindow):
             on_date=day if lesson.is_dated else None,
         )
         self.reload()
+
+    def _month_dropped(self, lesson_id: int, day: date, from_day: date | None) -> None:
+        """Клас кинули на день у місяці: час лишається, змінюється лише дата."""
+        lesson = self.storage.lesson(lesson_id)
+        if lesson is not None:
+            self._lesson_dropped(lesson_id, day, lesson.start_time, from_day)
 
     def _edit_lesson(
         self, lesson: Lesson | None, day: date | None = None, start_time: str | None = None

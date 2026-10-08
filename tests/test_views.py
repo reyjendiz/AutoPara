@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 import pytest
-from PySide6.QtCore import QEvent, QPointF
+from PySide6.QtCore import QEvent, QPoint, QPointF
 from PySide6.QtGui import QEnterEvent
 from PySide6.QtWidgets import QLabel, QPushButton
 
@@ -378,3 +378,138 @@ class TestUkrainianViews:
                     if word.isascii() and word.isalpha() and len(word) > 2 and word not in allowed:
                         latin.add(word)
         assert not latin, latin
+
+
+class _FakeDrop:
+    """The few things a tile asks of a drag event."""
+
+    def __init__(self, mime):
+        self._mime = mime
+
+    def mimeData(self):  # noqa: N802 - Qt naming
+        return self._mime
+
+    def acceptProposedAction(self):  # noqa: N802 - Qt naming
+        pass
+
+
+class TestMonthDragAndDrop:
+    DAY = date(2026, 3, 11)  # a Wednesday
+
+    def render(self, qapp, lessons):
+        view = MonthView()
+        view.resize(1100, 700)
+        view.render_month(date(2026, 3, 1), lessons, None, MONDAY)
+        view.show()
+        qapp.processEvents()
+        return view
+
+    def tile(self, view, day):
+        return next(t for t in view.tiles if t.day == day)
+
+    @staticmethod
+    def mouse(kind, point, buttons):
+        from PySide6.QtCore import QEvent, Qt
+        from PySide6.QtGui import QMouseEvent
+
+        types = {"press": QEvent.MouseButtonPress, "move": QEvent.MouseMove,
+                 "release": QEvent.MouseButtonRelease}
+        button = Qt.LeftButton if kind != "move" else Qt.NoButton
+        return QMouseEvent(types[kind], QPointF(point), QPointF(point), button, buttons, Qt.NoModifier)
+
+    def test_dragging_a_chip_carries_its_class_and_its_date(self, qapp, monkeypatch):
+        from PySide6.QtCore import Qt
+        from PySide6.QtGui import QDrag
+
+        from autopara.ui.class_card import LESSON_MIME, read_drag_payload
+
+        view = self.render(qapp, [lesson(7, self.DAY)])
+        tile = self.tile(view, self.DAY)
+        chip = tile.chips[0]
+        grabbed = []
+        monkeypatch.setattr(QDrag, "exec", lambda drag, *a: grabbed.append(drag.mimeData()) or 0)
+
+        start = chip.geometry().center()
+        tile.mousePressEvent(self.mouse("press", start, Qt.LeftButton))
+        tile.mouseMoveEvent(self.mouse("move", start + QPoint(40, 40), Qt.LeftButton))
+
+        assert len(grabbed) == 1
+        assert read_drag_payload(grabbed[0].data(LESSON_MIME)) == (7, self.DAY)
+
+    def test_a_press_on_empty_space_does_not_start_a_drag(self, qapp, monkeypatch):
+        from PySide6.QtCore import Qt
+        from PySide6.QtGui import QDrag
+
+        view = self.render(qapp, [lesson(7, self.DAY)])
+        tile = self.tile(view, self.DAY)
+        grabbed = []
+        monkeypatch.setattr(QDrag, "exec", lambda drag, *a: grabbed.append(1) or 0)
+
+        empty = QPoint(tile.width() // 2, tile.height() - 4)
+        tile.mousePressEvent(self.mouse("press", empty, Qt.LeftButton))
+        tile.mouseMoveEvent(self.mouse("move", empty + QPoint(40, 0), Qt.LeftButton))
+        assert grabbed == []
+
+    def test_a_click_still_opens_the_day_but_a_drag_does_not(self, qapp, monkeypatch):
+        from PySide6.QtCore import Qt
+        from PySide6.QtGui import QDrag
+
+        view = self.render(qapp, [lesson(7, self.DAY)])
+        tile = self.tile(view, self.DAY)
+        opened = []
+        tile.selected.connect(opened.append)
+        monkeypatch.setattr(QDrag, "exec", lambda drag, *a: 0)
+        centre = tile.chips[0].geometry().center()
+
+        tile.mousePressEvent(self.mouse("press", centre, Qt.LeftButton))
+        tile.mouseReleaseEvent(self.mouse("release", centre, Qt.NoButton))
+        assert opened == [self.DAY]
+
+        tile.mousePressEvent(self.mouse("press", centre, Qt.LeftButton))
+        tile.mouseMoveEvent(self.mouse("move", centre + QPoint(40, 40), Qt.LeftButton))
+        tile.mouseReleaseEvent(self.mouse("release", centre, Qt.NoButton))
+        assert opened == [self.DAY], "letting go after a drag is not a click"
+
+    def test_dropping_on_a_day_reports_the_class_the_day_and_where_it_came_from(self, qapp):
+        from PySide6.QtCore import QMimeData
+
+        from autopara.ui.class_card import LESSON_MIME, drag_payload
+
+        view = self.render(qapp, [lesson(7, self.DAY)])
+        target = self.tile(view, self.DAY + timedelta(days=3))
+        dropped = []
+        view.lesson_dropped.connect(lambda *args: dropped.append(args))
+        mime = QMimeData()
+        mime.setData(LESSON_MIME, drag_payload(7, self.DAY))
+
+        target.dropEvent(_FakeDrop(mime))
+
+        assert dropped == [(7, self.DAY + timedelta(days=3), self.DAY)]
+
+    def test_a_day_lights_up_while_a_class_is_over_it(self, qapp):
+        from PySide6.QtCore import QMimeData
+
+        from autopara.ui.class_card import LESSON_MIME, drag_payload
+
+        view = self.render(qapp, [])
+        tile = self.tile(view, self.DAY)
+        mime = QMimeData()
+        mime.setData(LESSON_MIME, drag_payload(7, MONDAY))
+
+        tile.dragEnterEvent(_FakeDrop(mime))
+        assert tile.property("dropping") == "true"
+        tile.dropEvent(_FakeDrop(mime))
+        assert tile.property("dropping") == "false"
+
+    def test_something_that_is_not_a_class_is_ignored(self, qapp):
+        from PySide6.QtCore import QMimeData
+
+        view = self.render(qapp, [])
+        tile = self.tile(view, self.DAY)
+        dropped = []
+        view.lesson_dropped.connect(lambda *args: dropped.append(args))
+        mime = QMimeData()
+        mime.setText("hello")
+        tile.dragEnterEvent(_FakeDrop(mime))
+        tile.dropEvent(_FakeDrop(mime))
+        assert dropped == [] and tile.property("dropping") == "false"

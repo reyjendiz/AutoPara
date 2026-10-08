@@ -386,3 +386,50 @@ class TestMovingOneDateOfARepeatingClass:
         assert window._ask_move_scope(lesson, self.WEDNESDAY) is None  # nothing was clicked
         assert "4 березня" in seen["text"] and lesson.subject in seen["text"]
         assert set(seen["buttons"]) == {"Лише цю дату", "Всю серію", "Скасувати"}  # order is the platform's
+
+
+class TestMonthDropMovesTheDate:
+    def test_a_class_dropped_on_another_day_keeps_its_time(self, window, world, monkeypatch):
+        storage, group = world
+        template = storage.lessons_for_group(group.id)[0]  # Wednesdays, 09:30
+        wednesday = MONDAY + timedelta(days=2)
+        monkeypatch.setattr(window, "_ask_move_scope", lambda lesson, day: "one")
+
+        window._month_dropped(template.id, MONDAY + timedelta(days=10), wednesday)  # the Thursday after
+
+        copy = next(
+            l for l in storage.lessons_for_group(group.id) if l.on_date == MONDAY + timedelta(days=10)
+        )
+        assert copy.start_time == "09:30" and copy.end_time == "10:50"
+        assert not storage.lesson(template.id).occurs_on(wednesday)
+
+    def test_one_date_can_move_to_the_same_weekday_of_another_week(self, window, world, monkeypatch):
+        storage, group = world
+        template = storage.lessons_for_group(group.id)[0]
+        wednesday = MONDAY + timedelta(days=2)
+        later = wednesday + timedelta(days=14)
+        monkeypatch.setattr(window, "_ask_move_scope", lambda lesson, day: "one")
+
+        window._month_dropped(template.id, later, wednesday)
+
+        assert not storage.lesson(template.id).occurs_on(wednesday)
+        assert any(l.on_date == later for l in storage.lessons_for_group(group.id))
+
+    def test_the_whole_series_can_follow(self, window, world, monkeypatch):
+        storage, group = world
+        template = storage.lessons_for_group(group.id)[0]
+        monkeypatch.setattr(window, "_ask_move_scope", lambda lesson, day: "all")
+
+        window._month_dropped(template.id, MONDAY + timedelta(days=10), MONDAY + timedelta(days=2))
+
+        assert storage.lesson(template.id).day_index == 3  # Thursday
+
+    def test_dropping_a_class_back_on_its_own_day_does_nothing(self, window, world, monkeypatch):
+        storage, group = world
+        template = storage.lessons_for_group(group.id)[0]
+        wednesday = MONDAY + timedelta(days=2)
+        monkeypatch.setattr(
+            window, "_ask_move_scope", lambda *a: pytest.fail("nothing moved, nothing to ask")
+        )
+        window._month_dropped(template.id, wednesday, wednesday)
+        assert len(storage.lessons_for_group(group.id)) == 1

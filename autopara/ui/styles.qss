@@ -391,6 +391,13 @@ QPushButton#NavButton:hover {
     background: $sunken;
 }
 
+/* A class being dragged over the day: the same dashed ring the week grid draws on an hour. */
+#MonthCell[dropping="true"] {
+    background: $drop_bg;
+    border: 2px dashed $accent;
+    border-radius: 10px;
+}
+
 /* The date is a number in a circle; today's circle is the black pill, as in the week. */
 #MonthDate {
     color: $text;

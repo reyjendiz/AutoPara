@@ -14,8 +14,10 @@ from __future__ import annotations
 import calendar
 from datetime import date, timedelta
 
-from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtCore import QMimeData, QPoint, QSize, Qt, Signal
+from PySide6.QtGui import QDrag
 from PySide6.QtWidgets import (
+    QApplication,
     QFrame,
     QGridLayout,
     QHBoxLayout,
@@ -30,7 +32,7 @@ from ..core import theme
 from ..core.models import STATUS_MANUAL, STATUS_MISSED, STATUS_OPENED, STATUS_SKIPPED, Lesson
 from ..importer.normalize import DAY_NAMES, DAY_SHORT, MONTH_GENITIVE
 from . import icons, transitions
-from .class_card import subject_color
+from .class_card import LESSON_MIME, drag_payload, read_drag_payload, subject_color
 
 WEEKS = 6                # a month always occupies six rows, so it never changes height
 MAX_CHIPS = 3            # more than this and the rest are counted, not drawn
@@ -130,6 +132,7 @@ class DayTile(QFrame):
 
     selected = Signal(object)         # the date
     add_requested = Signal(object)    # the date
+    lesson_dropped = Signal(int, object, object)  # lesson id, the date dropped on, date dragged from
 
     def __init__(
         self,
@@ -144,7 +147,12 @@ class DayTile(QFrame):
         self.setObjectName("MonthCell")
         self.setProperty("other", "false" if in_month else "true")
         self.setProperty("today", "true" if is_today else "false")
+        self.setProperty("dropping", "false")
         self.setCursor(Qt.PointingHandCursor)
+        self.setAcceptDrops(True)
+        self._press_at: QPoint | None = None
+        self._pressed_chip: MonthChip | None = None
+        self._dragging = False
         self.setMinimumHeight(CELL_MIN_HEIGHT)
         self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Expanding)
 
@@ -174,8 +182,11 @@ class DayTile(QFrame):
         top.addWidget(self.add_button)
         column.addLayout(top)
 
+        self.chips: list[MonthChip] = []
         for lesson, status in entries[:MAX_CHIPS]:
-            column.addWidget(MonthChip(lesson, status))
+            chip = MonthChip(lesson, status)
+            self.chips.append(chip)
+            column.addWidget(chip)
         hidden = len(entries) - MAX_CHIPS
         if hidden > 0:
             more = QLabel(f"ще {hidden}")
@@ -195,8 +206,81 @@ class DayTile(QFrame):
         self.add_button.hide()
         super().leaveEvent(event)
 
+    # ------------------------------------------------------------- drag and drop
+
+    def chip_at(self, point: QPoint) -> MonthChip | None:
+        """The class chip under ``point``. Chips let mouse events through, so the tile asks."""
+        return next((chip for chip in self.chips if chip.geometry().contains(point)), None)
+
+    def mousePressEvent(self, event):  # noqa: N802 - Qt naming
+        if event.button() == Qt.LeftButton:
+            self._press_at = event.position().toPoint()
+            self._pressed_chip = self.chip_at(self._press_at)
+            self._dragging = False
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):  # noqa: N802 - Qt naming
+        if (
+            self._press_at is None
+            or self._pressed_chip is None
+            or not (event.buttons() & Qt.LeftButton)
+        ):
+            return super().mouseMoveEvent(event)
+        travelled = (event.position().toPoint() - self._press_at).manhattanLength()
+        if travelled < QApplication.startDragDistance():
+            return super().mouseMoveEvent(event)
+
+        self._dragging = True
+        chip = self._pressed_chip
+        data = QMimeData()
+        data.setData(LESSON_MIME, drag_payload(chip.lesson.id, self.day))
+        drag = QDrag(self)
+        drag.setMimeData(data)
+        drag.setPixmap(chip.grab())
+        drag.setHotSpot(self._press_at - chip.pos())
+        drag.exec(Qt.MoveAction)
+        return None
+
+    def _set_dropping(self, active: bool) -> None:
+        wanted = "true" if active else "false"
+        if self.property("dropping") == wanted:
+            return
+        self.setProperty("dropping", wanted)
+        self.style().unpolish(self)
+        self.style().polish(self)
+
+    def dragEnterEvent(self, event):  # noqa: N802 - Qt naming
+        if event.mimeData().hasFormat(LESSON_MIME):
+            self._set_dropping(True)
+            event.acceptProposedAction()
+
+    def dragMoveEvent(self, event):  # noqa: N802 - Qt naming
+        if event.mimeData().hasFormat(LESSON_MIME):
+            event.acceptProposedAction()
+
+    def dragLeaveEvent(self, event):  # noqa: N802 - Qt naming
+        self._set_dropping(False)
+        super().dragLeaveEvent(event)
+
+    def dropEvent(self, event):  # noqa: N802 - Qt naming
+        self._set_dropping(False)
+        if not event.mimeData().hasFormat(LESSON_MIME):
+            return
+        try:
+            lesson_id, source_day = read_drag_payload(event.mimeData().data(LESSON_MIME))
+        except ValueError:
+            return
+        event.acceptProposedAction()
+        self.lesson_dropped.emit(lesson_id, self.day, source_day)
+
     def mouseReleaseEvent(self, event):  # noqa: N802 - Qt naming
-        if event.button() == Qt.LeftButton and self.rect().contains(event.position().toPoint()):
+        was_drag = self._dragging
+        self._press_at, self._pressed_chip, self._dragging = None, None, False
+        if (
+            not was_drag
+            and event.button() == Qt.LeftButton
+            and self.rect().contains(event.position().toPoint())
+        ):
             self.selected.emit(self.day)
         super().mouseReleaseEvent(event)
 
@@ -215,6 +299,7 @@ class MonthView(QWidget):
 
     day_selected = Signal(object)  # the date
     add_requested = Signal(object)  # the date
+    lesson_dropped = Signal(int, object, object)  # lesson id, the date dropped on, date dragged from
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -281,6 +366,7 @@ class MonthView(QWidget):
             )
             tile.selected.connect(self.day_selected.emit)
             tile.add_requested.connect(self.add_requested.emit)
+            tile.lesson_dropped.connect(self.lesson_dropped.emit)
             self._grid.addWidget(tile, *divmod(position, 7))
             self.tiles.append(tile)
 
