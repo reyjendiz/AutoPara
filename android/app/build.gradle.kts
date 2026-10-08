@@ -20,11 +20,28 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // A release is signed with the key named by these variables (the CI workflow supplies them from
+    // repository secrets). Without them it falls back to the debug key, which still installs but
+    // changes from build to build, so an update over an older install needs an uninstall first.
+    val releaseKeystore = System.getenv("ANDROID_KEYSTORE_PATH")
+    if (releaseKeystore != null) {
+        signingConfigs {
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            // Shrinking is left off until it has been exercised on a device; the APK is a little
+            // larger but cannot lose a class to over-eager optimisation.
+            isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.getByName(if (releaseKeystore != null) "release" else "debug")
         }
     }
 
