@@ -203,9 +203,10 @@ Two stages, both runnable on their own:
 Three files go on every release: `AutoPara-<version>-Setup.exe` (Windows, built by the job below),
 `AutoPara-<version>.dmg` (macOS, Apple Silicon: a second job, `build-mac`, runs `python build_mac.py`
 on a macOS runner after the Windows job has created the release and attaches the image to it) and
-`AutoPara-<version>-Intel.dmg` (macOS, Intel: `build-mac-intel`, the same script on an Intel runner,
-which runs *after* `build-mac` so the Apple Silicon file is always the first `.dmg` a release holds --
-copies that predate the Intel image take the first they find). Each Mac job builds only when the
+`AutoPara-Intel-<version>.dmg` (macOS, Intel: `build-mac-intel`, the same script on an Intel runner,
+which runs *after* `build-mac`, and whose name puts "Intel" *before* the version so that GitHub's
+alphabetical listing keeps the Apple Silicon file the first `.dmg` of a release -- copies that predate
+the Intel image take the first they find). Each Mac job builds only when the
 release for this version lacks its own image, which is also how a release cut before the job existed
 gets one. The app inside is not signed or notarised, so a downloaded copy is opened the first time
 from its context menu ("Відкрити"). `updater.mac_asset_name` is the one place the file name is decided

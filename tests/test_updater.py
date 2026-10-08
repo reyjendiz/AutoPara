@@ -128,23 +128,30 @@ class TestMacImagePerProcessor:
     """An Intel Mac and an Apple Silicon Mac each get the image that runs on them, and only that."""
 
     ARM = f"https://github.com/{REPO}/releases/download/v1.7.5/AutoPara-1.7.5.dmg"
-    INTEL = f"https://github.com/{REPO}/releases/download/v1.7.5/AutoPara-1.7.5-Intel.dmg"
+    INTEL = f"https://github.com/{REPO}/releases/download/v1.7.5/AutoPara-Intel-1.7.5.dmg"
 
     def assets(self, *names):
-        urls = {"AutoPara-1.7.5.dmg": self.ARM, "AutoPara-1.7.5-Intel.dmg": self.INTEL}
+        urls = {"AutoPara-1.7.5.dmg": self.ARM, "AutoPara-Intel-1.7.5.dmg": self.INTEL}
         return [{"name": n, "browser_download_url": urls[n], "size": 1} for n in names]
+
+    def test_the_intel_image_sorts_after_the_apple_silicon_one(self):
+        """GitHub lists a release's files alphabetically and older copies take the first .dmg."""
+        for version in ("1.7.5", "1.10.0", "2.0.0", "10.1.1"):
+            arm = updater.mac_asset_name(version, "arm64")
+            intel = updater.mac_asset_name(version, "x86_64")
+            assert sorted([intel, arm]) == [arm, intel]
 
     def test_the_names_the_build_writes(self):
         assert updater.mac_asset_name("1.7.5", "arm64") == "AutoPara-1.7.5.dmg"
-        assert updater.mac_asset_name("1.7.5", "x86_64") == "AutoPara-1.7.5-Intel.dmg"
-        assert updater.mac_asset_name("1.7.5", "AMD64") == "AutoPara-1.7.5-Intel.dmg"
+        assert updater.mac_asset_name("1.7.5", "x86_64") == "AutoPara-Intel-1.7.5.dmg"
+        assert updater.mac_asset_name("1.7.5", "AMD64") == "AutoPara-Intel-1.7.5.dmg"
 
     @pytest.mark.parametrize("machine,expected", [
-        ("arm64", "AutoPara-1.7.5.dmg"), ("x86_64", "AutoPara-1.7.5-Intel.dmg"),
+        ("arm64", "AutoPara-1.7.5.dmg"), ("x86_64", "AutoPara-Intel-1.7.5.dmg"),
     ])
     def test_each_processor_takes_its_own_image_whatever_the_order(self, machine, expected):
-        for order in (("AutoPara-1.7.5.dmg", "AutoPara-1.7.5-Intel.dmg"),
-                      ("AutoPara-1.7.5-Intel.dmg", "AutoPara-1.7.5.dmg")):
+        for order in (("AutoPara-1.7.5.dmg", "AutoPara-Intel-1.7.5.dmg"),
+                      ("AutoPara-Intel-1.7.5.dmg", "AutoPara-1.7.5.dmg")):
             picked = updater.pick_asset(self.assets(*order), "darwin", machine)
             assert picked.name == expected
 
@@ -153,7 +160,7 @@ class TestMacImagePerProcessor:
         assert updater.pick_asset(self.assets("AutoPara-1.7.5.dmg"), "darwin", "x86_64") is None
 
     def test_an_apple_silicon_mac_is_not_offered_the_intel_image(self):
-        assert updater.pick_asset(self.assets("AutoPara-1.7.5-Intel.dmg"), "darwin", "arm64") is None
+        assert updater.pick_asset(self.assets("AutoPara-Intel-1.7.5.dmg"), "darwin", "arm64") is None
 
     def test_the_processor_does_not_matter_on_windows(self):
         windows = [{"name": "AutoPara-1.7.5-Setup.exe", "size": 1,
@@ -163,7 +170,7 @@ class TestMacImagePerProcessor:
 
     def test_the_machine_defaults_to_this_one(self, monkeypatch):
         monkeypatch.setattr(updater.platform_module, "machine", lambda: "x86_64")
-        assert updater.mac_asset_name("1.7.5") == "AutoPara-1.7.5-Intel.dmg"
+        assert updater.mac_asset_name("1.7.5") == "AutoPara-Intel-1.7.5.dmg"
         monkeypatch.setattr(updater.platform_module, "machine", lambda: "arm64")
         assert updater.mac_asset_name("1.7.5") == "AutoPara-1.7.5.dmg"
 

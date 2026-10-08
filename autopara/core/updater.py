@@ -51,13 +51,22 @@ MAC_ASSET = re.compile(r"^AutoPara.*\.dmg$")
 
 # A Mac gets the image built for its processor. The Apple Silicon image keeps the name it has always
 # had (``AutoPara-<version>.dmg``) so every release already out, and every copy that looks for it,
-# keeps working; the Intel one carries ``-Intel`` before the extension.
-INTEL_MARK = "-Intel"
+# keeps working; the Intel one is ``AutoPara-Intel-<version>.dmg``.
+#
+# The word goes *before* the version on purpose. GitHub lists a release's files alphabetically, and
+# copies of AutoPara older than the Intel image take the first ``.dmg`` they find: ``AutoPara-1.8.0-
+# Intel.dmg`` sorts before ``AutoPara-1.8.0.dmg`` and an Apple Silicon Mac would have been offered the
+# Intel one, while ``AutoPara-Intel-1.9.0.dmg`` sorts after every ``AutoPara-<digit>...`` name.
+INTEL_WORD = "Intel"
 _INTEL_MACHINES = ("x86_64", "amd64", "i386")
 
 
 def is_intel_machine(machine: str | None = None) -> bool:
     return (machine or platform_module.machine()).lower() in _INTEL_MACHINES
+
+
+def is_intel_image(name: str) -> bool:
+    return INTEL_WORD.lower() in name.lower()
 
 
 def mac_asset_name(version: str, machine: str | None = None) -> str:
@@ -66,7 +75,9 @@ def mac_asset_name(version: str, machine: str | None = None) -> str:
     The one place the rule lives: ``build_mac.py`` names the file with it and :func:`pick_asset`
     chooses by it, so the two cannot drift apart.
     """
-    return f"AutoPara-{version}{INTEL_MARK if is_intel_machine(machine) else ''}.dmg"
+    if is_intel_machine(machine):
+        return f"AutoPara-{INTEL_WORD}-{version}.dmg"
+    return f"AutoPara-{version}.dmg"
 
 MAX_METADATA_BYTES = 2_000_000
 CHUNK = 64 * 1024
@@ -145,7 +156,7 @@ def pick_asset(
         url = str(entry.get("browser_download_url", ""))
         if not pattern.match(name) or Path(name).name != name or not url.startswith(DOWNLOAD_PREFIX):
             continue
-        if platform == "darwin" and (INTEL_MARK.lower() in name.lower()) != want_intel:
+        if platform == "darwin" and is_intel_image(name) != want_intel:
             continue
         digest = str(entry.get("digest") or "")
         sha = digest.split(":", 1)[1].lower() if digest.lower().startswith("sha256:") else None

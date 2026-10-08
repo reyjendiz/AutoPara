@@ -310,7 +310,7 @@ class TestMacImage:
         assert re.search(r"needs:\s*build-mac\s*$", job, re.MULTILINE), (
             "the Apple Silicon image must be the release's first .dmg"
         )
-        assert "AutoPara-$version-Intel.dmg" in job and "python build_mac.py" in job
+        assert "AutoPara-Intel-$version.dmg" in job and "python build_mac.py" in job
         assert "gh release upload" in job
 
 

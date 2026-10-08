@@ -18,7 +18,7 @@ short of.
 
 Download **`AutoPara-<version>-Setup.exe`** from the latest release and run it. That is the whole
 procedure. On a Mac, take **`AutoPara-<version>.dmg`** (Apple Silicon) or
-**`AutoPara-<version>-Intel.dmg`** (Intel) from the same release.
+**`AutoPara-Intel-<version>.dmg`** (Intel) from the same release.
 
 The target PC needs **nothing preinstalled** — no Python, no Qt, no VC++ redistributable; they are
 all inside the installer. Windows 10/11 64-bit.

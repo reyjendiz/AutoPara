@@ -10,7 +10,7 @@ first — this file does not repeat them.
 - **Repository:** https://github.com/sevcenkoa864-oss/AutoPara (public, `main`). It was deleted and
   recreated once, so history starts at the 1.6.0 commit. No tooling-specific files are in it.
 - **Latest release is v1.7.x**, published with both installers: `AutoPara-<version>-Setup.exe`
-  (Windows), `AutoPara-<version>.dmg` (macOS, Apple Silicon) and `AutoPara-<version>-Intel.dmg`
+  (Windows), `AutoPara-<version>.dmg` (macOS, Apple Silicon) and `AutoPara-Intel-<version>.dmg`
   (macOS, Intel; from 1.8.0). CI (`.github/workflows/installer.yml`) builds all of them
   on every push to `main`; a release is cut only when `APP_VERSION` names a version without a tag.
 - **What 1.6.0 added** over 1.5.0: dated classes (one-off and "weekly until a date"), day / week /

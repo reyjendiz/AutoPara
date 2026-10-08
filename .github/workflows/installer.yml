@@ -149,7 +149,7 @@ jobs:
           відкрийте його й перетягніть AutoPara у «Програми». Застосунок не підписано, тож при першому
           запуску відкрийте його через контекстне меню → «Відкрити».
 
-          **macOS (Intel):** те саме, але файл **AutoPara-${{ steps.version.outputs.version }}-Intel.dmg**.
+          **macOS (Intel):** те саме, але файл **AutoPara-Intel-${{ steps.version.outputs.version }}.dmg**.
 
           Зібрано з ${{ github.sha }}.
           "@
@@ -244,7 +244,7 @@ jobs:
         id: plan
         run: |
           version=$(sed -n 's/^!define[[:space:]]*APP_VERSION[[:space:]]*"\([^"]*\)".*/\1/p' installer/AutoPara.nsi | head -1)
-          dmg="AutoPara-$version-Intel.dmg"
+          dmg="AutoPara-Intel-$version.dmg"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "dmg=$dmg" >> "$GITHUB_OUTPUT"
           have=$(gh release view "v$version" --json assets -q "[.assets[].name | select(. == \"$dmg\")] | length" 2>/dev/null || echo none)

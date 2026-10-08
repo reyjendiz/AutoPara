@@ -72,7 +72,7 @@ def main() -> int:
     from autopara import __version__
     from autopara.core.updater import mac_asset_name
 
-    # Apple Silicon: AutoPara-<version>.dmg. Intel: AutoPara-<version>-Intel.dmg. The updater picks
+    # Apple Silicon: AutoPara-<version>.dmg. Intel: AutoPara-Intel-<version>.dmg. The updater picks
     # between them by this same rule, so a Mac is only ever offered the image that runs on it.
     dmg_name = mac_asset_name(__version__)
     print(f"==> 3. Creating drag-and-drop installer DMG (dist/{dmg_name})...")
