@@ -1,8 +1,16 @@
-"""Locates the real schedule document used as the parser's regression fixture.
+"""The schedule documents the suite runs against.
 
-The document is the user's personal timetable and is deliberately *not* copied into the repository
-(it contains live meeting links). Point ``AUTOPARA_TEST_DOCX`` at it, or leave it on the Desktop
-where the importer found it originally.
+Two of them, for two different jobs:
+
+* ``schedule_path`` / ``courses`` / ``lessons`` are a **synthetic** timetable built from code
+  (``tests/sample_timetable.py``). It has the structure of the real one and none of its content, and
+  it never changes, so every test that describes how the importer resolves merges -- and every test
+  that needs *some* timetable in a database -- always runs, here and in CI, with exact expectations.
+* The **real** timetable is the user's personal document and is deliberately not in the repository
+  (it contains live meeting links, and the university rewrites it). Point ``AUTOPARA_TEST_DOCX`` at
+  it, or leave it on the Desktop where the importer found it originally. Tests that use it
+  (``real_schedule_path``) assert only what must hold for *any* revision, reading the expected
+  numbers from the document itself, so a new revision cannot fail them.
 """
 
 from __future__ import annotations
@@ -38,23 +46,53 @@ def _locate() -> str | None:
 
 
 def pytest_report_header(config) -> str:
-    """Say which timetable the run used.
+    """Say whether the real timetable was found.
 
-    Without this a missing document is invisible: every document-backed test skips and the summary
+    Without this a missing document is invisible: the real-document checks skip and the summary
     still reads green.
     """
     path = _locate()
     if not path:
-        return f"schedule document: NOT FOUND -- document-backed tests will SKIP (set {_ENV_VAR})"
-    return f"schedule document: {path}"
+        return f"real schedule document: NOT FOUND -- its checks will SKIP (set {_ENV_VAR})"
+    return f"real schedule document: {path}"
 
 
 @pytest.fixture(scope="session")
-def schedule_path() -> str:
+def schedule_path(tmp_path_factory) -> str:
+    """The synthetic timetable: fixed, structural and always available."""
+    from tests import sample_timetable
+
+    path = tmp_path_factory.mktemp("timetable") / "sample-schedule.docx"
+    sample_timetable.build(path)
+    return str(path)
+
+
+@pytest.fixture(scope="session")
+def real_schedule_path() -> str:
     path = _locate()
     if not path:
-        pytest.skip(f"schedule .docx not found; set {_ENV_VAR} to its path")
+        pytest.skip(f"real schedule .docx not found; set {_ENV_VAR} to its path")
     return path
+
+
+@pytest.fixture(scope="session", params=["sample", "real"])
+def document_path(request, schedule_path) -> str:
+    """Each document in turn, for checks that hold for any timetable."""
+    if request.param == "sample":
+        return schedule_path
+    return request.getfixturevalue("real_schedule_path")
+
+
+@pytest.fixture(scope="session")
+def document_courses(document_path):
+    from autopara.importer.schedule_parser import parse_file
+
+    return parse_file(document_path)
+
+
+@pytest.fixture(scope="session")
+def document_lessons(document_courses):
+    return [lesson for course in document_courses for lesson in course.lessons]
 
 
 @pytest.fixture(scope="session")
@@ -90,7 +128,7 @@ def gui_app(qapp):
 
 
 @pytest.fixture(scope="session")
-def hyperlink_targets(schedule_path) -> set[str]:
+def hyperlink_targets(document_path) -> set[str]:
     """Every hyperlink target in the document, read straight from the zip.
 
     Deliberately bypasses the importer: this is the independent oracle the link tests compare
@@ -99,7 +137,7 @@ def hyperlink_targets(schedule_path) -> set[str]:
     import zipfile
     from xml.etree import ElementTree as ET
 
-    with zipfile.ZipFile(schedule_path) as archive:
+    with zipfile.ZipFile(document_path) as archive:
         rels = ET.fromstring(archive.read("word/_rels/document.xml.rels"))
     return {
         rel.get("Target")
@@ -109,7 +147,7 @@ def hyperlink_targets(schedule_path) -> set[str]:
 
 
 @pytest.fixture(scope="session")
-def hyperlink_element_count(schedule_path) -> int:
+def hyperlink_element_count(document_path) -> int:
     """How many <w:hyperlink> elements the document contains.
 
     Each lesson cell carries at most one, and neither a gridSpan (shared class) nor a vMerge
@@ -121,7 +159,7 @@ def hyperlink_element_count(schedule_path) -> int:
     """
     import zipfile
 
-    with zipfile.ZipFile(schedule_path) as archive:
+    with zipfile.ZipFile(document_path) as archive:
         document = archive.read("word/document.xml").decode("utf-8")
     return document.count("<w:hyperlink")
 

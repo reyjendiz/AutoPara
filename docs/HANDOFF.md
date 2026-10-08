@@ -30,12 +30,14 @@ python -m autopara --no-rebuild        # run from source (skips the installed-co
 python tools/bump_version.py --show    # version + release state; --set X.Y.Z to bump
 ```
 
-- **Test baseline.** The real timetable `.docx` is not in git (`*.docx` is ignored; it holds live
-  meeting links). Point `AUTOPARA_TEST_DOCX` at it. With the *current* document **37 tests fail** —
-  fixtures (`test_parser`, `test_storage`, `test_scheduler`, `test_end_to_end`, a few `test_ui`) are
-  pinned to an older document (6 courses / 61 lessons / course V empty). That is fixture drift, not a
-  code bug; keep the set from growing. Without the document 125 tests skip and the run still reads
-  green — pytest's header prints which file it used or `NOT FOUND`.
+- **Test baseline.** The whole suite passes with no timetable file at all: it runs on a synthetic
+  `.docx` built from code (`tests/sample_timetable.py`) that has the real one's structure -- merged
+  cells, a spanning header, an empty course, links -- and none of its content. Tests that say exactly
+  what the importer does pin numbers on that fixed document. The user's real timetable (not in git;
+  it holds live meeting links) is optional: point `AUTOPARA_TEST_DOCX` at it and the `document_*`
+  checks also run against it, asserting only what holds for any revision and reading the expected
+  numbers from the file, so a new revision cannot break them. Without it those variants skip, and
+  pytest's header prints which file it used or `NOT FOUND`.
 - **Isolated manual run** (does not touch the real profile or the login item):
   `HOME=<tmp> APPDATA=<tmp> python -m autopara --no-rebuild`. A source run with the default `HOME`
   rewrites `~/Library/LaunchAgents/com.autopara.app.plist`.
@@ -77,8 +79,6 @@ python tools/bump_version.py --show    # version + release state; --set X.Y.Z to
 - **Drag and drop** exists only in the week/day grid, not in the month.
 - **Windows:** the Windows installer's UI strings and the redesigned look have not been seen on a
   Windows machine.
-- Fixture drift above (37 tests) could be removed by reading expected counts from the document, as
-  the link tests already do.
 
 ## Map of what was added in this line of work
 

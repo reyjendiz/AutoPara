@@ -708,7 +708,7 @@ class TestMainWindow:
         written = [
             widget.text()
             for widget in sidebar.findChildren(QLabel) + sidebar.findChildren(QPushButton)
-            if widget.text()
+            if widget.text() and widget.objectName() != "ClockBar"  # the clock is a reading, not a label
         ]
         assert written == [], f"на панелі не має бути тексту, а є {written}"
 
