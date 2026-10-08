@@ -332,6 +332,18 @@ class MonthView(QWidget):
         outer.addWidget(self._body, 1)
         self.tiles: list[DayTile] = []
 
+    def morph_elements(self) -> list[tuple[QWidget, int, date]]:
+        """The class chips on screen -- what a morph carries from one calendar to the next."""
+        return [
+            (chip, chip.lesson.id, tile.day)
+            for tile in self.tiles
+            for chip in tile.chips
+            if chip.isVisible()
+        ]
+
+    def morph_first_day(self) -> date | None:
+        return self.tiles[0].day if self.tiles else None
+
     @staticmethod
     def visible_days(first_of_month: date) -> list[date]:
         """The dates a month view draws, so the caller can ask storage for exactly those."""

@@ -10,7 +10,8 @@ made translucent here and draw their own rounded shape.
 * **Menus.** Every ``QMenu`` is made frameless and translucent just before it is first shown, and
   the stylesheet's ``border-radius`` then has something to round.
 
-Menus, dialogs and tooltips also **fade in** (``transitions.fade_in``) as they appear.
+Menus, dialogs and tooltips also **grow into place** (``transitions.morph_in``) as they appear: out of
+the pointer for a menu or a tip, out of their middle for a dialog.
 
 Both are installed once, as an application-wide event filter, so no widget needs to know.
 """
@@ -18,7 +19,7 @@ Both are installed once, as an application-wide event filter, so no widget needs
 from __future__ import annotations
 
 from PySide6.QtCore import QEvent, QObject, QPoint, QRectF, Qt, QTimer
-from PySide6.QtGui import QColor, QGuiApplication, QPainter
+from PySide6.QtGui import QColor, QCursor, QGuiApplication, QPainter
 from PySide6.QtWidgets import QApplication, QDialog, QLabel, QMenu, QVBoxLayout, QWidget
 
 from ..core import theme
@@ -84,7 +85,7 @@ class RoundedTip(QWidget):
                 position.setY(near.y() - self.height() - 8)  # flip above the pointer
         self.move(position)
         if not self.isVisible():  # moving from one tooltip to the next should not blink
-            transitions.fade_in(self)
+            transitions.morph_in(self, near)
         self.show()
         self.raise_()
         self._expiry.start(TIP_LIFETIME_MS)
@@ -120,6 +121,8 @@ class PopupStyler(QObject):
             self._busy = False
 
     def _filter(self, obj, event) -> bool:
+        if isinstance(obj, transitions.Ghost):
+            return False  # the picture a popup grows from is not a window anyone is using
         kind = event.type()
         if kind == QEvent.ToolTip and isinstance(obj, QWidget):
             text = obj.toolTip()
@@ -132,7 +135,9 @@ class PopupStyler(QObject):
         elif kind == QEvent.Polish and isinstance(obj, QMenu):
             self._round_menu(obj)
         elif kind == QEvent.Show and isinstance(obj, (QMenu, QDialog)):
-            transitions.fade_in(obj)  # a window rising out of nothing, not appearing in one frame
+            # A window growing out of where it belongs, not appearing in one frame: a menu from the
+            # pointer that opened it, a dialog from its middle.
+            transitions.morph_in(obj, QCursor.pos() if isinstance(obj, QMenu) else None)
         return False
 
     @staticmethod

@@ -257,13 +257,14 @@ class MainWindow(QMainWindow):
                 return candidate
         return None
 
-    def _animated(self, direction: int, change) -> None:
-        """Run ``change`` (which moves the calendar) and slide from the old picture to the new.
+    def _animated(self, direction: int, change, same_view: bool = True) -> None:
+        """Run ``change`` (which moves the calendar) and morph from the old picture to the new.
 
-        ``direction`` is +1 for forward in time, -1 for back and 0 for a change of view. The change
-        is made first and in full: the animation only dresses it, so nothing about the window
-        depends on it finishing -- or on it being seen, which is why it is skipped for a window
-        that is not on screen.
+        ``direction`` is +1 for forward in time, -1 for back and 0 for a change of view;
+        ``same_view`` is False when the change swaps day / week / month for another, so a class is
+        followed by its date rather than by its place on screen. The change is made first and in
+        full: the animation only dresses it, so nothing about the window depends on it finishing --
+        or on it being seen, which is why it is skipped for a window that is not on screen.
         """
         surface = self._surface() if transitions.ENABLED and self.isVisible() else None
         if surface is None:
@@ -271,13 +272,13 @@ class MainWindow(QMainWindow):
             return
         if self._overlay is not None:
             self._overlay.finish()  # a newer move wins; the surface underneath is already current
-        old = surface.grab()
+        old = transitions.snapshot(surface)
         change()
         current = self._surface()
         if current is None:
             return
         self.centralWidget().layout().activate()
-        self._overlay = transitions.play(current, old, direction)
+        self._overlay = transitions.play(current, old, direction, same_view)
         if self._overlay is not None:
             self._overlay.finished.connect(self._overlay_gone)
 
@@ -309,7 +310,7 @@ class MainWindow(QMainWindow):
         if mode == self.view_mode():
             change()  # the view that is already showing: just reload, nothing to slide between
         else:
-            self._animated(0, change)
+            self._animated(0, change, same_view=False)
 
     def open_day(self, day: date) -> None:
         """Go to a single day -- what clicking a day in the month does."""

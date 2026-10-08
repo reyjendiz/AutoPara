@@ -331,6 +331,19 @@ class WeekGrid(QScrollArea):
             HEADER_HEIGHT + len(HOURS) * HOUR_HEIGHT,
         )
 
+    # ------------------------------------------------------------------- morph
+
+    def morph_elements(self) -> list[tuple[QWidget, int, date]]:
+        """The classes on screen -- what a morph carries from one calendar to the next."""
+        return [
+            (card, card.lesson.id, card.day)
+            for card in self.findChildren(ClassCard)
+            if card.day is not None and card.isVisible()
+        ]
+
+    def morph_first_day(self) -> date | None:
+        return self._dates[0] if self._dates else None
+
     def _clear(self) -> None:
         """Empty the grid without ever detaching a widget from its parent.
 

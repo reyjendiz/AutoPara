@@ -360,22 +360,35 @@ state has already changed when the first frame is drawn, a newer move finishes t
 once, and it is skipped altogether for a window that is not on screen or when `transitions.ENABLED`
 is off (the test suite turns it off in `conftest`, so nothing waits on a clock).
 
-- **Between periods** — the arrows, "Сьогодні", a click on a month day, the segmented control. The
-  calendar surface is photographed before the change and again after it (one event-loop turn later,
-  when the layout has settled) and a `SlideOverlay` draws the two over the real surface: forward in
-  time the new picture comes from the right, back from the left, and a change of *view* has no
-  direction and dissolves. The old picture is gone by the middle and the new one starts a little
-  before it, so two weeks of text are never both at full strength on top of each other. Pictures are
-  used rather than moving live widgets because the live ones are rebuilt from the database on every
-  change — there is nothing steady to move. The overlay lets every click through.
+- **Between periods and views** — the arrows, "Сьогодні", a click on a month day, a jump to a search
+  match, the segmented control. Everything morphs rather than slides. The calendar surface is
+  photographed before the change and again after it (one event-loop turn later, when the layout has
+  settled) in **two layers**: the empty calendar (grid, headers, dates) and every class on it, each
+  with where it sat (`transitions.snapshot`; the week grid and the month view say which of their
+  children are classes through `morph_elements`). A `MorphOverlay` draws the two over the real
+  surface. A class on both sides is **one element**: its box grows from the old shape to the new one
+  (a container transform: the box is filled with the card's colour while the two pictures stay at
+  their own size inside it and dissolve into each other, because scaling a picture of text smears
+  it). Within one view, "the same class" is the same lesson in the same *place* on screen (the same
+  weekday of the next week); across views it is the same lesson on the same *date*, so a month chip
+  becomes the week card and a week card widens into the day. A class on one side only grows in or
+  shrinks out. The empty calendar cross-fades, drifting a few pixels the way time is moving; a change
+  of view has no direction and does not drift. Pictures are used rather than moving live widgets
+  because the live ones are rebuilt from the database on every change — there is nothing steady to
+  move. The overlay lets every click through.
 - **The segmented control** — the selected pill is a widget of its own (`#SegThumb`) behind the
   three segments, and it *glides* to the one chosen (220 ms) rather than the fill jumping between
   buttons. The buttons paint no fill themselves; the segment the pill has reached lights its text,
   and the one it left keeps its lit text until the pill is nearer the new one, so pale text is never
   on the bare bar and dark text never on the pill. A resize or a first show parks the pill behind
   the chosen segment without travel.
-- **Popups** — menus, dialogs and tooltips fade in by animating the window's own opacity
-  (`fade_in`); a tooltip that is already showing just moves on to the next text rather than blinking.
+- **Popups** — menus and tooltips grow out of the pointer, from 90 % of their size while becoming
+  opaque (`morph_in`). A top-level window cannot be scaled and resizing one re-lays out its contents
+  on every frame, so the popup is photographed, a click-through translucent `Ghost` window paints
+  the photograph growing, and only at the end is the real popup made opaque in the same spot. Only
+  *frameless* windows can be grown this way — a photograph holds a window's contents and not its
+  title bar, which would pop in at the end — so a dialog with a native frame fades in instead
+  (`fade_in`). A tooltip that is already showing just moves on to the next text rather than blinking.
 
 ## Choosing another course and group
 
