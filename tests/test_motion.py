@@ -326,3 +326,47 @@ class TestSegmentedPill:
         assert bar._thumb.height() == 32
         stage = bar.findChild(type(bar._thumb.parent()), "Segmented")
         assert stage.height() == 40
+
+
+class TestHoverFadeAndClock:
+    def test_the_plus_fill_eases_in_and_out_instead_of_switching(self, qapp, monkeypatch):
+        from PySide6.QtCore import QEvent, QPointF
+        from PySide6.QtGui import QEnterEvent
+
+        from autopara.ui import transitions
+        from autopara.ui.transitions import FadeButton
+
+        monkeypatch.setattr(transitions, "ENABLED", True)
+        button = FadeButton("", rest="rail_primary_bg")
+        button.show()
+        qapp.processEvents()
+        point = QPointF(5, 5)
+        button.enterEvent(QEnterEvent(point, point, point))
+        assert button._fade is not None and button._fade.duration() == transitions.HOVER_MS
+        assert 0.0 <= button._level < 1.0, "the fill must not jump on the first frame"
+        button._fade.setCurrentTime(transitions.HOVER_MS)
+        assert button._level == 1.0
+        button.leaveEvent(QEvent(QEvent.Leave))
+        button._fade.setCurrentTime(transitions.HOVER_MS)
+        assert button._level == 0.0
+        button.close()
+
+    def test_the_hover_tint_is_a_small_step_from_rest(self, qapp):
+        from autopara.core import theme
+        from autopara.ui.transitions import FadeButton
+        from PySide6.QtGui import QColor
+
+        button = FadeButton("", rest="rail_primary_bg")
+        rest = QColor(theme.token("rail_primary_bg")).lightness()
+        button._level = 1.0
+        assert 0 < rest - button._fill().lightness() <= 20
+
+    def test_the_clock_shows_the_system_time_at_half_opacity(self, qapp):
+        from datetime import datetime
+
+        from autopara.ui.clock_bar import OPACITY, ClockBar, clock_text
+
+        bar = ClockBar()
+        assert OPACITY == 0.5 and bar.graphicsEffect().opacity() == 0.5
+        assert len(bar.text()) == 8 and bar.text().count(":") == 2
+        assert clock_text(datetime(2026, 1, 2, 3, 4, 5)) == "03:04:05"

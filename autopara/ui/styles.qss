@@ -148,8 +148,10 @@ QPushButton#Plain:disabled {
 }
 
 /* The one prominent action on the rail, reduced to a circle: white on the black pill. */
+/* Its fill is painted by transitions.FadeButton (rail_primary_bg -> chip_bg on hover, border when
+ * pressed), because QSS cannot ease between two colours. */
 QPushButton#PrimaryRound {
-    background: $rail_primary_bg;
+    background: transparent;
     border: none;
     border-radius: 20px;
     padding: 0;
@@ -159,12 +161,14 @@ QPushButton#PrimaryRound {
     max-width: 40px;
 }
 
-QPushButton#PrimaryRound:hover {
+/* The clock under the pill. Its half-strength look comes from an opacity effect on the widget
+ * (ui/clock_bar.py), so the fill and the text dim together. */
+#ClockBar {
     background: $chip_bg;
-}
-
-QPushButton#PrimaryRound:pressed {
-    background: $border;
+    color: $text_muted;
+    border-radius: 10px;
+    font-size: 8pt;
+    font-weight: 600;
 }
 
 /* Icon-only rail buttons. Sized in Python (36x36); the meaning is in the tooltip. */
@@ -405,6 +409,7 @@ QPushButton#NavButton:hover {
     color: $accent_text;
 }
 
+/* Hover tint is painted by transitions.FadeButton, which eases it in. */
 QPushButton#MonthAdd {
     background: transparent;
     border: none;
@@ -414,10 +419,6 @@ QPushButton#MonthAdd {
     max-height: 28px;
     min-width: 28px;
     max-width: 28px;
-}
-
-QPushButton#MonthAdd:hover {
-    background: $chip_bg;
 }
 
 #MonthChip {

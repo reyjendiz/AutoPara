@@ -951,15 +951,15 @@ class TestInterfaceFont:
         assert line.count(",") == 0, "a QSS fallback list would silently resolve to no font at all"
 
     def test_the_bundled_faces_are_present(self):
-        """Manrope їде разом із застосунком: без нього інсталяція виглядала б інакше."""
+        """Inter їде разом із застосунком: без нього інсталяція виглядала б інакше."""
         fonts = Path(theme.__file__).resolve().parents[1] / "ui" / "fonts"
         names = {path.name for path in fonts.glob("*.ttf")}
         assert names == {
-            "Manrope-Regular.ttf",
-            "Manrope-Medium.ttf",
-            "Manrope-SemiBold.ttf",
-            "Manrope-Bold.ttf",
-            "Manrope-ExtraBold.ttf",
+            "Inter-Regular.ttf",
+            "Inter-Medium.ttf",
+            "Inter-SemiBold.ttf",
+            "Inter-Bold.ttf",
+            "Inter-ExtraBold.ttf",
         }
         assert (fonts / "OFL.txt").is_file(), "the licence must ship with the font"
 
@@ -970,11 +970,11 @@ class TestInterfaceFont:
         from autopara.app import _load_fonts
 
         _load_fonts()
-        assert theme.interface_font() == "Manrope"
+        assert theme.interface_font() == "Inter"
         assert {"Regular", "Medium", "SemiBold", "Bold", "ExtraBold"} <= set(
-            QFontDatabase.styles("Manrope")
+            QFontDatabase.styles("Inter")
         )
-        systems = {str(system) for system in QFontDatabase.writingSystems("Manrope")}
+        systems = {str(system) for system in QFontDatabase.writingSystems("Inter")}
         assert any("Cyrillic" in system for system in systems)
 
 

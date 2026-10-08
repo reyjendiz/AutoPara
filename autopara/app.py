@@ -6,7 +6,7 @@ import logging
 import sys
 from pathlib import Path
 
-from PySide6.QtGui import QFontDatabase
+from PySide6.QtGui import QFont, QFontDatabase
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
@@ -57,9 +57,9 @@ def _claim_taskbar_identity() -> None:
 
 
 def _load_fonts() -> None:
-    """Register the bundled Manrope faces with Qt.
+    """Register the bundled Inter faces with Qt.
 
-    The interface is drawn in Manrope, which ships with the app under the SIL Open Font
+    The interface is drawn in Inter, which ships with the app under the SIL Open Font
     License rather than being assumed to be installed. Missing or unreadable files are not fatal
     -- ``theme.interface_font()`` falls back to Segoe UI Variable, and an app that will not start
     because of a font would be a far worse bug than one that looks slightly different.
@@ -70,6 +70,17 @@ def _load_fonts() -> None:
     for path in sorted(FONT_DIR.glob("*.ttf")):
         if QFontDatabase.addApplicationFont(str(path)) < 0:
             log.warning("could not load the bundled font %s", path.name)
+
+
+def _smooth_text(app: QApplication) -> None:
+    """Ask for anti-aliased glyphs, so Windows draws the interface with ClearType.
+
+    Qt's own text rendering (DirectWrite on Windows) does the smoothing; without the strategy a
+    face can fall back to bitmap-style hinting and look pixelated at small sizes.
+    """
+    font = app.font()
+    font.setStyleStrategy(QFont.PreferAntialias)
+    app.setFont(font)
 
 
 def _already_running() -> bool:
@@ -100,6 +111,7 @@ class AutoParaApp:
         _claim_taskbar_identity()
         self.qt.setWindowIcon(build_icon())
         _load_fonts()
+        _smooth_text(self.qt)
         popups.install(self.qt)
 
         self.storage = Storage()

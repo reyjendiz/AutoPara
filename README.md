@@ -115,7 +115,7 @@ Closing the window hides it to the tray; use the tray menu to quit.
 
 ## Third-party
 
-The interface is set in **Manrope**, bundled in `autopara/ui/fonts` under the SIL Open Font
+The interface is set in **Inter**, bundled in `autopara/ui/fonts` under the SIL Open Font
 License 1.1 — the licence ships beside the font files as `OFL.txt`. The app mark is one picture,
 `autopara/ui/assets/logo.png`, which the tray, the rail, the first screen, the `.ico` Windows reads
 for the executable and the macOS `.icns` are all made from. Every interface icon is drawn in code.
