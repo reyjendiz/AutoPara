@@ -1,0 +1,404 @@
+[
+ {
+  "ordinal": 1,
+  "name": "I курс",
+  "groups": [
+   {
+    "name": "А2-Бд26-11 група",
+    "specialty": "Дошкільна освіта",
+    "lo": 3,
+    "hi": 3
+   },
+   {
+    "name": "А2-Бд26-12 група",
+    "specialty": "Дошкільна освіта",
+    "lo": 4,
+    "hi": 4
+   }
+  ],
+  "lessons": [
+   {
+    "day": 0,
+    "pair": 1,
+    "start": "08:00",
+    "end": "09:20",
+    "subject": "Історія України",
+    "teacher": "(Іваненко І.І.)",
+    "url": "https://meet.google.com/aaa-bbbb-ccc",
+    "provider": "google_meet",
+    "groups": [
+     "А2-Бд26-11 група",
+     "А2-Бд26-12 група"
+    ]
+   },
+   {
+    "day": 0,
+    "pair": 2,
+    "start": "09:30",
+    "end": "10:50",
+    "subject": "Загальна педагогіка",
+    "teacher": "(Роман Н.М.)",
+    "url": "https://us02web.zoom.us/j/1000000001",
+    "provider": "zoom",
+    "groups": [
+     "А2-Бд26-11 група"
+    ]
+   },
+   {
+    "day": 0,
+    "pair": 2,
+    "start": "09:30",
+    "end": "10:50",
+    "subject": "Основи медіаграмотності",
+    "teacher": "(Коваль О.П.)",
+    "url": "https://us02web.zoom.us/j/1000000002",
+    "provider": "zoom",
+    "groups": [
+     "А2-Бд26-12 група"
+    ]
+   },
+   {
+    "day": 0,
+    "pair": 3,
+    "start": "11:20",
+    "end": "12:40",
+    "subject": "Іноземна мова",
+    "teacher": "(Бондар А.В.)",
+    "url": "https://us02web.zoom.us/j/1000000003",
+    "provider": "zoom",
+    "groups": [
+     "А2-Бд26-11 група",
+     "А2-Бд26-12 група"
+    ]
+   },
+   {
+    "day": 0,
+    "pair": 5,
+    "start": "14:40",
+    "end": "16:00",
+    "subject": "Фізичне виховання",
+    "teacher": "(Мельник С.Д.)",
+    "url": "https://us02web.zoom.us/j/1000000004",
+    "provider": "zoom",
+    "groups": [
+     "А2-Бд26-11 група"
+    ]
+   },
+   {
+    "day": 1,
+    "pair": 1,
+    "start": "08:00",
+    "end": "09:20",
+    "subject": "Психологія",
+    "teacher": "(Шевчук Т.О.)",
+    "url": "https://meet.google.com/ddd-eeee-fff",
+    "provider": "google_meet",
+    "groups": [
+     "А2-Бд26-11 група",
+     "А2-Бд26-12 група"
+    ]
+   },
+   {
+    "day": 1,
+    "pair": 2,
+    "start": "09:30",
+    "end": "10:50",
+    "subject": "Методика розвитку мовлення",
+    "teacher": "(Ткач Л.І.)",
+    "url": "https://us02web.zoom.us/j/1000000005",
+    "provider": "zoom",
+    "groups": [
+     "А2-Бд26-12 група"
+    ]
+   },
+   {
+    "day": 2,
+    "pair": 3,
+    "start": "11:20",
+    "end": "12:40",
+    "subject": "Логіка",
+    "teacher": "(Гриценко В.М.)",
+    "url": "https://us02web.zoom.us/j/1000000010",
+    "provider": "zoom",
+    "groups": [
+     "А2-Бд26-11 група",
+     "А2-Бд26-12 група"
+    ]
+   },
+   {
+    "day": 2,
+    "pair": 5,
+    "start": "14:40",
+    "end": "16:00",
+    "subject": "Консультація",
+    "teacher": "",
+    "url": null,
+    "provider": "unknown",
+    "groups": [
+     "А2-Бд26-11 група",
+     "А2-Бд26-12 група"
+    ]
+   },
+   {
+    "day": 3,
+    "pair": 2,
+    "start": "09:30",
+    "end": "10:50",
+    "subject": "Основи екології",
+    "teacher": "(Савчук Н.Р.)",
+    "url": "https://us02web.zoom.us/j/1000000009",
+    "provider": "zoom",
+    "groups": [
+     "А2-Бд26-11 група"
+    ]
+   },
+   {
+    "day": 4,
+    "pair": 4,
+    "start": "13:00",
+    "end": "14:20",
+    "subject": "Музичне виховання",
+    "teacher": "(Лисенко Д.А.)",
+    "url": "https://us02web.zoom.us/j/1000000008",
+    "provider": "zoom",
+    "groups": [
+     "А2-Бд26-12 група"
+    ]
+   },
+   {
+    "day": 5,
+    "pair": 1,
+    "start": "08:00",
+    "end": "09:20",
+    "subject": "Практика",
+    "teacher": "(Остапенко Р.Л.)",
+    "url": "https://us02web.zoom.us/j/1000000011",
+    "provider": "zoom",
+    "groups": [
+     "А2-Бд26-11 група",
+     "А2-Бд26-12 група"
+    ]
+   }
+  ]
+ },
+ {
+  "ordinal": 2,
+  "name": "II курс",
+  "groups": [
+   {
+    "name": "21 група",
+    "specialty": "Дошкільна освіта",
+    "lo": 3,
+    "hi": 3
+   },
+   {
+    "name": "22 група",
+    "specialty": "Дошкільна освіта",
+    "lo": 4,
+    "hi": 4
+   }
+  ],
+  "lessons": [
+   {
+    "day": 0,
+    "pair": 2,
+    "start": "09:30",
+    "end": "12:40",
+    "subject": "Історія і теорія дошкільної освіти",
+    "teacher": "(Мазур Є.К.)",
+    "url": "https://us02web.zoom.us/j/1000000006",
+    "provider": "zoom",
+    "groups": [
+     "21 група",
+     "22 група"
+    ]
+   },
+   {
+    "day": 1,
+    "pair": 1,
+    "start": "08:00",
+    "end": "12:40",
+    "subject": "Дисципліна вільного вибору",
+    "teacher": "",
+    "url": null,
+    "provider": "unknown",
+    "groups": [
+     "21 група",
+     "22 група"
+    ]
+   },
+   {
+    "day": 2,
+    "pair": 1,
+    "start": "08:00",
+    "end": "09:20",
+    "subject": "Образотворче мистецтво",
+    "teacher": "(Дзюба К.П.)",
+    "url": "https://us02web.zoom.us/j/1000000007",
+    "provider": "zoom",
+    "groups": [
+     "21 група"
+    ]
+   }
+  ]
+ },
+ {
+  "ordinal": 3,
+  "name": "III курс",
+  "groups": [
+   {
+    "name": "31 група",
+    "specialty": "Дошкільна освіта",
+    "lo": 3,
+    "hi": 3
+   },
+   {
+    "name": "32 група",
+    "specialty": "Дошкільна освіта",
+    "lo": 4,
+    "hi": 4
+   }
+  ],
+  "lessons": [
+   {
+    "day": 2,
+    "pair": 1,
+    "start": "08:00",
+    "end": "12:40",
+    "subject": "Дисципліна вільного вибору",
+    "teacher": "",
+    "url": null,
+    "provider": "unknown",
+    "groups": [
+     "31 група",
+     "32 група"
+    ]
+   },
+   {
+    "day": 4,
+    "pair": 4,
+    "start": "13:00",
+    "end": "14:20",
+    "subject": "Теорія мистецтва",
+    "teacher": "(Дзюба К.П.)",
+    "url": "https://us02web.zoom.us/j/1000000007",
+    "provider": "zoom",
+    "groups": [
+     "32 група"
+    ]
+   }
+  ]
+ },
+ {
+  "ordinal": 4,
+  "name": "IV курс",
+  "groups": [
+   {
+    "name": "41 група",
+    "specialty": "Дошкільна освіта",
+    "lo": 3,
+    "hi": 3
+   },
+   {
+    "name": "42 група",
+    "specialty": "Дошкільна освіта",
+    "lo": 4,
+    "hi": 6
+   }
+  ],
+  "lessons": [
+   {
+    "day": 0,
+    "pair": 1,
+    "start": "08:00",
+    "end": "09:20",
+    "subject": "Основи екології",
+    "teacher": "(Савчук Н.Р.)",
+    "url": "https://us02web.zoom.us/j/1000000009",
+    "provider": "zoom",
+    "groups": [
+     "41 група"
+    ]
+   },
+   {
+    "day": 0,
+    "pair": 1,
+    "start": "08:00",
+    "end": "09:20",
+    "subject": "Логіка",
+    "teacher": "(Гриценко В.М.)",
+    "url": "https://us02web.zoom.us/j/1000000010",
+    "provider": "zoom",
+    "groups": [
+     "42 група"
+    ]
+   },
+   {
+    "day": 3,
+    "pair": 2,
+    "start": "09:30",
+    "end": "10:50",
+    "subject": "Музичне виховання",
+    "teacher": "(Лисенко Д.А.)",
+    "url": "https://us02web.zoom.us/j/1000000008",
+    "provider": "zoom",
+    "groups": [
+     "42 група"
+    ]
+   }
+  ]
+ },
+ {
+  "ordinal": 5,
+  "name": "V курс",
+  "groups": [
+   {
+    "name": "51 група",
+    "specialty": "Дошкільна освіта",
+    "lo": 3,
+    "hi": 3
+   }
+  ],
+  "lessons": []
+ },
+ {
+  "ordinal": 6,
+  "name": "VI курс",
+  "groups": [
+   {
+    "name": "61 група",
+    "specialty": "Дошкільна освіта",
+    "lo": 3,
+    "hi": 3
+   }
+  ],
+  "lessons": [
+   {
+    "day": 3,
+    "pair": 1,
+    "start": "08:00",
+    "end": "12:40",
+    "subject": "Дисципліна вільного вибору",
+    "teacher": "",
+    "url": null,
+    "provider": "unknown",
+    "groups": [
+     "61 група"
+    ]
+   },
+   {
+    "day": 5,
+    "pair": 3,
+    "start": "11:20",
+    "end": "12:40",
+    "subject": "Семінар",
+    "teacher": "(Руденко О.І.)",
+    "url": "https://us02web.zoom.us/j/1000000005",
+    "provider": "zoom",
+    "groups": [
+     "61 група"
+    ]
+   }
+  ]
+ }
+]

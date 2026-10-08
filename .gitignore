@@ -8,3 +8,6 @@ dist/
 
 # Never commit the personal timetable: it contains live meeting links.
 *.docx
+
+# The synthetic fixture the Android parser tests read (no personal content; see tests/sample_timetable.py).
+!android/core/src/test/resources/sample_timetable.docx

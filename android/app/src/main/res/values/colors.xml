@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The desktop app's "Education Hub" canvas: soft grey in light, near-black in dark. -->
+    <color name="canvas">#F5F5F6</color>
+    <color name="ink">#0E0E10</color>
+</resources>

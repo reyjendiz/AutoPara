@@ -1,0 +1,69 @@
+# Builds and tests the Android app (android/): the pure-Kotlin core module's unit tests, then the
+# debug APK, which is attached to the run as an artifact.
+#
+# The core module (parser, scheduling rules) needs no Android SDK, so it is also built on its own
+# first: a parser regression fails in seconds, before the slower app build starts.
+
+name: Android
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+  pull_request:
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Accept SDK licences
+        # The hosted image ships the SDK; this lets Gradle fetch any missing platform piece.
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+
+      - name: Core unit tests
+        run: ./gradlew -PcoreOnly=true :core:test --console=plain
+
+      - name: Build the app and run its unit tests
+        run: ./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug --console=plain
+
+      - name: Upload the debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoPara-debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            android/core/build/reports/tests
+            android/app/build/reports/tests

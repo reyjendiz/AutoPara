@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Compose draws everything; the theme only sets the window behind it and the system bars. -->
+    <style name="Theme.AutoPara" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/canvas</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <style name="Theme.AutoPara.Transparent" parent="android:Theme.Translucent.NoTitleBar" />
+</resources>
