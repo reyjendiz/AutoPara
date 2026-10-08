@@ -506,8 +506,17 @@ the accent colour was the alternative, and a solid coloured square does not read
 - **No shadows.** Cards are told apart by tint and a hairline. Besides matching the language, that
   removed a real fault: a `QGraphicsDropShadowEffect` is clipped to the widget's slot.
 - Subject colour: deterministic hash of the subject name into seven pastels (coral, lemon, sky,
-  violet, mint, pink, dusty blue) — the same in both themes, so a subject is one colour. It is only
-  ever a 3 px bar and a chip, never behind text, which is what lets a pale yellow be one of them.
+  violet, mint, pink, dusty blue) — the same in both themes, so a subject is one colour. At full
+  strength it is only a 3 px bar and a chip; behind text it is a faint **tint** of the card
+  (`class_card.card_fill`: 16 % in the light theme, 20 % in the dark), so a week's subjects can be
+  told apart at a glance while the text keeps its contrast even over the lemon. Only an ordinary
+  class is tinted (week and day cards, and the month's chips): the states that mean something --
+  opened, missed, skipped, no link -- keep the fill that says so. The tint is a rule on the card
+  itself, which outranks the application's `#ClassCard` fill.
+- **The pill beside the title** (`#NextUp`) says what is on or next today -- "Зараз · Психологія · ще 40 хв",
+  "Далі · Психологія · через 25 хв", or the time once it is more than 90 minutes off
+  (`core/nextup.py`, a pure function of the lessons and the clock, refreshed every 30 s). It hides
+  when the day is done and when the bar is narrower than 1000 px.
 - Font: **Inter**, bundled in `ui/fonts` (Regular / Medium / SemiBold / Bold / ExtraBold) under
   the SIL Open Font License. It covers Cyrillic and has real weights, so `font-weight: 600` resolves
   to 600 rather than jumping to Bold. 10 pt body, 8–9 pt for metadata, 700 for anything that leads. Point sizes in the stylesheet are

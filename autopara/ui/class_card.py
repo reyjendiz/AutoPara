@@ -13,7 +13,7 @@ from datetime import date
 from urllib.parse import urlparse
 
 from PySide6.QtCore import QMimeData, QPoint, QSize, Qt, Signal
-from PySide6.QtGui import QDrag, QFontMetrics
+from PySide6.QtGui import QColor, QDrag, QFontMetrics
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -77,8 +77,9 @@ STATE_TEXT = {
 # A subject always hashes to the same entry, so its colour is stable across sessions and re-imports
 # (docs/FRONTEND.md). The seven pastels of the design language -- coral, lemon, sky, violet, mint,
 # pink and dusty blue -- read the same on a white card and on a dark one, so a subject keeps its
-# colour between themes. The colour is only ever a bar and a chip, never behind text, which is what
-# lets a pale yellow be one of them.
+# colour between themes. It is a bar and a chip at full strength, and behind text only as a faint
+# tint of the card (``TINT_LIGHT`` / ``TINT_DARK``), light enough that the text keeps its contrast
+# even over the lemon.
 SUBJECT_COLORS = [
     "#ec6b66", "#f1f36a", "#86cdf7", "#8566e6", "#8fe8a8", "#f26c9c", "#a8bdd6",
 ]
@@ -87,6 +88,34 @@ SUBJECT_COLORS = [
 def subject_color(subject: str) -> str:
     digest = hashlib.md5(subject.strip().casefold().encode("utf-8")).hexdigest()
     return SUBJECT_COLORS[int(digest[:8], 16) % len(SUBJECT_COLORS)]
+
+
+# How much of its subject's colour a class takes into its own fill. Light enough that the text on it
+# keeps the contrast it has on a plain card (even over the lemon), strong enough to tell subjects
+# apart at a glance across a week. The dark theme tints a little more, since a pastel dissolves into
+# a dark card faster than into a white one.
+TINT_LIGHT = 0.16
+TINT_DARK = 0.20
+
+
+def tinted(base: str, colour: str, amount: float) -> str:
+    """``base`` with ``amount`` (0..1) of ``colour`` mixed in, as an opaque ``#rrggbb``."""
+    under, over = QColor(base), QColor(colour)
+    mixed = QColor(
+        round(under.red() + (over.red() - under.red()) * amount),
+        round(under.green() + (over.green() - under.green()) * amount),
+        round(under.blue() + (over.blue() - under.blue()) * amount),
+    )
+    return mixed.name()
+
+
+def card_fill(subject: str, base: str | None = None) -> str:
+    """The fill of an ordinary class card: the card colour, tinted with its subject's colour."""
+    return tinted(
+        base or theme.token("card_bg"),
+        subject_color(subject),
+        TINT_DARK if theme.is_dark() else TINT_LIGHT,
+    )
 
 
 def clamp_lines(text: str, metrics: QFontMetrics, width: int, max_lines: int) -> str:
@@ -225,6 +254,12 @@ class ClassCard(QFrame):
         colour = theme.token("danger") if self.state == "missed" else subject_color(
             self.lesson.subject
         )
+        if self.state in ("normal", "next"):
+            # An ordinary class is tinted with its subject's colour. The states that mean something
+            # (opened, missed, skipped, no link) keep the fill that says so: a tint there would
+            # compete with the very thing the colour is for. A rule on the card itself outranks the
+            # application's, which is how the tint wins over ``#ClassCard``'s plain fill.
+            self.setStyleSheet(f"#ClassCard {{ background: {card_fill(self.lesson.subject)}; }}")
         self._bar = QFrame(self)
         self._bar.setObjectName("CardBar")
         self._bar.setStyleSheet(f"background: {colour};")

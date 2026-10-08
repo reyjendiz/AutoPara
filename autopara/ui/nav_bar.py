@@ -53,6 +53,7 @@ def month_title(day: date) -> str:
 VIEW_LABELS = ((VIEW_DAY, "День"), (VIEW_WEEK, "Тиждень"), (VIEW_MONTH, "Місяць"))
 
 THUMB_MS = 220  # how long the selected pill takes to travel to the next segment
+NEXT_UP_MIN_WIDTH = 1000  # narrower than this the bar has no room to say what is next
 
 
 class SegmentedFrame(QFrame):
@@ -89,6 +90,15 @@ class NavBar(QWidget):
         self.sub = QLabel("")
         self.sub.setObjectName("NavSub")
         row.addWidget(self.sub)
+
+        # What is on, or next, today -- a quiet pill after the title; it goes first when space runs out.
+        self.next_up = QLabel("")
+        self.next_up.setObjectName("NextUp")
+        self.next_up.setFixedHeight(28)
+        self.next_up.hide()
+        self._next_text = ""
+        row.addSpacing(6)
+        row.addWidget(self.next_up)
         row.addStretch(1)
 
         # The segmented control: the selected segment is the black pill, like every active thing.
@@ -144,6 +154,24 @@ class NavBar(QWidget):
         button.setIconSize(QSize(18, 18))
         button.clicked.connect(handler)
         return button
+
+    def set_next_up(self, text: str, tooltip: str = "") -> None:
+        """``text`` is what to say about the class that is on or next; empty hides the pill."""
+        self._next_text = text
+        self.next_up.setText(text)
+        self.next_up.setToolTip(tooltip)
+        self._fit_next_up()
+
+    def _fit_next_up(self) -> None:
+        self.next_up.setVisible(bool(self._next_text) and self.width() >= NEXT_UP_MIN_WIDTH)
+
+    def resizeEvent(self, event):  # noqa: N802 - Qt naming
+        super().resizeEvent(event)
+        self._fit_next_up()
+
+    def showEvent(self, event):  # noqa: N802 - Qt naming
+        super().showEvent(event)
+        self._fit_next_up()
 
     def set_title(self, text: str, quiet: str = "") -> None:
         """``text`` is the period; ``quiet`` (usually the year) follows it in a lighter weight."""

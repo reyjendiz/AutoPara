@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 
-from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtCore import QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (
 )
 
 from .. import __version__
-from ..core import filters, theme
+from ..core import filters, nextup, theme
 from ..core.launcher import open_url
 from ..core.models import (
     STATUS_MISSED,
@@ -66,6 +66,7 @@ from .week_grid import WeekGrid
 # A rail, not a panel: with no text on it, its width is the width of one button plus air.
 # The pill is centred in the rail and the content starts right where the rail ends, so the air on
 # either side of the pill is the same: (SIDEBAR_WIDTH - RAIL_PILL_WIDTH) / 2 = 14 px.
+NEXT_UP_REFRESH_MS = 30_000  # half a minute keeps the countdown within a minute of the clock
 SIDEBAR_WIDTH = 80
 RAIL_PILL_WIDTH = 52
 
@@ -85,6 +86,10 @@ class MainWindow(QMainWindow):
         self.anchor = date.today()
         self._overlay: transitions.SlideOverlay | None = None
         self.updates = None  # the UpdateService, once the app attaches one
+        self._next_timer = QTimer(self)  # the countdown in the pill beside the title
+        self._next_timer.setInterval(NEXT_UP_REFRESH_MS)
+        self._next_timer.timeout.connect(self._refresh_next_up)
+        self._next_timer.start()
         self._view_group_id: int | None = None  # a group of the course other than the chosen one
         self._last_chosen_group_id: int | None = None
         self.setWindowTitle("AutoPara — автозапуск пар")
@@ -437,6 +442,7 @@ class MainWindow(QMainWindow):
         self.nav.show()
         self.filterbar.show()
         self._refresh_filterbar(group, everything, shown, flt)
+        self._refresh_next_up()
         self.nav.set_view(mode)
         self.nav.set_title(*self._title(mode))
         unit = {VIEW_DAY: "день", VIEW_MONTH: "місяць"}.get(mode, "тиждень")
@@ -488,6 +494,31 @@ class MainWindow(QMainWindow):
             self.filterbar.set_summary("Нічого не знайдено")
         else:
             self.filterbar.set_summary(f"Знайдено {len(shown)} з {len(everything)}")
+
+    def _refresh_next_up(self) -> None:
+        """Say which class is on or next today, in the pill beside the title."""
+        settings = self.storage.settings()
+        if not settings.selected_group_id:
+            self.nav.set_next_up("")
+            return
+        now = datetime.now()
+        settled = {
+            lesson_id
+            for lesson_id, occurrence in self.storage.occurrences_on(now.date()).items()
+            if occurrence.status == STATUS_SKIPPED
+        }
+        found = nextup.find(
+            self.storage.lessons_for_group(settings.selected_group_id), now, settled
+        )
+        if found is None:
+            self.nav.set_next_up("")
+            return
+        lesson = found.lesson
+        self.nav.set_next_up(
+            nextup.label(found),
+            f"{lesson.subject}\n{lesson.start_time}–{lesson.end_time}"
+            + (f"\n{lesson.teacher.strip('()')}" if lesson.teacher else ""),
+        )
 
     def _filters_changed(self) -> None:
         picked = self.filterbar.group_id()

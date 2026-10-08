@@ -32,7 +32,7 @@ from ..core import theme
 from ..core.models import STATUS_MANUAL, STATUS_MISSED, STATUS_OPENED, STATUS_SKIPPED, Lesson
 from ..importer.normalize import DAY_NAMES, DAY_SHORT, MONTH_GENITIVE
 from . import icons, transitions
-from .class_card import LESSON_MIME, drag_payload, read_drag_payload, subject_color
+from .class_card import LESSON_MIME, card_fill, drag_payload, read_drag_payload, subject_color
 
 WEEKS = 6                # a month always occupies six rows, so it never changes height
 MAX_CHIPS = 3            # more than this and the rest are counted, not drawn
@@ -101,7 +101,13 @@ class MonthChip(QFrame):
         super().__init__(parent)
         self.lesson = lesson
         self.setObjectName("MonthChip")
-        self.setProperty("done", "true" if status in (STATUS_OPENED, STATUS_MANUAL, STATUS_SKIPPED) else "false")
+        done = status in (STATUS_OPENED, STATUS_MANUAL, STATUS_SKIPPED)
+        self.setProperty("done", "true" if done else "false")
+        if not done and status != STATUS_MISSED:
+            # The subject's colour tints the chip, the same as it tints the week's card.
+            self.setStyleSheet(
+                f"#MonthChip {{ background: {card_fill(lesson.subject, theme.token('sunken'))}; }}"
+            )
         row = QHBoxLayout(self)
         row.setContentsMargins(6, 2, 6, 2)
         row.setSpacing(5)

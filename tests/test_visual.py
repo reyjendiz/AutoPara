@@ -88,7 +88,10 @@ class TestCardsDoNotHideEachOther:
             # exact place depends on the platform's font.
             x, y = card_point.x() + first.width() - 12, card_point.y() - 8
             painted = QColor(image.pixel(x, y))
-            card_bg = QColor(theme.token("card_bg"))
+            # An ordinary class is its card colour tinted with its subject's, so that is the fill.
+            from autopara.ui.class_card import card_fill
+
+            card_bg = QColor(card_fill(first.lesson.subject))
             assert painted == card_bg, f"the bottom of the card is covered: {painted.name()}"
         finally:
             theme.apply(qapp, THEME_LIGHT)
