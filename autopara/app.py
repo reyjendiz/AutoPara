@@ -73,7 +73,7 @@ def _load_fonts() -> None:
 
 
 def _smooth_text(app: QApplication) -> None:
-    """Draw glyphs smooth and unhinted, the way a browser (and so the Claude app) does.
+    """Draw glyphs smooth and unhinted, the way a browser does.
 
     Qt on Windows hints text by default, snapping each glyph's outline to the pixel grid. At the
     sizes this window uses that gives the crisp, jagged "pixel font" look. Turning hinting off and
