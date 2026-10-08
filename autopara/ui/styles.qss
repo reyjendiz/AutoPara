@@ -688,6 +688,29 @@ QProgressBar#UpdateProgress::chunk {
     font-weight: 700;
 }
 
+/* ------------------------------------------------------------ search and filters */
+
+/* The strip under the navigation bar. Its inputs are as tall as the nav buttons (22 + 12 of padding
+ * + 2 of border = 36) and round-ended, so the two rows read as one family. */
+#FilterSearch, #FilterCombo {
+    border-radius: 18px;
+    padding: 6px 14px;
+}
+
+#FilterSearch {
+    padding-left: 8px;
+}
+
+#FilterCombo {
+    padding-right: 34px;
+}
+
+#FilterSummary {
+    color: $text_muted;
+    font-size: 9pt;
+    font-weight: 600;
+}
+
 /* ------------------------------------------------------------------ dialogs */
 
 /* Every input is the same height: padding plus a fixed minimum, so a spin box beside a combo box

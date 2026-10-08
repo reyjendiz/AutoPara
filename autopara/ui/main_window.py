@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 
 from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
     QFrame,
@@ -24,7 +25,7 @@ from PySide6.QtWidgets import (
 )
 
 from .. import __version__
-from ..core import theme
+from ..core import filters, theme
 from ..core.launcher import open_url
 from ..core.models import (
     STATUS_MISSED,
@@ -50,6 +51,7 @@ from . import icons, transitions
 from .catchup_banner import CatchupBanner
 from .clock_bar import ClockBar
 from .edit_dialog import EditDialog
+from .filter_bar import FilterBar
 from .group_dialog import GroupDialog
 from .import_landing import ImportLanding
 from .month_view import MonthView, first_of, shift_month
@@ -83,6 +85,8 @@ class MainWindow(QMainWindow):
         self.anchor = date.today()
         self._overlay: transitions.SlideOverlay | None = None
         self.updates = None  # the UpdateService, once the app attaches one
+        self._view_group_id: int | None = None  # a group of the course other than the chosen one
+        self._last_chosen_group_id: int | None = None
         self.setWindowTitle("AutoPara — автозапуск пар")
         # Wide enough that the sidebar does not cost the grid a day column.
         self.resize(1240, 800)
@@ -116,6 +120,12 @@ class MainWindow(QMainWindow):
         self.nav.today_requested.connect(self.go_today)
         self.nav.view_requested.connect(self.set_view_mode)
         layout.addWidget(self.nav)
+
+        self.filterbar = FilterBar()
+        self.filterbar.changed.connect(self._filters_changed)
+        self.filterbar.jump_requested.connect(self._jump_to_match)
+        layout.addWidget(self.filterbar)
+        QShortcut(QKeySequence.Find, self, activated=self.filterbar.focus_search)
 
         self.update_banner = UpdateBanner(__version__)
         self.update_banner.page_requested.connect(open_url)
@@ -323,16 +333,29 @@ class MainWindow(QMainWindow):
 
     # ----------------------------------------------------------------- render
 
+    def _shown_group_id(self) -> int | None:
+        """The group whose classes are on screen: the chosen one, or another of its course."""
+        chosen = self.storage.settings().selected_group_id
+        if chosen and self._view_group_id and self._view_group_id != chosen:
+            picked, mine = self.storage.group(self._view_group_id), self.storage.group(chosen)
+            if picked is not None and mine is not None and picked.course_id == mine.course_id:
+                return picked.id
+        return chosen
+
     def group_lessons(self) -> list[Lesson]:
-        """Усі пари вибраної групи, незалежно від того, який тиждень на екрані."""
-        settings = self.storage.settings()
-        if not settings.selected_group_id:
+        """Усі пари групи на екрані, незалежно від того, який тиждень на екрані й що знайдено."""
+        group_id = self._shown_group_id()
+        if not group_id:
             return []
-        return self.storage.lessons_for_group(settings.selected_group_id)
+        return self.storage.lessons_for_group(group_id)
+
+    def shown_lessons(self) -> list[Lesson]:
+        """Пари групи, що проходять пошук і фільтр, -- це й малюють усі три вигляди."""
+        return filters.apply(self.group_lessons(), self.filterbar.current_filter())
 
     def current_lessons(self) -> list[Lesson]:
         """Пари, що трапляються на тижні, який на екрані: датована пара належить не кожному."""
-        return [lesson for lesson in self.group_lessons() if lesson.occurs_on(self.date_of(lesson))]
+        return [lesson for lesson in self.shown_lessons() if lesson.occurs_on(self.date_of(lesson))]
 
     def week_statuses(self, lessons: list[Lesson]) -> dict[int, str]:
         """Стан кожної пари цього тижня (пара трапляється в тижні один раз)."""
@@ -375,22 +398,30 @@ class MainWindow(QMainWindow):
             if settings.selected_group_id
             else None
         )
+        if settings.selected_group_id != self._last_chosen_group_id:
+            # Обрали іншу групу (чи імпортували заново): "інша група курсу" більше не діє.
+            self._last_chosen_group_id = settings.selected_group_id
+            self._view_group_id = None
         everything = self.group_lessons()
+        flt = self.filterbar.current_filter()
+        shown = filters.apply(everything, flt)
         # Нема з чого обирати, доки нічого не імпортовано.
         self.group_button.setEnabled(bool(self.storage.courses()))
 
         if group is None:
             self._show_only(None)
             self.nav.hide()
+            self.filterbar.hide()
             self.landing.show_no_schedule()
             self.landing.show()
             self.brand.setToolTip("Розклад ще не імпортовано")
             return
-        if not everything:
+        if not everything and self._shown_group_id() == settings.selected_group_id:
             # Порожня група -- це порожній екран; а порожній *тиждень* лишається сіткою, бо
             # інакше з нього не було б як піти до тижня, де пари є.
             self._show_only(None)
             self.nav.hide()
+            self.filterbar.hide()
             self.landing.set_state(
                 "Тут поки порожньо",
                 f"У групі {group.name} немає пар в імпортованому розкладі. "
@@ -403,6 +434,8 @@ class MainWindow(QMainWindow):
         mode = settings.view_mode
         self.landing.hide()
         self.nav.show()
+        self.filterbar.show()
+        self._refresh_filterbar(group, everything, shown, flt)
         self.nav.set_view(mode)
         self.nav.set_title(*self._title(mode))
         unit = {VIEW_DAY: "день", VIEW_MONTH: "місяць"}.get(mode, "тиждень")
@@ -414,16 +447,16 @@ class MainWindow(QMainWindow):
             first = first_of(self.anchor)
             days = self.month.visible_days(first)
             self.month.render_month(
-                first, everything, self._keyed_statuses(days[0], days[-1]), today
+                first, shown, self._keyed_statuses(days[0], days[-1]), today
             )
         elif mode == VIEW_DAY:
             self._show_only(self.grid)
             keyed = self._keyed_statuses(self.anchor, self.anchor)
             self.grid.render_days(
                 [self.anchor],
-                everything,
+                shown,
                 keyed,
-                self._next_key(everything, keyed) if self.anchor == today else None,
+                self._next_key(shown, keyed) if self.anchor == today else None,
                 today,
             )
         else:
@@ -438,6 +471,56 @@ class MainWindow(QMainWindow):
                 monday=self.monday(),
             )
         self._set_subtitle(group)
+
+    # ------------------------------------------------------------ search and filters
+
+    def _refresh_filterbar(self, group, everything, shown, flt) -> None:
+        """Offer this group's subjects and this course's groups, and say how much was found."""
+        self.filterbar.set_subjects(filters.subjects(everything))
+        self.filterbar.set_groups(
+            [(g.id, g.name) for g in self.storage.groups(group.course_id)],
+            self._shown_group_id(),
+        )
+        if not flt.active:
+            self.filterbar.set_summary("")
+        elif not shown:
+            self.filterbar.set_summary("Нічого не знайдено")
+        else:
+            self.filterbar.set_summary(f"Знайдено {len(shown)} з {len(everything)}")
+
+    def _filters_changed(self) -> None:
+        picked = self.filterbar.group_id()
+        chosen = self.storage.settings().selected_group_id
+        self._view_group_id = picked if picked and picked != chosen else None
+        self.reload()
+
+    def _visible_range(self) -> tuple[date, date]:
+        mode = self.view_mode()
+        if mode == VIEW_DAY:
+            return self.anchor, self.anchor
+        if mode == VIEW_MONTH:
+            days = self.month.visible_days(first_of(self.anchor))
+            return days[0], days[-1]
+        return self.monday(), self.monday() + timedelta(days=6)
+
+    def _jump_to_match(self, direction: int) -> None:
+        """Enter у пошуку: перейти до найближчої дати з парою, що підходить (за межі екрана)."""
+        flt = self.filterbar.current_filter()
+        if not flt.active:
+            return
+        first, last = self._visible_range()
+        found = filters.find_match(
+            self.group_lessons(), flt, last if direction >= 0 else first, direction
+        )
+        if found is None:
+            self.filterbar.set_summary("Збігів більше немає")
+            return
+
+        def change() -> None:
+            self.anchor = found
+            self.reload()
+
+        self._animated(1 if direction >= 0 else -1, change)
 
     def _next_key(
         self, lessons: list[Lesson], keyed: dict[tuple[int, str], str]
@@ -504,6 +587,7 @@ class MainWindow(QMainWindow):
         self.banner.repaint_glyph()
         self.update_banner.repaint_glyph()
         self.nav.repaint_glyphs()
+        self.filterbar.repaint_glyphs()
 
     def apply_theme(self) -> None:
         app = QApplication.instance()

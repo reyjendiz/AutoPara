@@ -166,8 +166,23 @@ def _draw_warning(painter: QPainter, colour: str) -> None:
     painter.drawPoint(QPointF(12, 17.4))
 
 
+def _draw_search(painter: QPainter, colour: str) -> None:
+    """``magnifyingglass``: a ring and a short handle."""
+    painter.setPen(_pen(colour, 1.9))
+    painter.drawEllipse(QPointF(10.6, 10.6), 5.6, 5.6)
+    painter.drawLine(QPointF(14.8, 14.8), QPointF(19.4, 19.4))
+
+
+def _draw_close(painter: QPainter, colour: str) -> None:
+    painter.setPen(_pen(colour, 1.9))
+    painter.drawLine(QPointF(7, 7), QPointF(17, 17))
+    painter.drawLine(QPointF(17, 7), QPointF(7, 17))
+
+
 _PAINTERS = {
     "add": _draw_add,
+    "search": _draw_search,
+    "close": _draw_close,
     "import": _draw_import,
     "settings": _draw_settings,
     "sun": _draw_sun,
