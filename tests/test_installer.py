@@ -312,3 +312,14 @@ class TestMacImage:
         )
         assert "AutoPara-$version-Intel.dmg" in job and "python build_mac.py" in job
         assert "gh release upload" in job
+
+
+class TestWorkflowChecksItsTools:
+    def test_nsis_is_checked_after_it_is_installed_and_retried(self):
+        flow = (Path(__file__).resolve().parents[1] / ".github" / "workflows" / "installer.yml").read_text(
+            encoding="utf-8"
+        )
+        step = flow.split("- name: Install NSIS", 1)[1].split("- name:", 1)[0]
+        assert "choco install nsis" in step
+        assert "1..3" in step, "a miss is tried again"
+        assert "throw" in step, "and if it is still not there the step says so, rather than the build"
