@@ -29,7 +29,7 @@ from PySide6.QtWidgets import (
 from ..core import theme
 from ..core.models import STATUS_MANUAL, STATUS_MISSED, STATUS_OPENED, STATUS_SKIPPED, Lesson
 from ..importer.normalize import DAY_NAMES, DAY_SHORT, MONTH_GENITIVE
-from . import icons
+from . import icons, transitions
 from .class_card import subject_color
 
 WEEKS = 6                # a month always occupies six rows, so it never changes height
@@ -164,7 +164,7 @@ class DayTile(QFrame):
         top.addWidget(number)
         top.addStretch(1)
 
-        self.add_button = QPushButton("")
+        self.add_button = transitions.FadeButton("")
         self.add_button.setObjectName("MonthAdd")
         self.add_button.setFixedSize(DATE_CIRCLE, DATE_CIRCLE)
         self.add_button.setIcon(icons.icon("add", theme.token("text_muted"), 14))

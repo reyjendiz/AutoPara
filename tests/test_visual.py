@@ -259,7 +259,12 @@ class TestRoundEnds:
         from PySide6.QtWidgets import QPushButton
 
         use_theme(qapp, THEME_LIGHT)
-        button = QPushButton("Зберегти" if name in ("", "Primary", "Plain", "SegButton") else "")
+        if name == "PrimaryRound":  # its fill is painted by FadeButton, not by the stylesheet
+            from autopara.ui.transitions import FadeButton
+
+            button = FadeButton("", rest="rail_primary_bg")
+        else:
+            button = QPushButton("Зберегти" if name in ("", "Primary", "Plain", "SegButton") else "")
         if name:
             button.setObjectName(name)
         if name == "SegButton":
@@ -331,7 +336,7 @@ class TestLongTitlesAreCutInWholeLines:
     def metrics(self, qapp):
         from PySide6.QtGui import QFont, QFontMetrics
 
-        return QFontMetrics(QFont("Manrope", 10))
+        return QFontMetrics(QFont("Inter", 10))
 
     def test_text_that_fits_is_left_alone(self, qapp):
         from autopara.ui.class_card import clamp_lines

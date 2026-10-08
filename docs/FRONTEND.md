@@ -495,7 +495,7 @@ the accent colour was the alternative, and a solid coloured square does not read
 - Subject colour: deterministic hash of the subject name into seven pastels (coral, lemon, sky,
   violet, mint, pink, dusty blue) — the same in both themes, so a subject is one colour. It is only
   ever a 3 px bar and a chip, never behind text, which is what lets a pale yellow be one of them.
-- Font: **Manrope**, bundled in `ui/fonts` (Regular / Medium / SemiBold / Bold / ExtraBold) under
+- Font: **Inter**, bundled in `ui/fonts` (Regular / Medium / SemiBold / Bold / ExtraBold) under
   the SIL Open Font License. It covers Cyrillic and has real weights, so `font-weight: 600` resolves
   to 600 rather than jumping to Bold. 10 pt body, 8–9 pt for metadata, 700 for anything that leads. Point sizes in the stylesheet are
   scaled by 1.15 on macOS (`theme.MAC_POINT_SCALE`, applied by `theme.scaled_points`): Qt counts a
@@ -547,13 +547,13 @@ the accent colour was the alternative, and a solid coloured square does not read
 ### Three things QSS will not do, and where they went instead
 
 `box-shadow` -> nowhere; the design has no shadows. `letter-spacing` -> nowhere; the hierarchy is
-carried by size and weight. `transition` -> nowhere; state changes are instant. There is no backdrop
+carried by size and weight. `transition` -> `transitions.FadeButton`, which paints the round "+" buttons' hover fill itself and eases it over 220 ms; every other state change is instant. The rail also carries `ClockBar`, a system clock at 50 % opacity (`QGraphicsOpacityEffect`). There is no backdrop
 blur either, so the rail is opaque rather than a poor imitation of glass.
 
 ### The font family is chosen in Python, not in the QSS
 
 Qt honours only the **first** family named in a stylesheet `font-family`, so the usual CSS fallback
-list is a trap: with the family missing, `"Manrope", "Segoe UI", sans-serif` does not fall
+list is a trap: with the family missing, `"Inter", "Segoe UI", sans-serif` does not fall
 through to Segoe UI — it falls through to a default with no glyphs, and the entire interface renders
 as empty boxes. `theme.interface_font()` therefore walks `FONT_STACK` for a family Qt actually has
 and substitutes the single winner as `$font_family`. `app._load_fonts()` registers the bundled faces

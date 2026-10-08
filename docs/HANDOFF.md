@@ -13,7 +13,7 @@ first — this file does not repeat them.
   `AutoPara-1.6.0.dmg` (macOS, Apple Silicon only). CI (`.github/workflows/installer.yml`) builds both
   on every push to `main`; a release is cut only when `APP_VERSION` names a version without a tag.
 - **What 1.6.0 added** over 1.5.0: dated classes (one-off and "weekly until a date"), day / week /
-  month views with navigation, the "Education Hub" redesign (Manrope, black-pill accent, pastel
+  month views with navigation, the "Education Hub" redesign (Inter, black-pill accent, pastel
   subjects), course/group switcher, animations, in-app updates from GitHub, a new app logo.
 
 ## Run and verify
@@ -82,7 +82,7 @@ python tools/bump_version.py --show    # version + release state; --set X.Y.Z to
 | Dated lessons | `core/models.py` (`Lesson.occurs_on`), `core/storage.py` (`_migrate`, `on_date`, `repeat_until`), `core/scheduler.py` |
 | Views | `ui/week_grid.py` (`render_days`), `ui/month_view.py`, `ui/nav_bar.py`, `ui/main_window.py` (`anchor`, `_animated`) |
 | Dialogs | `ui/edit_dialog.py` (repeat modes), `ui/group_dialog.py`, `ui/settings_dialog.py` (updates), `ui/metrics.py` |
-| Look | `ui/styles.qss`, `core/theme.py` (`PALETTES`, `scaled_points`), `ui/fonts/` (Manrope), `ui/assets/logo.png` |
+| Look | `ui/styles.qss`, `core/theme.py` (`PALETTES`, `scaled_points`), `ui/fonts/` (Inter), `ui/assets/logo.png` |
 | Motion / popups | `ui/transitions.py`, `ui/popups.py` |
 | Updates | `core/updater.py` (Qt-free), `core/update_service.py`, `ui/update_banner.py` |
 | Release tooling | `tools/bump_version.py`, `docs/RELEASING.md`, `.github/workflows/installer.yml`, `build_mac.py` |

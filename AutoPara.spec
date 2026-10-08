@@ -34,7 +34,7 @@ analysis = Analysis(
     binaries=[],
     datas=[
         ("autopara/ui/styles.qss", "autopara/ui"),
-        # Manrope and its licence: the interface font is bundled, not assumed installed.
+        # Inter and its licence: the interface font is bundled, not assumed installed.
         ("autopara/ui/fonts", "autopara/ui/fonts"),
         # The app mark: the one picture the tray, the rail, the .ico and the .icns are all made from.
         ("autopara/ui/assets", "autopara/ui/assets"),
