@@ -76,7 +76,6 @@ python tools/bump_version.py --show    # version + release state; --set X.Y.Z to
   path opens the `.dmg`; it does not replace the app itself. The Intel image is built on the
   `macos-15-intel` runner and has not been run on Intel hardware; if GitHub retires that runner label
   the `build-mac-intel` job will sit queued -- change `runs-on` (or drop the job).
-- **Drag and drop** exists only in the week/day grid, not in the month.
 - **Windows:** the Windows installer's UI strings and the redesigned look have not been seen on a
   Windows machine.
 
