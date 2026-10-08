@@ -662,8 +662,35 @@ class MainWindow(QMainWindow):
         if menu.exec(self.cursor().pos()) is create:
             self._edit_lesson(None, day=day, start_time=start)
 
-    def _lesson_dropped(self, lesson_id: int, day: date, start: str) -> None:
-        """Перетягування переносить пару на іншу годину, зберігаючи її тривалість."""
+    def _ask_move_scope(self, lesson: Lesson, from_day: date) -> str | None:
+        """Пара повторюється: перенести лише цю дату чи всю серію? ``None`` -- передумали."""
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Question)
+        box.setWindowTitle("Перенести пару")
+        box.setText(
+            f"«{lesson.subject}» повторюється щотижня.\n\n"
+            f"Перенести лише {from_day.day} {MONTH_GENITIVE[from_day.month - 1]} "
+            "чи всю серію?"
+        )
+        one = box.addButton("Лише цю дату", QMessageBox.AcceptRole)
+        series = box.addButton("Всю серію", QMessageBox.ActionRole)
+        box.addButton("Скасувати", QMessageBox.RejectRole)
+        box.setDefaultButton(one)
+        box.exec()
+        if box.clickedButton() is one:
+            return "one"
+        if box.clickedButton() is series:
+            return "all"
+        return None
+
+    def _lesson_dropped(
+        self, lesson_id: int, day: date, start: str, from_day: date | None = None
+    ) -> None:
+        """Перетягування переносить пару на іншу годину, зберігаючи її тривалість.
+
+        ``from_day`` -- дата, з якої тягнули. Якщо пара повторюється, питаємо, що переносити:
+        лише цю дату (решта серії лишається на місці) чи всю серію.
+        """
         lesson = self.storage.lesson(lesson_id)
         if lesson is None:
             return
@@ -674,6 +701,21 @@ class MainWindow(QMainWindow):
         duration = minutes_between(lesson.start_time, lesson.end_time) or (
             self.storage.settings().class_duration_minutes
         )
+        if from_day is not None and lesson.repeats:
+            scope = self._ask_move_scope(lesson, from_day)
+            if scope is None:
+                return
+            if scope == "one":
+                self.storage.move_occurrence(
+                    lesson.id,
+                    from_day,
+                    day,
+                    pair_slot(start),
+                    start,
+                    add_minutes(start, duration),
+                )
+                self.reload()
+                return
         self.storage.move_lesson(
             lesson.id,
             day.weekday(),

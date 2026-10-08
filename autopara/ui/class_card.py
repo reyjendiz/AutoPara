@@ -8,6 +8,7 @@ press only counts as a click when the pointer never travelled far enough to star
 from __future__ import annotations
 
 import hashlib
+from datetime import date
 
 from urllib.parse import urlparse
 
@@ -37,6 +38,21 @@ PROVIDER_LABEL = {PROVIDER_ZOOM: "Zoom", PROVIDER_MEET: "Meet", "unknown": "По
 # The drag payload is just the lesson id; the grid looks the lesson up in storage on drop, so a
 # stale card can never carry stale lesson data across.
 LESSON_MIME = "application/x-autopara-lesson"
+
+
+def drag_payload(lesson_id: int, day: date | None) -> bytes:
+    """What a dragged card carries: its lesson and, when known, the date it was dragged from."""
+    return f"{lesson_id}|{day.isoformat()}".encode("ascii") if day else str(lesson_id).encode("ascii")
+
+
+def read_drag_payload(raw: bytes) -> tuple[int, date | None]:
+    """The inverse of :func:`drag_payload`; the date is None for a bare lesson id."""
+    text = bytes(raw).decode("ascii")
+    ident, _, stamp = text.partition("|")
+    try:
+        return int(ident), (date.fromisoformat(stamp) if stamp else None)
+    except ValueError:
+        raise ValueError(f"not a lesson drag: {text!r}") from None
 
 # The card's own padding. Named because the height budget in ``_fit`` has to agree with the
 # layout exactly -- a card that thinks it is 2 px smaller than it is clips a line for nothing.
@@ -170,6 +186,7 @@ class ClassCard(QFrame):
         """
         super().__init__(parent)
         self.lesson = lesson
+        self.day: date | None = None  # the date this card is drawn on; the grid sets it
         self.status = status
         self._height = height
         self.setObjectName("ClassCard")
@@ -420,7 +437,7 @@ class ClassCard(QFrame):
 
         self._dragging = True
         data = QMimeData()
-        data.setData(LESSON_MIME, str(self.lesson.id).encode("ascii"))
+        data.setData(LESSON_MIME, drag_payload(self.lesson.id, self.day))
         drag = QDrag(self)
         drag.setMimeData(data)
         drag.setPixmap(self.grab())

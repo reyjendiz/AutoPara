@@ -280,3 +280,109 @@ class TestClicksOnOtherDates:
         window._lesson_dropped(template.id, MONDAY + timedelta(days=11), "11:00")  # a Friday
         moved = storage.lesson(template.id)
         assert (moved.day_index, moved.on_date) == (4, None)
+
+
+class TestMovingOneDateOfARepeatingClass:
+    """A weekly class dragged on one date must not drag the whole series with it."""
+
+    WEDNESDAY = MONDAY + timedelta(days=2)
+    NEXT_WEDNESDAY = WEDNESDAY + timedelta(days=7)
+
+    def ids_on(self, storage, group, day):
+        return [l.id for l in storage.lessons_for_group(group.id) if l.occurs_on(day)]
+
+    def test_only_this_date_moves(self, window, world, monkeypatch):
+        storage, group = world
+        template = storage.lessons_for_group(group.id)[0]
+        monkeypatch.setattr(window, "_ask_move_scope", lambda lesson, day: "one")
+
+        friday = MONDAY + timedelta(days=4)
+        window._lesson_dropped(template.id, friday, "11:00", self.WEDNESDAY)
+
+        assert template.id not in self.ids_on(storage, group, self.WEDNESDAY)
+        assert template.id in self.ids_on(storage, group, self.NEXT_WEDNESDAY), "the series stays"
+        copy_id = next(i for i in self.ids_on(storage, group, friday) if i != template.id)
+        copy = storage.lesson(copy_id)
+        assert (copy.on_date, copy.start_time, copy.subject, copy.url) == (
+            friday, "11:00", template.subject, template.url,
+        )
+        assert copy.group_names == template.group_names
+        assert not copy.repeats, "the moved date is a one-off"
+        assert storage.lesson(template.id).day_index == 2, "the weekly template did not move"
+
+    def test_the_whole_series_moves_when_asked(self, window, world, monkeypatch):
+        storage, group = world
+        template = storage.lessons_for_group(group.id)[0]
+        monkeypatch.setattr(window, "_ask_move_scope", lambda lesson, day: "all")
+
+        window._lesson_dropped(template.id, MONDAY + timedelta(days=4), "11:00", self.WEDNESDAY)
+
+        moved = storage.lesson(template.id)
+        assert (moved.day_index, moved.start_time, moved.skip_dates) == (4, "11:00", frozenset())
+
+    def test_cancelling_changes_nothing(self, window, world, monkeypatch):
+        storage, group = world
+        template = storage.lessons_for_group(group.id)[0]
+        before = len(storage.lessons_for_group(group.id))
+        monkeypatch.setattr(window, "_ask_move_scope", lambda lesson, day: None)
+
+        window._lesson_dropped(template.id, MONDAY + timedelta(days=4), "11:00", self.WEDNESDAY)
+
+        assert len(storage.lessons_for_group(group.id)) == before
+        after = storage.lesson(template.id)
+        assert (after.day_index, after.start_time, after.skip_dates) == (2, "09:30", frozenset())
+
+    def test_a_one_off_is_moved_without_asking(self, window, world, monkeypatch):
+        storage, group = world
+        stored = storage.lesson(storage.add_lesson(dated(MONDAY + timedelta(days=7)), [group.id]))
+        monkeypatch.setattr(
+            window, "_ask_move_scope", lambda *a: pytest.fail("a one-off has no series to ask about")
+        )
+        target = MONDAY + timedelta(days=8)
+
+        window._lesson_dropped(stored.id, target, "11:00", stored.on_date)
+
+        assert storage.lesson(stored.id).on_date == target
+
+    def test_a_dated_series_can_lose_one_date_too(self, window, world, monkeypatch):
+        storage, group = world
+        series = storage.lesson(
+            storage.add_lesson(
+                dated(MONDAY, repeat_until=MONDAY + timedelta(days=21)), [group.id]
+            )
+        )
+        monkeypatch.setattr(window, "_ask_move_scope", lambda lesson, day: "one")
+        second = MONDAY + timedelta(days=7)
+
+        window._lesson_dropped(series.id, MONDAY + timedelta(days=9), "13:00", second)
+
+        assert not storage.lesson(series.id).occurs_on(second)
+        assert storage.lesson(series.id).occurs_on(MONDAY)
+        assert storage.lesson(series.id).occurs_on(MONDAY + timedelta(days=14))
+
+    def test_the_skipped_date_survives_a_reload_and_a_reimport(self, window, world, monkeypatch):
+        storage, group = world
+        template = storage.lessons_for_group(group.id)[0]
+        monkeypatch.setattr(window, "_ask_move_scope", lambda lesson, day: "one")
+        window._lesson_dropped(template.id, MONDAY + timedelta(days=4), "11:00", self.WEDNESDAY)
+
+        assert storage.lesson(template.id).skip_dates == frozenset({self.WEDNESDAY})
+        assert window.current_lessons() != [] and template.id not in [
+            l.id for l in window.current_lessons()
+        ]
+
+    def test_the_scope_question_names_the_date_and_the_choices(self, window, qapp, monkeypatch):
+        from PySide6.QtWidgets import QMessageBox
+
+        seen = {}
+
+        def fake_exec(box):
+            seen["text"] = box.text()
+            seen["buttons"] = [b.text() for b in box.buttons()]
+            return 0
+
+        monkeypatch.setattr(QMessageBox, "exec", fake_exec)
+        lesson = window.storage.lessons_for_group(window.storage.settings().selected_group_id)[0]
+        assert window._ask_move_scope(lesson, self.WEDNESDAY) is None  # nothing was clicked
+        assert "4 березня" in seen["text"] and lesson.subject in seen["text"]
+        assert set(seen["buttons"]) == {"Лише цю дату", "Всю серію", "Скасувати"}  # order is the platform's

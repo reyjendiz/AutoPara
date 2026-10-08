@@ -35,7 +35,7 @@ from PySide6.QtWidgets import (
 
 from ..core.models import Lesson
 from ..importer.normalize import DAY_NAMES, DAY_SHORT, MONTH_GENITIVE, week_start
-from .class_card import LESSON_MIME, ClassCard
+from .class_card import LESSON_MIME, ClassCard, read_drag_payload
 
 # The visible day: 08:00 up to and including the 18:00 row. The teaching day ends well before
 # that -- the latest class in the source document finishes at 17:30 -- and every hour past it was a
@@ -126,7 +126,9 @@ class GridCanvas(QWidget):
     cell instead.
     """
 
-    lesson_dropped = Signal(int, object, str)  # lesson id, the date, "HH:00"
+    # lesson id, the date it was dropped on, "HH:00", and the date it was dragged from (None when
+    # the drag did not say -- then the whole lesson is moved, as it always was)
+    lesson_dropped = Signal(int, object, str, object)
     resized = Signal()
 
     def __init__(self, parent=None):
@@ -183,11 +185,11 @@ class GridCanvas(QWidget):
         if cell is None or not event.mimeData().hasFormat(LESSON_MIME):
             return
         try:
-            lesson_id = int(bytes(event.mimeData().data(LESSON_MIME)).decode("ascii"))
+            lesson_id, source_day = read_drag_payload(event.mimeData().data(LESSON_MIME))
         except ValueError:
             return
         event.acceptProposedAction()
-        self.lesson_dropped.emit(lesson_id, cell.day, cell.start_time)
+        self.lesson_dropped.emit(lesson_id, cell.day, cell.start_time, source_day)
 
 
 class WeekGrid(QScrollArea):
@@ -198,7 +200,7 @@ class WeekGrid(QScrollArea):
     lesson_clicked = Signal(int, object)         # lesson id, date -- left click: join the class
     lesson_menu_requested = Signal(int, object)  # lesson id, date -- right click: the menu
     slot_clicked = Signal(object, str)           # date, "HH:00"
-    lesson_dropped = Signal(int, object, str)    # lesson id, date, "HH:00"
+    lesson_dropped = Signal(int, object, str, object)  # lesson id, date, "HH:00", source date
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -481,6 +483,7 @@ class WeekGrid(QScrollArea):
             is_next=key == next_key,
             height=span * HOUR_HEIGHT - top_px - bottom_px,
         )
+        card.day = day
         card.clicked.connect(lambda lesson_id, day=day: self.lesson_clicked.emit(lesson_id, day))
         card.menu_requested.connect(
             lambda lesson_id, day=day: self.lesson_menu_requested.emit(lesson_id, day)

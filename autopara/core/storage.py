@@ -90,6 +90,13 @@ CREATE TABLE IF NOT EXISTS occurrences (
     UNIQUE(lesson_id, occur_date)
 );
 
+-- One date a repeating class does not happen on: it was moved away for that date only.
+CREATE TABLE IF NOT EXISTS lesson_skips (
+    lesson_id INTEGER NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
+    skip_date TEXT NOT NULL,
+    PRIMARY KEY (lesson_id, skip_date)
+);
+
 CREATE INDEX IF NOT EXISTS idx_lessons_day ON lessons(day_index);
 CREATE INDEX IF NOT EXISTS idx_occurrences_date ON occurrences(occur_date);
 """
@@ -447,6 +454,12 @@ class Storage:
                     (row["id"],),
                 ).fetchall()
             ]
+            skips = frozenset(
+                _date_or_none(r["skip_date"])
+                for r in self.connection.execute(
+                    "SELECT skip_date FROM lesson_skips WHERE lesson_id = ?", (row["id"],)
+                ).fetchall()
+            ) - {None}
             lessons.append(
                 Lesson(
                     id=row["id"],
@@ -465,6 +478,7 @@ class Storage:
                     group_names=names,
                     on_date=_date_or_none(row["on_date"]),
                     repeat_until=_date_or_none(row["repeat_until"]),
+                    skip_dates=skips,
                 )
             )
         return lessons
@@ -584,6 +598,50 @@ class Storage:
                 (day_index, pair, start_time, end_time, lesson_id),
             )
         self.connection.commit()
+
+    def move_occurrence(
+        self,
+        lesson_id: int,
+        from_day: date,
+        to_day: date,
+        pair: int,
+        start_time: str,
+        end_time: str,
+    ) -> int | None:
+        """Move one date of a repeating class and leave the rest of the series where it is.
+
+        The original stops happening on ``from_day`` and a one-off copy -- same subject, teacher,
+        link and groups -- takes place on ``to_day`` instead. Returns the copy's id, or None when
+        the lesson does not exist.
+        """
+        original = self.lesson(lesson_id)
+        if original is None:
+            return None
+        group_ids = [
+            row["group_id"]
+            for row in self.connection.execute(
+                "SELECT group_id FROM lesson_groups WHERE lesson_id = ?", (lesson_id,)
+            ).fetchall()
+        ]
+        self.connection.execute(
+            "INSERT OR IGNORE INTO lesson_skips(lesson_id, skip_date) VALUES (?, ?)",
+            (lesson_id, from_day.isoformat()),
+        )
+        self.connection.commit()
+        moved = Lesson(
+            id=0,
+            course_id=original.course_id,
+            day_index=to_day.weekday(),
+            pair=pair,
+            start_time=start_time,
+            end_time=end_time,
+            subject=original.subject,
+            teacher=original.teacher,
+            url=original.url,
+            provider=original.provider,
+            on_date=to_day,
+        )
+        return self.add_lesson(moved, group_ids)
 
     def delete_lesson(self, lesson_id: int) -> None:
         self.connection.execute("DELETE FROM lessons WHERE id = ?", (lesson_id,))

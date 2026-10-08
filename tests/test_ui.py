@@ -241,7 +241,7 @@ class TestWeekGrid:
         data = QMimeData()
         data.setData(LESSON_MIME, b"42")
 
-        moves: list[tuple[int, date, str]] = []
+        moves: list[tuple] = []
         grid.lesson_dropped.connect(lambda *args: moves.append(args))
 
         class _Drop:
@@ -259,7 +259,14 @@ class TestWeekGrid:
 
         centre = target.geometry().center()
         grid._canvas.dropEvent(_Drop(QPoint(centre.x(), centre.y()), data))
-        assert moves == [(42, week_start(date.today()) + timedelta(days=2), "11:00")]
+        # A bare lesson id says nothing about where it was dragged from: no source date.
+        assert moves == [(42, week_start(date.today()) + timedelta(days=2), "11:00", None)]
+
+        moves.clear()
+        source = week_start(date.today())
+        data.setData(LESSON_MIME, f"42|{source.isoformat()}".encode("ascii"))
+        grid._canvas.dropEvent(_Drop(QPoint(centre.x(), centre.y()), data))
+        assert moves == [(42, source + timedelta(days=2), "11:00", source)]
 
 
 class TestGridIsHonestAboutTime:

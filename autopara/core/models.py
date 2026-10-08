@@ -85,6 +85,17 @@ class Lesson:
     # ``on_date.weekday()`` for a dated lesson. See docs/BACKEND.md section 3.
     on_date: date | None = None
     repeat_until: date | None = None
+    # Dates this class does not happen on although its pattern says it should: the one date a
+    # repeating class was moved away from. Kept on the lesson so ``occurs_on`` -- the single place
+    # every view and the scheduler ask -- needs nothing else to know about them.
+    skip_dates: frozenset[date] = frozenset()
+
+    @property
+    def repeats(self) -> bool:
+        """True when the same lesson happens on more than one date: a weekly template or a series."""
+        if self.on_date is None:
+            return True
+        return self.repeat_until is not None and self.repeat_until > self.on_date
 
     @property
     def is_dated(self) -> bool:
@@ -98,6 +109,8 @@ class Lesson:
         was imported; ``scheduler.predates_schedule`` owns that.
         """
         if day.weekday() != self.day_index:
+            return False
+        if day in self.skip_dates:
             return False
         if self.on_date is None:
             return True
