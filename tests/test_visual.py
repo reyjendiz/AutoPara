@@ -224,6 +224,10 @@ class TestNowLine:
         assert line.left() == anchor.geometry().left() and line.width() == anchor.width()
         assert grid._now_badge.text() == "10:30"
 
+    def test_the_line_and_its_badge_are_half_transparent(self, grid, qapp):
+        for marker in (grid._now_line, grid._now_badge):
+            assert marker.graphicsEffect().opacity() == 0.5
+
     def test_it_is_hidden_when_today_is_not_on_screen(self, grid, qapp):
         shown(grid, qapp, [], today=date(2026, 3, 20))  # a week the grid is not showing
         grid._place_now(datetime(2026, 3, 20, 10, 0))

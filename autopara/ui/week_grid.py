@@ -24,6 +24,7 @@ from datetime import date, datetime, timedelta
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QFrame,
+    QGraphicsOpacityEffect,
     QGridLayout,
     QLabel,
     QScrollArea,
@@ -69,6 +70,8 @@ DATE_CIRCLE = 32  # the date's circle; today's is the black pill
 
 # How often the "now" line moves. Half a minute keeps it within a pixel of the clock.
 NOW_REFRESH_MS = 30_000
+# How strongly the "now" line and its time badge show: 50 %.
+NOW_OPACITY = 0.5
 
 
 def to_minutes(hhmm: str) -> int:
@@ -218,6 +221,12 @@ class WeekGrid(QScrollArea):
         self._now_line.setFixedHeight(2)
         self._now_badge = QLabel(self._canvas)
         self._now_badge.setObjectName("NowBadge")
+        # Half strength: the marker is a guide, and must not drown the card it crosses. An opacity
+        # effect dims fill and text together (a separate effect each: one cannot be shared).
+        for marker in (self._now_line, self._now_badge):
+            effect = QGraphicsOpacityEffect(marker)
+            effect.setOpacity(NOW_OPACITY)
+            marker.setGraphicsEffect(effect)
         self._now_line.hide()
         self._now_badge.hide()
         self._canvas.resized.connect(self._place_now)
