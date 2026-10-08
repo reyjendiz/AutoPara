@@ -1005,3 +1005,19 @@ class TestImportDialogIsUkrainian:
                 if stripped.isascii() and stripped.isalpha() and len(stripped) > 2:
                     latin.add(stripped)
         assert latin <= {"AutoPara", "Zoom", "Meet", "docx"}
+
+
+class TestTextSmoothing:
+    def test_the_app_draws_text_unhinted_and_that_reaches_styled_widgets(self, gui_app):
+        """Hinting snaps glyphs to the pixel grid and reads as a jagged pixel font on Windows."""
+        from PySide6.QtGui import QFont
+        from PySide6.QtWidgets import QLabel
+
+        from autopara.app import _smooth_text
+
+        _smooth_text(gui_app)
+        theme.apply(gui_app, THEME_LIGHT)
+        label = QLabel("Розклад")
+        label.ensurePolished()
+        assert label.font().hintingPreference() == QFont.PreferNoHinting
+        assert label.font().styleStrategy() & QFont.PreferAntialias

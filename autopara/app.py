@@ -73,13 +73,16 @@ def _load_fonts() -> None:
 
 
 def _smooth_text(app: QApplication) -> None:
-    """Ask for anti-aliased glyphs, so Windows draws the interface with ClearType.
+    """Draw glyphs smooth and unhinted, the way a browser (and so the Claude app) does.
 
-    Qt's own text rendering (DirectWrite on Windows) does the smoothing; without the strategy a
-    face can fall back to bitmap-style hinting and look pixelated at small sizes.
+    Qt on Windows hints text by default, snapping each glyph's outline to the pixel grid. At the
+    sizes this window uses that gives the crisp, jagged "pixel font" look. Turning hinting off and
+    asking for anti-aliasing keeps the outlines as designed. macOS ignores hinting, so nothing
+    changes there.
     """
     font = app.font()
     font.setStyleStrategy(QFont.PreferAntialias)
+    font.setHintingPreference(QFont.PreferNoHinting)
     app.setFont(font)
 
 
