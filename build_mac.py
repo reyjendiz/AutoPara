@@ -70,8 +70,12 @@ def main() -> int:
     # image from the one it replaces.
     sys.path.insert(0, str(root))
     from autopara import __version__
+    from autopara.core.updater import mac_asset_name
 
-    print(f"==> 3. Creating drag-and-drop installer DMG (dist/AutoPara-{__version__}.dmg)...")
+    # Apple Silicon: AutoPara-<version>.dmg. Intel: AutoPara-<version>-Intel.dmg. The updater picks
+    # between them by this same rule, so a Mac is only ever offered the image that runs on it.
+    dmg_name = mac_asset_name(__version__)
+    print(f"==> 3. Creating drag-and-drop installer DMG (dist/{dmg_name})...")
     dmg_staging = build_dir / "dmg_staging"
     if dmg_staging.exists():
         shutil.rmtree(dmg_staging)
@@ -84,7 +88,7 @@ def main() -> int:
     apps_link = dmg_staging / "Applications"
     os.symlink("/Applications", str(apps_link))
 
-    dmg_path = root / "dist" / f"AutoPara-{__version__}.dmg"
+    dmg_path = root / "dist" / dmg_name
     if dmg_path.exists():
         dmg_path.unlink()
 

@@ -200,13 +200,17 @@ Two stages, both runnable on their own:
 
 ### The installer that people download is built by CI
 
-Two files go on every release: `AutoPara-<version>-Setup.exe` (Windows, built by the job below) and
+Three files go on every release: `AutoPara-<version>-Setup.exe` (Windows, built by the job below),
 `AutoPara-<version>.dmg` (macOS, Apple Silicon: a second job, `build-mac`, runs `python build_mac.py`
-on a macOS runner after the Windows job has created the release and attaches the image to it). The
-Mac job builds only when the release for this version has no `.dmg` yet, which is also how a release
-cut before the job existed gets its image. The app inside is not signed or notarised, so a downloaded
-copy is opened the first time from its context menu ("Відкрити"). An Intel Mac would need its own
-image; there is none. The names are what the in-app update check looks for.
+on a macOS runner after the Windows job has created the release and attaches the image to it) and
+`AutoPara-<version>-Intel.dmg` (macOS, Intel: `build-mac-intel`, the same script on an Intel runner,
+which runs *after* `build-mac` so the Apple Silicon file is always the first `.dmg` a release holds --
+copies that predate the Intel image take the first they find). Each Mac job builds only when the
+release for this version lacks its own image, which is also how a release cut before the job existed
+gets one. The app inside is not signed or notarised, so a downloaded copy is opened the first time
+from its context menu ("Відкрити"). `updater.mac_asset_name` is the one place the file name is decided
+-- `build_mac.py` writes it and `updater.pick_asset` chooses by it, so a Mac is only ever offered the
+image that runs on it. The names are what the in-app update check looks for.
 
 `.github/workflows/installer.yml` runs those same two stages on a clean `windows-latest` runner on
 every push to `main`, and attaches `AutoPara-<version>-Setup.exe` to a GitHub release. It calls

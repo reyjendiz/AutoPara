@@ -10,7 +10,8 @@ first — this file does not repeat them.
 - **Repository:** https://github.com/sevcenkoa864-oss/AutoPara (public, `main`). It was deleted and
   recreated once, so history starts at the 1.6.0 commit. No tooling-specific files are in it.
 - **Latest release is v1.7.x**, published with both installers: `AutoPara-<version>-Setup.exe`
-  (Windows) and `AutoPara-<version>.dmg` (macOS, Apple Silicon only). CI (`.github/workflows/installer.yml`) builds both
+  (Windows), `AutoPara-<version>.dmg` (macOS, Apple Silicon) and `AutoPara-<version>-Intel.dmg`
+  (macOS, Intel; from 1.8.0). CI (`.github/workflows/installer.yml`) builds all of them
   on every push to `main`; a release is cut only when `APP_VERSION` names a version without a tag.
 - **What 1.6.0 added** over 1.5.0: dated classes (one-off and "weekly until a date"), day / week /
   month views with navigation, the "Education Hub" redesign (Inter, black-pill accent, pastel
@@ -71,11 +72,10 @@ python tools/bump_version.py --show    # version + release state; --set X.Y.Z to
 - **Updater is untested end to end.** There are now several releases, so install an older one (1.6.0)
   and let it find the newest to exercise download → verify → install. The Windows
   apply step (`updater.windows_command`) has never run on Windows hardware.
-- **macOS:** the image is arm64 only, unsigned and un-notarised (first launch: right-click → Open).
-  The update path opens the `.dmg`; it does not replace the app itself.
-- **Intel Mac** has no image. Add a second matrix entry to `build-mac` if it is wanted.
-- **Dragging one date of a series** shifts the whole series; dragging a weekly template changes the
-  template. There is no "move only this date".
+- **macOS:** the images are unsigned and un-notarised (first launch: right-click → Open). The update
+  path opens the `.dmg`; it does not replace the app itself. The Intel image is built on the
+  `macos-15-intel` runner and has not been run on Intel hardware; if GitHub retires that runner label
+  the `build-mac-intel` job will sit queued -- change `runs-on` (or drop the job).
 - **Drag and drop** exists only in the week/day grid, not in the month.
 - **Windows:** the Windows installer's UI strings and the redesigned look have not been seen on a
   Windows machine.

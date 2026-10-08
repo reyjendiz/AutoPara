@@ -24,6 +24,7 @@ import hashlib
 import json
 import logging
 import os
+import platform as platform_module
 import re
 import ssl
 import subprocess
@@ -47,6 +48,25 @@ TRUSTED_HOST_SUFFIXES = ("github.com", "githubusercontent.com")
 
 WINDOWS_ASSET = re.compile(r"^AutoPara-.+-Setup\.exe$")
 MAC_ASSET = re.compile(r"^AutoPara.*\.dmg$")
+
+# A Mac gets the image built for its processor. The Apple Silicon image keeps the name it has always
+# had (``AutoPara-<version>.dmg``) so every release already out, and every copy that looks for it,
+# keeps working; the Intel one carries ``-Intel`` before the extension.
+INTEL_MARK = "-Intel"
+_INTEL_MACHINES = ("x86_64", "amd64", "i386")
+
+
+def is_intel_machine(machine: str | None = None) -> bool:
+    return (machine or platform_module.machine()).lower() in _INTEL_MACHINES
+
+
+def mac_asset_name(version: str, machine: str | None = None) -> str:
+    """The disk image's file name for ``version`` on a Mac with this processor.
+
+    The one place the rule lives: ``build_mac.py`` names the file with it and :func:`pick_asset`
+    chooses by it, so the two cannot drift apart.
+    """
+    return f"AutoPara-{version}{INTEL_MARK if is_intel_machine(machine) else ''}.dmg"
 
 MAX_METADATA_BYTES = 2_000_000
 CHUNK = 64 * 1024
@@ -107,15 +127,25 @@ def installable_here(platform: str = sys.platform, frozen: bool | None = None) -
 # ---------------------------------------------------------------------- release
 
 
-def pick_asset(assets: list[dict], platform: str = sys.platform) -> Asset | None:
-    """The file to download on ``platform``, or None when the release has none for it."""
+def pick_asset(
+    assets: list[dict], platform: str = sys.platform, machine: str | None = None
+) -> Asset | None:
+    """The file to download on ``platform``, or None when the release has none for it.
+
+    On a Mac ``machine`` is the processor (default: this one). An Intel Mac only takes the image
+    named for Intel and an Apple Silicon Mac only the one that is not: the wrong image would
+    download and install fine and then not start, which is worse than offering nothing.
+    """
     pattern = WINDOWS_ASSET if platform == "win32" else MAC_ASSET if platform == "darwin" else None
     if pattern is None:
         return None
+    want_intel = is_intel_machine(machine)
     for entry in assets:
         name = str(entry.get("name", ""))
         url = str(entry.get("browser_download_url", ""))
         if not pattern.match(name) or Path(name).name != name or not url.startswith(DOWNLOAD_PREFIX):
+            continue
+        if platform == "darwin" and (INTEL_MARK.lower() in name.lower()) != want_intel:
             continue
         digest = str(entry.get("digest") or "")
         sha = digest.split(":", 1)[1].lower() if digest.lower().startswith("sha256:") else None
@@ -123,7 +153,9 @@ def pick_asset(assets: list[dict], platform: str = sys.platform) -> Asset | None
     return None
 
 
-def parse_release(payload: dict, platform: str = sys.platform) -> Release | None:
+def parse_release(
+    payload: dict, platform: str = sys.platform, machine: str | None = None
+) -> Release | None:
     """A GitHub "release" object as a ``Release``, or None for a draft, a pre-release or nonsense."""
     if not isinstance(payload, dict) or payload.get("draft") or payload.get("prerelease"):
         return None
@@ -137,7 +169,7 @@ def parse_release(payload: dict, platform: str = sys.platform) -> Release | None
         tag=tag,
         notes=str(payload.get("body") or "").strip(),
         page_url=page if page.startswith(PAGE_PREFIX) else "",
-        asset=pick_asset(list(payload.get("assets") or []), platform),
+        asset=pick_asset(list(payload.get("assets") or []), platform, machine),
     )
 
 

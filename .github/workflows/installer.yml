@@ -135,6 +135,8 @@ jobs:
           відкрийте його й перетягніть AutoPara у «Програми». Застосунок не підписано, тож при першому
           запуску відкрийте його через контекстне меню → «Відкрити».
 
+          **macOS (Intel):** те саме, але файл **AutoPara-${{ steps.version.outputs.version }}-Intel.dmg**.
+
           Зібрано з ${{ github.sha }}.
           "@
           gh release create $tag "dist/${{ steps.version.outputs.setup }}" `
@@ -204,6 +206,78 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: AutoPara-${{ steps.plan.outputs.version }}-macOS
+          path: dist/${{ steps.plan.outputs.dmg }}
+          if-no-files-found: error
+
+      - name: Attach the image to the release
+        if: steps.plan.outputs.build == 'true'
+        run: gh release upload "v${{ steps.plan.outputs.version }}" "dist/${{ steps.plan.outputs.dmg }}" --clobber
+
+  # The same image for Macs with an Intel processor, built on an Intel runner (an Apple Silicon one
+  # cannot produce an Intel bundle: PyInstaller bundles the interpreter it runs on). It waits for the
+  # Apple Silicon job so that file is always the first .dmg a release holds -- copies of AutoPara
+  # that predate the Intel image take the first .dmg they find.
+  build-mac-intel:
+    needs: build-mac
+    runs-on: macos-15-intel
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Decide whether this version needs an Intel image
+        id: plan
+        run: |
+          version=$(sed -n 's/^!define[[:space:]]*APP_VERSION[[:space:]]*"\([^"]*\)".*/\1/p' installer/AutoPara.nsi | head -1)
+          dmg="AutoPara-$version-Intel.dmg"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "dmg=$dmg" >> "$GITHUB_OUTPUT"
+          have=$(gh release view "v$version" --json assets -q "[.assets[].name | select(. == \"$dmg\")] | length" 2>/dev/null || echo none)
+          if [ "$have" = "none" ]; then
+            echo "No release v$version exists, so there is nothing to attach an image to."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          elif [ "$have" != "0" ]; then
+            echo "v$version already has its Intel image."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-python@v5
+        if: steps.plan.outputs.build == 'true'
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        if: steps.plan.outputs.build == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install pyinstaller pytest
+
+      - name: Run the tests
+        if: steps.plan.outputs.build == 'true'
+        run: python -m pytest -q
+
+      - name: Build the application and the disk image
+        if: steps.plan.outputs.build == 'true'
+        run: python build_mac.py
+
+      - name: Check the image was produced and is for Intel
+        if: steps.plan.outputs.build == 'true'
+        run: |
+          test -f "dist/${{ steps.plan.outputs.dmg }}"
+          ls -lh "dist/${{ steps.plan.outputs.dmg }}"
+          file dist/AutoPara.app/Contents/MacOS/* | head -3
+
+      - name: Upload the image as a workflow artifact
+        if: steps.plan.outputs.build == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoPara-${{ steps.plan.outputs.version }}-macOS-Intel
           path: dist/${{ steps.plan.outputs.dmg }}
           if-no-files-found: error
 

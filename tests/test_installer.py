@@ -288,8 +288,9 @@ class TestMacImage:
         from autopara.core import updater
 
         build = (Path(__file__).resolve().parents[1] / "build_mac.py").read_text(encoding="utf-8")
-        assert 'f"AutoPara-{__version__}.dmg"' in build
-        assert updater.MAC_ASSET.match(f"AutoPara-{__version__}.dmg")
+        assert "mac_asset_name(__version__)" in build, "the build and the updater share one naming rule"
+        for machine in ("arm64", "x86_64"):
+            assert updater.MAC_ASSET.match(updater.mac_asset_name(__version__, machine))
 
     def test_the_workflow_builds_and_attaches_it(self):
         flow = (Path(__file__).resolve().parents[1] / ".github" / "workflows" / "installer.yml").read_text(
@@ -297,3 +298,17 @@ class TestMacImage:
         )
         assert "python build_mac.py" in flow and "gh release upload" in flow
         assert "AutoPara-$version.dmg" in flow
+
+    def test_the_workflow_also_builds_the_intel_image_after_the_apple_silicon_one(self):
+        flow = (Path(__file__).resolve().parents[1] / ".github" / "workflows" / "installer.yml").read_text(
+            encoding="utf-8"
+        )
+        assert "\n  build-mac-intel:\n" in flow
+        job = flow.split("\n  build-mac-intel:\n", 1)[1]
+        runner = re.search(r"runs-on:\s*(\S+)", job).group(1)
+        assert "intel" in runner, "an Intel bundle can only be built on an Intel runner"
+        assert re.search(r"needs:\s*build-mac\s*$", job, re.MULTILINE), (
+            "the Apple Silicon image must be the release's first .dmg"
+        )
+        assert "AutoPara-$version-Intel.dmg" in job and "python build_mac.py" in job
+        assert "gh release upload" in job

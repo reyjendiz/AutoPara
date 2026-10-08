@@ -120,8 +120,52 @@ class TestParsingAReleaseObject:
         assert release.asset.sha256 == hashlib.sha256(b"installer-bytes").hexdigest()
 
     def test_each_platform_gets_its_own_file(self):
-        assert updater.parse_release(payload(), "darwin").asset.name == "AutoPara-1.6.0.dmg"
+        assert updater.parse_release(payload(), "darwin", "arm64").asset.name == "AutoPara-1.6.0.dmg"
         assert updater.parse_release(payload(), "linux").asset is None
+
+
+class TestMacImagePerProcessor:
+    """An Intel Mac and an Apple Silicon Mac each get the image that runs on them, and only that."""
+
+    ARM = f"https://github.com/{REPO}/releases/download/v1.7.5/AutoPara-1.7.5.dmg"
+    INTEL = f"https://github.com/{REPO}/releases/download/v1.7.5/AutoPara-1.7.5-Intel.dmg"
+
+    def assets(self, *names):
+        urls = {"AutoPara-1.7.5.dmg": self.ARM, "AutoPara-1.7.5-Intel.dmg": self.INTEL}
+        return [{"name": n, "browser_download_url": urls[n], "size": 1} for n in names]
+
+    def test_the_names_the_build_writes(self):
+        assert updater.mac_asset_name("1.7.5", "arm64") == "AutoPara-1.7.5.dmg"
+        assert updater.mac_asset_name("1.7.5", "x86_64") == "AutoPara-1.7.5-Intel.dmg"
+        assert updater.mac_asset_name("1.7.5", "AMD64") == "AutoPara-1.7.5-Intel.dmg"
+
+    @pytest.mark.parametrize("machine,expected", [
+        ("arm64", "AutoPara-1.7.5.dmg"), ("x86_64", "AutoPara-1.7.5-Intel.dmg"),
+    ])
+    def test_each_processor_takes_its_own_image_whatever_the_order(self, machine, expected):
+        for order in (("AutoPara-1.7.5.dmg", "AutoPara-1.7.5-Intel.dmg"),
+                      ("AutoPara-1.7.5-Intel.dmg", "AutoPara-1.7.5.dmg")):
+            picked = updater.pick_asset(self.assets(*order), "darwin", machine)
+            assert picked.name == expected
+
+    def test_an_intel_mac_is_not_offered_an_apple_silicon_only_release(self):
+        """Every release up to 1.7.4 has one image, built for Apple Silicon."""
+        assert updater.pick_asset(self.assets("AutoPara-1.7.5.dmg"), "darwin", "x86_64") is None
+
+    def test_an_apple_silicon_mac_is_not_offered_the_intel_image(self):
+        assert updater.pick_asset(self.assets("AutoPara-1.7.5-Intel.dmg"), "darwin", "arm64") is None
+
+    def test_the_processor_does_not_matter_on_windows(self):
+        windows = [{"name": "AutoPara-1.7.5-Setup.exe", "size": 1,
+                    "browser_download_url": f"https://github.com/{REPO}/releases/download/v1.7.5/AutoPara-1.7.5-Setup.exe"}]
+        assert updater.pick_asset(windows, "win32", "x86_64").name == "AutoPara-1.7.5-Setup.exe"
+        assert updater.pick_asset(windows, "win32", "arm64").name == "AutoPara-1.7.5-Setup.exe"
+
+    def test_the_machine_defaults_to_this_one(self, monkeypatch):
+        monkeypatch.setattr(updater.platform_module, "machine", lambda: "x86_64")
+        assert updater.mac_asset_name("1.7.5") == "AutoPara-1.7.5-Intel.dmg"
+        monkeypatch.setattr(updater.platform_module, "machine", lambda: "arm64")
+        assert updater.mac_asset_name("1.7.5") == "AutoPara-1.7.5.dmg"
 
     def test_a_draft_or_a_prerelease_is_not_offered(self):
         assert updater.parse_release(payload(draft=True), "win32") is None
