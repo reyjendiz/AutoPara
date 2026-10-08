@@ -545,6 +545,12 @@ the accent colour was the alternative, and a solid coloured square does not read
   the pointer near the screen's edge) instead of Qt's, and every `QMenu` is made frameless and
   translucent just before it is first shown, so the stylesheet's `border-radius` has something to
   round.
+- **A month tile fits its chips to its height.** A crowded day used to squeeze its chips upward
+  until they sat on top of the date number (a Monday with three classes and "ще 1" showed it in
+  every real timetable). `DayTile._fit_chips` draws as many chips as the tile is tall enough for,
+  counts the rest in "ще N", and calls `layout().activate()` straight after hiding some, because
+  hiding a widget only *schedules* a layout and the chips that stay would otherwise keep the
+  squeezed geometry of the pass in which they were all competing for the room.
 - **A card's slot must not paint.** Two classes that touch within an hour share a grid row, and the
   later one's opaque slot covered the bottom of the earlier card. `#CardSlot` is transparent;
   `tests/test_visual.py` checks the pixels.

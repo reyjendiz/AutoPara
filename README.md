@@ -1,18 +1,37 @@
 # AutoPara — автозапуск пар
 
-A Windows tray app that imports a university timetable from a `.docx`, shows the week as a calendar
-grid, and opens each class's Zoom / Google Meet link in the default browser a minute before it
-starts. **The application's interface is Ukrainian**; this README and the design docs are English,
-for whoever maintains it.
+A Windows and macOS tray app for students. It imports a university timetable from a `.docx`, shows
+it as a day, week or month calendar, and opens each class's Zoom or Google Meet link in your browser
+a minute before the class starts — so all that is left to do is be there. **The application's
+interface is Ukrainian**; this README and the design docs are English, for whoever maintains it.
 
-The interface is a light, friendly "education app" look: white cards on a soft grey canvas, one
-near-black anchor for whatever is active (today's date, the primary button, the "now" line), and
-pastel colour only where it carries meaning — a subject, a status. It has a dark theme that inverts
-the same pair. The chrome is a floating icon pill down the left rather than a toolbar across the
-top, because the week grid is wide and short and a top bar spends the height a calendar is always
-short of.
+- **Opens each class once, on time** — including when the app was closed for a while: a class you
+  missed is never opened behind your back, you are asked.
+- **Day, week and month**, with a search box, a subject filter and a group filter, and a small pill
+  that says what is on or next today.
+- **Editable in place**: click a slot to add a class, drag one to move it (in the week, the day and
+  the month). Moving a class that repeats asks whether to move only that date or the whole series.
+- **One timetable, every group**: import once, switch course and group without importing again.
+- **Light and dark themes**, following the system until you pin one. Windows installer, and macOS
+  disk images for Apple Silicon and Intel.
 
-![week grid](docs/week-grid.png)
+The interface is a light, friendly "education app" look: white cards on a soft grey canvas, each
+subject tinting its own cards so a week reads at a glance, one near-black anchor for whatever is
+active (today's date, the primary button, the "now" line), and pastel colour only where it carries
+meaning — a subject, a status. The dark theme inverts the same pair. The chrome is a floating icon
+pill down the left rather than a toolbar across the top, because the week grid is wide and short
+and a top bar spends the height a calendar is always short of. Moving between periods and views is
+a morph rather than a slide: a class that is on both sides of the change grows from its old shape
+into the new one.
+
+![The week, in the light theme](docs/week-grid.png)
+
+| Dark theme | Month |
+| --- | --- |
+| ![The week, in the dark theme](docs/week-grid-dark.png) | ![The month](docs/month-view.png) |
+
+*The pictures are rendered from an invented sample timetable by `python tools/screenshots.py`; the
+clock in them is pinned to a Monday morning.*
 
 ## Install
 

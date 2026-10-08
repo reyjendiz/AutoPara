@@ -39,6 +39,10 @@ python tools/bump_version.py --show    # version + release state; --set X.Y.Z to
   checks also run against it, asserting only what holds for any revision and reading the expected
   numbers from the file, so a new revision cannot break them. Without it those variants skip, and
   pytest's header prints which file it used or `NOT FOUND`.
+- **README pictures.** `python tools/screenshots.py` renders `docs/week-grid.png`,
+  `docs/week-grid-dark.png` and `docs/month-view.png` headless from the synthetic sample timetable,
+  with the clock pinned to a Monday morning (so today's date, the "now" line and the pill beside the
+  title all show). Re-run it after any visual change; nothing personal is in the pictures.
 - **Isolated manual run** (does not touch the real profile or the login item):
   `HOME=<tmp> APPDATA=<tmp> python -m autopara --no-rebuild`. A source run with the default `HOME`
   rewrites `~/Library/LaunchAgents/com.autopara.app.plist`.

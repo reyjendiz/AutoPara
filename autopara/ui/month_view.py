@@ -35,7 +35,9 @@ from . import icons, transitions
 from .class_card import LESSON_MIME, card_fill, drag_payload, read_drag_payload, subject_color
 
 WEEKS = 6                # a month always occupies six rows, so it never changes height
-MAX_CHIPS = 3            # more than this and the rest are counted, not drawn
+MAX_CHIPS = 3            # more than this and the rest are counted, not drawn (fewer if the tile is short)
+TILE_MARGIN_V = 6        # the tile's own padding, top and bottom
+TILE_SPACING = 2
 CELL_MIN_HEIGHT = 92
 DATE_CIRCLE = 28
 
@@ -163,8 +165,8 @@ class DayTile(QFrame):
         self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Expanding)
 
         column = QVBoxLayout(self)
-        column.setContentsMargins(8, 6, 8, 6)
-        column.setSpacing(2)
+        column.setContentsMargins(8, TILE_MARGIN_V, 8, TILE_MARGIN_V)
+        column.setSpacing(TILE_SPACING)
 
         top = QHBoxLayout()
         top.setContentsMargins(0, 0, 0, 0)
@@ -193,16 +195,53 @@ class DayTile(QFrame):
             chip = MonthChip(lesson, status)
             self.chips.append(chip)
             column.addWidget(chip)
-        hidden = len(entries) - MAX_CHIPS
-        if hidden > 0:
-            more = QLabel(f"ще {hidden}")
-            more.setObjectName("MonthMore")
-            column.addWidget(more)
+        # What is not drawn is counted instead. The count is made here and again whenever the tile
+        # is resized, because how many chips fit depends on how tall the tile is.
+        self._beyond_cap = max(0, len(entries) - MAX_CHIPS)
+        self._more = QLabel("")
+        self._more.setObjectName("MonthMore")
+        self._more.hide()
+        column.addWidget(self._more)
         column.addStretch(1)
+        self._fit_chips()
 
         count = len(entries)
         if count:
             self.setToolTip(f"{count} {pairs_word(count)}")
+
+    def _fit_chips(self) -> None:
+        """Draw as many chips as the tile is tall enough for and say "ще N" for the rest.
+
+        A crowded day used to squeeze its chips upward until they sat on top of the date. The date
+        row and the "ще N" line are kept; the chips are what gives way.
+        """
+        total_hidden = self._beyond_cap
+        if self.chips:
+            height = self.height()
+            if height > 2 * TILE_MARGIN_V:  # laid out: before that, every chip fits by definition
+                chip = self.chips[0].sizeHint().height()
+                more = self._more.sizeHint().height()
+                room = height - 2 * TILE_MARGIN_V - DATE_CIRCLE - TILE_SPACING
+                everything = len(self.chips) * chip + (len(self.chips) - 1) * TILE_SPACING
+                if everything <= room and not self._beyond_cap:
+                    shown = len(self.chips)
+                else:
+                    shown = max(0, (room - more - TILE_SPACING + TILE_SPACING) // (chip + TILE_SPACING))
+                    shown = min(shown, len(self.chips))
+            else:
+                shown = len(self.chips)
+            for position, widget in enumerate(self.chips):
+                widget.setVisible(position < shown)
+            total_hidden += len(self.chips) - shown
+        self._more.setText(f"ще {total_hidden}")
+        self._more.setVisible(total_hidden > 0)
+        # Hiding a widget only *schedules* a new layout; until it runs, the chips that stay are
+        # still the squeezed ones from when every chip was competing for the room.
+        self.layout().activate()
+
+    def resizeEvent(self, event):  # noqa: N802 - Qt naming
+        super().resizeEvent(event)
+        self._fit_chips()
 
     def enterEvent(self, event):  # noqa: N802 - Qt naming
         self.add_button.show()

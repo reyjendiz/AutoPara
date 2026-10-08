@@ -127,9 +127,9 @@ class TestMonthMaths:
 
 
 class TestMonthView:
-    def render(self, qapp, lessons, statuses=None, first=date(2026, 3, 1), today=MONDAY):
+    def render(self, qapp, lessons, statuses=None, first=date(2026, 3, 1), today=MONDAY, height=700):
         view = MonthView()
-        view.resize(1100, 700)
+        view.resize(1100, height)
         view.render_month(first, lessons, statuses, today)
         view.show()
         qapp.processEvents()
@@ -165,11 +165,43 @@ class TestMonthView:
     def test_a_crowded_day_counts_what_it_does_not_draw(self, qapp):
         crowd = [lesson(n, MONDAY, start_time=f"{8 + n:02d}:00", end_time=f"{9 + n:02d}:00")
                  for n in range(1, MAX_CHIPS + 3)]
-        view = self.render(qapp, crowd)
+        view = self.render(qapp, crowd, height=1000)  # tall enough for the most a tile draws
         tile = self.tile(view, MONDAY)
-        assert len(self.chips(tile)) == MAX_CHIPS
+        shown = [c for c in tile.chips if c.isVisible()]
+        assert len(shown) == MAX_CHIPS
         more = [l.text() for l in tile.findChildren(QLabel) if l.objectName() == "MonthMore"]
         assert more == ["ще 2"]
+
+    def test_a_short_tile_draws_fewer_chips_and_counts_the_rest(self, qapp):
+        crowd = [lesson(n, MONDAY, start_time=f"{8 + n:02d}:00", end_time=f"{9 + n:02d}:00")
+                 for n in range(1, MAX_CHIPS + 3)]
+        view = self.render(qapp, crowd, height=520)
+        tile = self.tile(view, MONDAY)
+        shown = [c for c in tile.chips if c.isVisible()]
+        assert len(shown) < MAX_CHIPS
+        more = next(l for l in tile.findChildren(QLabel) if l.objectName() == "MonthMore")
+        assert more.isVisible() and more.text() == f"ще {len(crowd) - len(shown)}"
+
+    def test_the_chips_never_overlap_the_date(self, qapp):
+        """The bug a crowded Monday showed: chips squeezed upward until they sat on the date."""
+        from autopara.ui.month_view import DATE_CIRCLE
+
+        crowd = [lesson(n, MONDAY, start_time=f"{8 + n:02d}:00", end_time=f"{9 + n:02d}:00")
+                 for n in range(1, MAX_CHIPS + 3)]
+        for height in (420, 520, 700, 1000):
+            view = self.render(qapp, crowd, height=height)
+            tile = self.tile(view, MONDAY)
+            date_bottom = DATE_CIRCLE + 6
+            for chip in tile.chips:
+                if chip.isVisible():
+                    assert chip.geometry().top() >= date_bottom, f"overlap at height {height}"
+                    assert chip.geometry().bottom() <= tile.height(), f"clipped at height {height}"
+
+    def test_a_tile_with_room_hides_nothing(self, qapp):
+        view = self.render(qapp, [lesson(1, MONDAY)], height=1000)
+        tile = self.tile(view, MONDAY)
+        assert all(c.isVisible() for c in tile.chips)
+        assert not any(l.isVisible() for l in tile.findChildren(QLabel) if l.objectName() == "MonthMore")
 
     def test_chips_are_in_time_order(self, qapp):
         late = lesson(1, MONDAY, start_time="15:00", end_time="16:00")
