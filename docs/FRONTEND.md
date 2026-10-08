@@ -503,7 +503,8 @@ the accent colour was the alternative, and a solid coloured square does not read
   The full correction (4/3) was too large for so dense a window, so a Mac gets a step between the
   two and Windows none.
   The system entries after it in `FONT_STACK` exist only for the case where the bundled files fail
-  to load.
+  to load. **Windows is the exception:** `theme.font_stack()` returns `WINDOWS_FONT_STACK`, which
+  leads with Segoe UI (Inter is only its fallback); macOS keeps Inter.
 - Never encode meaning in colour alone — every coloured state also carries an icon or text label.
 
 ### Things Qt does not do for you

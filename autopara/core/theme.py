@@ -27,8 +27,16 @@ PERSONALIZE_KEY = r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize
 
 # Inter ships with the app (``ui/fonts``) under the SIL Open Font License, so it is redistributed
 # like any other open font and nobody has to have it installed. The system faces after it are what
-# each platform falls back to if the bundled files ever fail to load.
+# each platform falls back to if the bundled files ever fail to load. Windows is the exception: it
+# is set in its own Segoe UI, and Inter is only the fallback there. macOS (and anything else) keeps
+# Inter first.
 FONT_STACK = ("Inter", "Segoe UI Variable Text", "Segoe UI", "-apple-system", "Helvetica Neue", "Arial")
+WINDOWS_FONT_STACK = ("Segoe UI", "Segoe UI Variable Text", "Inter", "Arial")
+
+
+def font_stack() -> tuple[str, ...]:
+    """The families to try, in order, on this platform."""
+    return WINDOWS_FONT_STACK if sys.platform == "win32" else FONT_STACK
 
 
 try:  # winreg exists only on Windows; keep the module importable elsewhere for tests.
@@ -210,24 +218,25 @@ def token(name: str) -> str:
 
 
 def interface_font() -> str:
-    """The first family of ``FONT_STACK`` that Qt actually has.
+    """The first family of ``font_stack()`` that Qt actually has.
 
     Resolved here rather than written into the stylesheet as a comma-separated list: Qt honours
     only the first family in such a list, so a missing Inter would not fall through to Segoe
     UI -- it would fall through to a default with no glyphs at all, and the whole interface would
     render as empty boxes.
     """
+    stack = font_stack()
     try:
         from PySide6.QtGui import QFontDatabase, QGuiApplication
     except ImportError:  # pragma: no cover - Qt is a hard dependency of the app itself
-        return FONT_STACK[-1]
+        return stack[-1]
     if QGuiApplication.instance() is None:
-        return FONT_STACK[-1]
+        return stack[-1]
     available = set(QFontDatabase.families())
-    for family in FONT_STACK:
+    for family in stack:
         if family in available:
             return family
-    return FONT_STACK[-1]
+    return stack[-1]
 
 
 def _asset_dir() -> Path:
@@ -372,9 +381,11 @@ __all__ = [
     "THEME_DARK",
     "THEME_LIGHT",
     "THEME_SYSTEM",
+    "WINDOWS_FONT_STACK",
     "active",
     "apply",
     "chevron_icon",
+    "font_stack",
     "interface_font",
     "is_dark",
     "next_theme",

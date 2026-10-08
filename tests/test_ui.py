@@ -942,8 +942,17 @@ class TestInterfaceFont:
         from PySide6.QtGui import QFontDatabase
 
         family = theme.interface_font()
-        assert family in theme.FONT_STACK
-        assert family in QFontDatabase.families() or family == theme.FONT_STACK[-1]
+        assert family in theme.font_stack()
+        assert family in QFontDatabase.families() or family == theme.font_stack()[-1]
+
+    def test_windows_leads_with_segoe_ui_and_everything_else_with_inter(self, monkeypatch):
+        import sys
+
+        monkeypatch.setattr(sys, "platform", "win32")
+        assert theme.font_stack()[0] == "Segoe UI"
+        for platform in ("darwin", "linux"):
+            monkeypatch.setattr(sys, "platform", platform)
+            assert theme.font_stack()[0] == "Inter"
 
     def test_the_stylesheet_names_exactly_one_family(self):
         rendered = theme.stylesheet(THEME_LIGHT)
@@ -970,7 +979,8 @@ class TestInterfaceFont:
         from autopara.app import _load_fonts
 
         _load_fonts()
-        assert theme.interface_font() == "Inter"
+        # Windows is set in Segoe UI and everything else in Inter, but Inter is always registered.
+        assert theme.interface_font() == theme.font_stack()[0]
         assert {"Regular", "Medium", "SemiBold", "Bold", "ExtraBold"} <= set(
             QFontDatabase.styles("Inter")
         )
