@@ -11,13 +11,14 @@ so that nothing waits on a clock).
   picture is used rather than animating the live widgets because the live ones are rebuilt from the
   database on every change: there is nothing steady to move.
 * **Popups** (menus, tooltips, dialogs) fade in by animating the window's own opacity.
+* **Round "+" buttons** ease their hover fill in and out (``FadeButton``).
 """
 
 from __future__ import annotations
 
 from PySide6.QtCore import QEasingCurve, QPropertyAnimation, QTimer, QVariantAnimation, Qt, Signal
 from PySide6.QtGui import QColor, QPainter, QPixmap
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QPushButton, QWidget
 
 from ..core import theme
 
@@ -147,3 +148,84 @@ def fade_in(widget: QWidget, duration: int = FADE_MS) -> QPropertyAnimation | No
     widget._fade = animation
     animation.start()
     return animation
+
+
+HOVER_MS = 220         # a round button's fill easing in or out under the pointer
+
+
+class FadeButton(QPushButton):
+    """A round button whose hover fill fades in and out instead of switching.
+
+    QSS has no ``transition``, so the fill is painted here: the stylesheet leaves the button
+    transparent and ``paintEvent`` draws a disc in a colour mixed between the resting and the
+    hovered token, ``HOVER_MS`` long, ease-in-out. The two colours are close in tone on purpose,
+    so what moves is a hint, not a jump. Tokens are read at paint time, so a theme change needs
+    nothing from here. ``rest=None`` is a button with no fill at rest.
+    """
+
+    def __init__(self, text: str = "", rest: str | None = None, hover: str = "chip_bg",
+                 pressed: str = "border", parent: QWidget | None = None):
+        super().__init__(text, parent)
+        self._rest, self._hover, self._pressed = rest, hover, pressed
+        self._level = 0.0
+        self._fade: QVariantAnimation | None = None
+
+    def _glide_to(self, goal: float) -> None:
+        if self._fade is not None:
+            self._fade.stop()
+            self._fade = None
+        if not ENABLED or not self.isVisible():
+            self._level = goal
+            self.update()
+            return
+        fade = QVariantAnimation(self)
+        fade.setStartValue(self._level)
+        fade.setEndValue(goal)
+        fade.setDuration(HOVER_MS)
+        fade.setEasingCurve(QEasingCurve.InOutQuad)
+        fade.valueChanged.connect(self._set_level)
+        self._fade = fade
+        fade.start()
+
+    def _set_level(self, value) -> None:
+        self._level = float(value)
+        self.update()
+
+    def _fill(self) -> QColor:
+        if self.isDown():
+            return QColor(theme.token(self._pressed))
+        hover = QColor(theme.token(self._hover))
+        if self._rest is None:
+            hover.setAlphaF(self._level)  # fade the tint in rather than blending through black
+            return hover
+        rest, t = QColor(theme.token(self._rest)), self._level
+        return QColor(
+            round(rest.red() + (hover.red() - rest.red()) * t),
+            round(rest.green() + (hover.green() - rest.green()) * t),
+            round(rest.blue() + (hover.blue() - rest.blue()) * t),
+        )
+
+    def enterEvent(self, event):  # noqa: N802 - Qt naming
+        self._glide_to(1.0)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):  # noqa: N802 - Qt naming
+        self._glide_to(0.0)
+        super().leaveEvent(event)
+
+    def hideEvent(self, event):  # noqa: N802 - Qt naming
+        # A hidden button never hears the pointer leave; come back at rest.
+        self._glide_to(0.0)
+        super().hideEvent(event)
+
+    def paintEvent(self, event):  # noqa: N802 - Qt naming
+        fill = self._fill()
+        if fill.alpha():
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.Antialiasing)
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(fill)
+            radius = min(self.width(), self.height()) / 2
+            painter.drawRoundedRect(self.rect(), radius, radius)
+            painter.end()
+        super().paintEvent(event)

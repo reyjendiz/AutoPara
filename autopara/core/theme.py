@@ -25,10 +25,10 @@ STYLESHEET = Path(__file__).resolve().parents[1] / "ui" / "styles.qss"
 
 PERSONALIZE_KEY = r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
 
-# Manrope ships with the app (``ui/fonts``) under the SIL Open Font License, so it is redistributed
+# Inter ships with the app (``ui/fonts``) under the SIL Open Font License, so it is redistributed
 # like any other open font and nobody has to have it installed. The system faces after it are what
 # each platform falls back to if the bundled files ever fail to load.
-FONT_STACK = ("Manrope", "Segoe UI Variable Text", "Segoe UI", "-apple-system", "Helvetica Neue", "Arial")
+FONT_STACK = ("Inter", "Segoe UI Variable Text", "Segoe UI", "-apple-system", "Helvetica Neue", "Arial")
 
 
 try:  # winreg exists only on Windows; keep the module importable elsewhere for tests.
@@ -213,7 +213,7 @@ def interface_font() -> str:
     """The first family of ``FONT_STACK`` that Qt actually has.
 
     Resolved here rather than written into the stylesheet as a comma-separated list: Qt honours
-    only the first family in such a list, so a missing Manrope would not fall through to Segoe
+    only the first family in such a list, so a missing Inter would not fall through to Segoe
     UI -- it would fall through to a default with no glyphs at all, and the whole interface would
     render as empty boxes.
     """

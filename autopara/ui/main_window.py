@@ -48,6 +48,7 @@ from ..importer.normalize import (
 )
 from . import icons, transitions
 from .catchup_banner import CatchupBanner
+from .clock_bar import ClockBar
 from .edit_dialog import EditDialog
 from .group_dialog import GroupDialog
 from .import_landing import ImportLanding
@@ -183,7 +184,9 @@ class MainWindow(QMainWindow):
         stack.setSpacing(2)
 
         self.add_button = self._icon_button(
-            "Додати пару", lambda: self._edit_lesson(None, day=self.anchor)
+            "Додати пару",
+            lambda: self._edit_lesson(None, day=self.anchor),
+            button=transitions.FadeButton("", rest="rail_primary_bg"),
         )
         self.add_button.setObjectName("PrimaryRound")
         self.add_button.setFixedSize(40, 40)
@@ -205,15 +208,18 @@ class MainWindow(QMainWindow):
         stack.addWidget(self.theme_button, 0, Qt.AlignHCenter)
 
         column.addWidget(pill, 0, Qt.AlignHCenter)
+
+        self.clock = ClockBar()
+        column.addWidget(self.clock, 0, Qt.AlignHCenter)
         return bar
 
-    def _icon_button(self, tooltip: str, handler) -> QPushButton:
+    def _icon_button(self, tooltip: str, handler, button: QPushButton | None = None) -> QPushButton:
         """Кнопка-значок 36x36 -- зручна для миші й не перетворює панель на суцільні кнопки.
 
         Текст лишається порожнім назавжди: значок ставить ``_refresh_icons`` після кожної зміни
         теми, бо значки малюються кодом і мають перефарбовуватися разом із нею.
         """
-        button = QPushButton("")
+        button = button or QPushButton("")
         button.setObjectName("IconButton")
         button.setFixedSize(36, 36)
         button.setIconSize(QSize(20, 20))
