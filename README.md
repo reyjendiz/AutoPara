@@ -16,7 +16,9 @@ short of.
 
 ## Install
 
-Download **`AutoPara-Setup.exe`** from the latest release and run it. That is the whole procedure.
+Download **`AutoPara-<version>-Setup.exe`** from the latest release and run it. That is the whole
+procedure. On a Mac, take **`AutoPara-<version>.dmg`** (Apple Silicon) or
+**`AutoPara-<version>-Intel.dmg`** (Intel) from the same release.
 
 The target PC needs **nothing preinstalled** — no Python, no Qt, no VC++ redistributable; they are
 all inside the installer. Windows 10/11 64-bit.
@@ -92,7 +94,17 @@ both fall back to their stock icons.
 - **Editable straight away** — no edit mode. **Left click joins the class**, which is the one thing
   the app exists for, so it costs one click. **Right click opens the actions menu** (open, edit,
   mark as opened or skipped, delete). Click an empty slot to create a class there, drag a class to
-  move it. A class with no link offers to add one instead of opening.
+  move it -- also in the month, onto another day. Moving a class that repeats asks whether to move
+  **only that date** (the rest of the series stays) or the whole series. A class with no link offers
+  to add one instead of opening.
+- **Search and filters.** A search box finds a class by subject or teacher (Enter jumps to the next
+  match, Shift+Enter to the previous one, Ctrl+F focuses the box), a drop-down shows only one
+  subject, and another drop-down shows another group of the same course. The count says how much was
+  found.
+- **Day, week and month**, and a small pill beside the title that says what is on or next today.
+  Moving between periods and views is a morph: a class on both sides of the change grows from its old
+  shape into the new one, rather than the screen sliding. Each subject tints its cards, so a week can
+  be read at a glance.
 - **A real calendar day**, 08:00 to 18:00 in hourly rows, with each class drawn across the time it
   actually occupies rather than dropped into a slot — a 09:30 class starts halfway down the 09:00
   row. Columns are weekdays; the timetable repeats every week, so there are no dates and nothing to
@@ -144,6 +156,7 @@ Read these before changing anything:
 python -m pytest
 ```
 
-240 tests, about 30 seconds. Parser tests run against the real schedule document, which is not
-committed. Put it on the Desktop or set `AUTOPARA_TEST_DOCX` to its path; the tests skip if it
-cannot be found — so check the count, not just the colour.
+Around 670 tests, a few minutes. They run on a synthetic timetable built from code
+(`tests/sample_timetable.py`), so nothing needs to be installed or copied first. If you also have
+the real timetable (it is not committed: it holds live meeting links), put it on the Desktop or set
+`AUTOPARA_TEST_DOCX` to its path and the checks that hold for any timetable run against it as well.
