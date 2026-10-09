@@ -4,7 +4,7 @@ import android.Manifest
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
+import android.os.ParcelFileDescriptor
 import android.net.Uri
 import android.os.Build
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -30,7 +30,6 @@ import org.junit.Test
 import org.junit.rules.TestWatcher
 import org.junit.runner.Description
 import org.junit.runner.RunWith
-import java.io.File
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.temporal.TemporalAdjusters
@@ -66,19 +65,24 @@ class ScreenshotsTest {
         compose.activityRule.scenario.onActivity { block(ViewModelProvider(it)[MainViewModel::class.java]) }
     }
 
+    /**
+     * Pictures go to /data/local/tmp, written by the shell: unlike the app's own storage that survives
+     * Gradle uninstalling the app when the run ends, so the workflow can still `adb pull` them.
+     */
     private fun shot(name: String) {
         compose.waitForIdle()
         Thread.sleep(700) // let the last frame finish
-        val bitmap = instrumentation.uiAutomation.takeScreenshot() ?: return
-        // External files for `adb pull`, internal ones for `run-as` where the first is not readable.
-        for (dir in listOf(File(context.getExternalFilesDir(null), "screenshots"), File(context.filesDir, "screenshots"))) {
-            dir.mkdirs()
-            File(dir, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-        }
+        shellAndWait("screencap -p /data/local/tmp/shots/$name.png")
+    }
+
+    private fun shellAndWait(command: String): String {
+        val fd = instrumentation.uiAutomation.executeShellCommand(command)
+        return ParcelFileDescriptor.AutoCloseInputStream(fd).bufferedReader().use { it.readText() }
     }
 
     @Test
     fun takeTheScreenshots() {
+        shellAndWait("rm -rf /data/local/tmp/shots; mkdir -p /data/local/tmp/shots")
         runBlocking(Dispatchers.IO) { container.database.clearAllTables() }
         runBlocking { container.settings.setTheme(ThemeMode.LIGHT) }
         compose.waitUntil(15_000) { show("Імпортуйте розклад") }
