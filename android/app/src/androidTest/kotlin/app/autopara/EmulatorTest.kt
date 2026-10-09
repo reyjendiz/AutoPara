@@ -159,7 +159,11 @@ class EmulatorTest {
         clearDatabase()
         importSample()
         val lesson = selectedLessons().first()
-        viewModel { it.selectDate(LocalDate.now().with(TemporalAdjusters.nextOrSame(lesson.dayOfWeek))) }
+        // A tablet opens on the week grid, which has no "nothing found" message; this checks the day list.
+        viewModel {
+            it.setViewMode(app.autopara.data.ViewMode.DAY)
+            it.selectDate(LocalDate.now().with(TemporalAdjusters.nextOrSame(lesson.dayOfWeek)))
+        }
         compose.waitUntil(15_000) { showTextOnScreen(lesson.subject) }
 
         compose.onNodeWithContentDescription("Search").performClick()

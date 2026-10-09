@@ -15,10 +15,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.background
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -110,11 +110,11 @@ fun ScheduleScreen(
                 Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.search))
             }
             IconButton(onClick = { actions.onShift(-1) }) {
-                Icon(Icons.Filled.KeyboardArrowLeft, contentDescription = stringResource(R.string.nav_previous))
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = stringResource(R.string.nav_previous))
             }
             TextButton(onClick = actions.onToday) { Text(stringResource(R.string.today)) }
             IconButton(onClick = { actions.onShift(1) }) {
-                Icon(Icons.Filled.KeyboardArrowRight, contentDescription = stringResource(R.string.nav_next))
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = stringResource(R.string.nav_next))
             }
         }
 
@@ -301,10 +301,10 @@ private fun FilterBar(state: UiState, actions: ScheduleActions, onClose: () -> U
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (state.filter.isActive) {
                         IconButton(onClick = { actions.onJumpToMatch(-1) }) {
-                            Icon(Icons.Filled.KeyboardArrowLeft, contentDescription = stringResource(R.string.match_previous))
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = stringResource(R.string.match_previous))
                         }
                         IconButton(onClick = { actions.onJumpToMatch(1) }) {
-                            Icon(Icons.Filled.KeyboardArrowRight, contentDescription = stringResource(R.string.match_next))
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = stringResource(R.string.match_next))
                         }
                     }
                     IconButton(onClick = onClose) {
