@@ -82,7 +82,10 @@ class ScreenshotsTest {
 
     @Test
     fun takeTheScreenshots() {
-        shellAndWait("rm -rf /data/local/tmp/shots; mkdir -p /data/local/tmp/shots")
+        // One command per call: the shell wrapper does not understand `a; b`.
+        shellAndWait("rm -rf /data/local/tmp/shots")
+        shellAndWait("mkdir -p /data/local/tmp/shots")
+        shellAndWait("chmod 777 /data/local/tmp/shots")
         runBlocking(Dispatchers.IO) { container.database.clearAllTables() }
         runBlocking { container.settings.setTheme(ThemeMode.LIGHT) }
         compose.waitUntil(15_000) { show("Імпортуйте розклад") }
@@ -151,6 +154,12 @@ class ScreenshotsTest {
         Thread.sleep(1500)
         shot("10-notification")
         shell("cmd statusbar collapse")
+
+        // Fail here, not later in the workflow, if the pictures did not land.
+        val listing = shellAndWait("ls /data/local/tmp/shots")
+        for (name in listOf("01-import", "02-day", "05-month", "08-day-dark", "10-notification")) {
+            org.junit.Assert.assertTrue("$name.png missing; found: $listing", listing.contains("$name.png"))
+        }
     }
 
     private fun shell(command: String) {
