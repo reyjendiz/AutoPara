@@ -60,7 +60,7 @@ jobs:
         run: ./gradlew -PcoreOnly=true :core:test --console=plain
 
       - name: Build the app and run its unit tests
-        run: ./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug --console=plain
+        run: ./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest --console=plain
 
       - name: Upload the debug APK
         uses: actions/upload-artifact@v4

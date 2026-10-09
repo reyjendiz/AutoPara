@@ -1,0 +1,80 @@
+# Runs the Android app on emulators: installs the published release APK and launches it, then runs
+# the instrumented tests (import, screens, the exact alarm, the notification, the Zoom/Meet
+# fallbacks) on a phone and on a tablet, since the layout is meant to adapt to both.
+#
+# Hosted Linux runners expose KVM, which is what makes an x86_64 emulator fast enough for CI.
+# Screenshots and the logcat are attached to the run.
+
+name: Android emulator
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "android/**"
+      - ".github/workflows/android-emulator.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-emulator-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - profile: pixel_5
+            label: phone
+          - profile: pixel_tablet
+            label: tablet
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Run on the emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          PROFILE: ${{ matrix.label }}
+          OUT_DIR: ${{ github.workspace }}/emulator-out
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: ${{ matrix.profile }}
+          disable-animations: true
+          script: bash android/ci/emulator-run.sh
+
+      - name: Upload screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: emulator-${{ matrix.label }}
+          path: emulator-out
+          if-no-files-found: warn
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: emulator-reports-${{ matrix.label }}
+          path: android/app/build/reports

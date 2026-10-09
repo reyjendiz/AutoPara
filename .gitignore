@@ -11,3 +11,4 @@ dist/
 
 # The synthetic fixture the Android parser tests read (no personal content; see tests/sample_timetable.py).
 !android/core/src/test/resources/sample_timetable.docx
+!android/app/src/androidTest/assets/sample_timetable.docx
