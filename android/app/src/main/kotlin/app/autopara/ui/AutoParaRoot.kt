@@ -14,9 +14,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -47,7 +49,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.autopara.LocaleManager
 import app.autopara.R
+import app.autopara.notify.Notifications
 import app.autopara.core.model.Occurrence
 import app.autopara.core.model.Provider
 import app.autopara.link.LaunchResult
@@ -74,6 +78,7 @@ fun AutoParaRoot(viewModel: MainViewModel, windowSizeClass: WindowSizeClass) {
     val useRail = !compactWidth || windowSizeClass.heightSizeClass == WindowHeightSizeClass.Compact
 
     val snackbar = remember { SnackbarHostState() }
+    var language by remember { mutableStateOf(LocaleManager.current(context)) }
     var tab by rememberSaveable { mutableStateOf(Tab.SCHEDULE) }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -115,7 +120,12 @@ fun AutoParaRoot(viewModel: MainViewModel, windowSizeClass: WindowSizeClass) {
                     snackbarHost = { SnackbarHost(snackbar) },
                     containerColor = MaterialTheme.colorScheme.background,
                 ) { padding ->
-                    ImportScreen(state.importing, onPick = pickDocument, modifier = Modifier.padding(padding))
+                    ImportScreen(
+                        state.importing,
+                        onPick = pickDocument,
+                        onStartEmpty = { viewModel.startEmpty(context.getString(R.string.my_classes)) },
+                        modifier = Modifier.padding(padding),
+                    )
                 }
                 else -> {
                     val shift = { direction: Int ->
@@ -132,6 +142,8 @@ fun AutoParaRoot(viewModel: MainViewModel, windowSizeClass: WindowSizeClass) {
                         onClearFilter = viewModel::clearFilter,
                         onJumpToMatch = viewModel::jumpToMatch,
                         onGroup = viewModel::selectGroup,
+                        onEdit = { viewModel.startEdit(it.lesson.id, it.date) },
+                        onAddOnDay = { viewModel.startAdd(it) },
                     )
                     val reminderBanner: @Composable () -> Unit = {
                         ReminderBanner(
@@ -182,12 +194,28 @@ fun AutoParaRoot(viewModel: MainViewModel, windowSizeClass: WindowSizeClass) {
                             }
                             Box(Modifier.weight(1f).fillMaxHeight()) {
                                 when (tab) {
-                                    Tab.SCHEDULE -> ScheduleScreen(state, compactWidth, actions, banner = reminderBanner)
+                                    Tab.SCHEDULE -> {
+                                        ScheduleScreen(state, compactWidth, actions, banner = reminderBanner)
+                                        // The + on the home screen: add a class on the day being shown.
+                                        FloatingActionButton(
+                                            onClick = { viewModel.startAdd() },
+                                            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                                        ) {
+                                            Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.add_class))
+                                        }
+                                    }
                                     Tab.SETTINGS -> SettingsScreen(
                                         state = state,
                                         onTheme = { viewModel.setTheme(it) },
                                         onReminders = { viewModel.setRemindersEnabled(it) },
                                         onImport = pickDocument,
+                                        language = language,
+                                        onLanguage = { chosen ->
+                                            LocaleManager.save(context, chosen)
+                                            language = chosen
+                                            Notifications.ensureChannel(context) // the channel's name follows the language
+                                            context.findActivity()?.recreate()
+                                        },
                                         banner = reminderBanner,
                                     )
                                 }
@@ -197,10 +225,23 @@ fun AutoParaRoot(viewModel: MainViewModel, windowSizeClass: WindowSizeClass) {
                                     state = state,
                                     onOpen = openLink,
                                     onToggleSkip = { occurrence, skipped -> viewModel.setSkipped(occurrence, skipped) },
+                                    onEdit = { occurrence -> viewModel.startEdit(occurrence.lesson.id, occurrence.date) },
                                     modifier = Modifier.width(DETAIL_PANE_WIDTH).fillMaxHeight(),
                                 )
                             }
                         }
+                    }
+
+                    // The class editor (add or edit), shared by every screen size.
+                    state.editor?.let { editing ->
+                        LessonEditorDialog(
+                            initial = editing.draft,
+                            editing = editing.lessonId != null,
+                            shared = (state.lessons.firstOrNull { it.id == editing.lessonId }?.groupNames?.size ?: 0) > 1,
+                            onSave = viewModel::saveEditor,
+                            onDelete = { editing.lessonId?.let(viewModel::deleteLesson) },
+                            onDismiss = viewModel::closeEditor,
+                        )
                     }
 
                     // Below the expanded width the detail slides up as a sheet instead.
@@ -216,6 +257,7 @@ fun AutoParaRoot(viewModel: MainViewModel, windowSizeClass: WindowSizeClass) {
                                         app.autopara.core.model.OccurrenceStatus.SKIPPED
                                     viewModel.setSkipped(selected, !skipped)
                                 },
+                                onEdit = { viewModel.startEdit(selected.lesson.id, selected.date) },
                             )
                         }
                     }
@@ -233,6 +275,7 @@ private fun DetailSidePane(
     state: UiState,
     onOpen: (Occurrence) -> Unit,
     onToggleSkip: (Occurrence, Boolean) -> Unit,
+    onEdit: (Occurrence) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Surface(modifier, color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
@@ -261,6 +304,7 @@ private fun DetailSidePane(
                     status = status,
                     onOpen = { onOpen(shown) },
                     onToggleSkip = { onToggleSkip(shown, status != app.autopara.core.model.OccurrenceStatus.SKIPPED) },
+                    onEdit = { onEdit(shown) },
                 )
             }
         }

@@ -56,6 +56,8 @@ data class LessonEntity(
     /** ISO dates; null for a weekly template. */
     val onDay: String?,
     val repeatUntilDay: String?,
+    /** Added or created by the user rather than read from the timetable: kept across a re-import. */
+    val isManual: Boolean = false,
 )
 
 /** Which groups attend a lesson: a class shared by two groups has two rows. */

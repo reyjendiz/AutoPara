@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import app.autopara.AppLanguage
 import app.autopara.BuildConfig
 import app.autopara.R
 import app.autopara.data.ThemeMode
@@ -35,6 +36,8 @@ fun SettingsScreen(
     onTheme: (ThemeMode) -> Unit,
     onReminders: (Boolean) -> Unit,
     onImport: () -> Unit,
+    language: AppLanguage,
+    onLanguage: (AppLanguage) -> Unit,
     banner: @Composable () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -48,6 +51,29 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(stringResource(R.string.settings_title), style = MaterialTheme.typography.headlineSmall)
+
+            Section(stringResource(R.string.settings_language)) {
+                val languages = AppLanguage.entries
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    languages.forEachIndexed { index, option ->
+                        SegmentedButton(
+                            selected = language == option,
+                            onClick = { onLanguage(option) },
+                            shape = SegmentedButtonDefaults.itemShape(index, languages.size),
+                        ) {
+                            Text(
+                                stringResource(
+                                    when (option) {
+                                        AppLanguage.UKRAINIAN -> R.string.language_uk
+                                        AppLanguage.ENGLISH -> R.string.language_en
+                                        AppLanguage.SYSTEM -> R.string.language_system
+                                    },
+                                ),
+                            )
+                        }
+                    }
+                }
+            }
 
             Section(stringResource(R.string.settings_theme)) {
                 val modes = ThemeMode.entries

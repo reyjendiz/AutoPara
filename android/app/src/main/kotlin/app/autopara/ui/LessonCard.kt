@@ -1,6 +1,9 @@
 package app.autopara.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,7 +14,14 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.Icon
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -74,7 +84,11 @@ fun StatusText(status: OccurrenceStatus?) {
     Text(label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
-/** A class in the day list: subject colour bar, times, subject, teacher, link chip, status. */
+/**
+ * A class in the day list: subject colour bar, times, subject, teacher, link chip, status.
+ * A tap opens it, a long press -- or the pencil in the lower-right corner -- edits it.
+ */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun LessonCard(
     lesson: Lesson,
@@ -83,16 +97,21 @@ fun LessonCard(
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onEdit: (() -> Unit)? = null,
 ) {
     val skipped = status == OccurrenceStatus.SKIPPED
+    val shape = RoundedCornerShape(16.dp)
     Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
+        shape = shape,
         color = tintedFill(lesson.subject),
         tonalElevation = if (selected || ongoing) 3.dp else 0.dp,
         border = if (selected) androidx.compose.foundation.BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
-        modifier = modifier.alpha(if (skipped) 0.55f else 1f),
+        modifier = modifier
+            .alpha(if (skipped) 0.55f else 1f)
+            .clip(shape)
+            .combinedClickable(onClick = onClick, onLongClick = onEdit),
     ) {
+        Box {
         Row(Modifier.height(IntrinsicSize.Min)) {
             Box(
                 Modifier
@@ -125,5 +144,29 @@ fun LessonCard(
                 ProviderChip(lesson)
             }
         }
+        if (onEdit != null) {
+            EditBadge(onEdit, Modifier.align(Alignment.BottomEnd).padding(8.dp))
+        }
+        }
+    }
+}
+
+/** The small pencil in a tile's lower-right corner. */
+@Composable
+fun EditBadge(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .size(32.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            Icons.Filled.Edit,
+            contentDescription = androidx.compose.ui.res.stringResource(R.string.edit_class),
+            modifier = Modifier.size(16.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }

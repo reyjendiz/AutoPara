@@ -32,12 +32,13 @@ object Notifications {
 
     fun ensureChannel(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
+        val text = app.autopara.LocaleManager.wrap(context)
         val channel = NotificationChannel(
             CHANNEL_ID,
-            context.getString(R.string.channel_name),
+            text.getString(R.string.channel_name),
             NotificationManager.IMPORTANCE_HIGH,
         ).apply {
-            description = context.getString(R.string.channel_description)
+            description = text.getString(R.string.channel_description)
             enableVibration(true)
         }
         manager.createNotificationChannel(channel)
@@ -54,21 +55,23 @@ object Notifications {
     fun postReminder(context: Context, lesson: Lesson, day: LocalDate, now: LocalDateTime) {
         if (!areEnabled(context)) return
         ensureChannel(context)
+        // Strings come from the language chosen in the app; intents and the notification itself use the real context.
+        val text = app.autopara.LocaleManager.wrap(context)
         val id = notificationId(lesson.id, day)
         val start = lesson.startsOn(day)
         val provider = lesson.provider.takeIf { it != Provider.UNKNOWN } ?: MeetingLink.providerOf(lesson.url)
         val providerName = when (provider) {
-            Provider.ZOOM -> context.getString(R.string.provider_zoom)
-            Provider.GOOGLE_MEET -> context.getString(R.string.provider_meet)
-            Provider.UNKNOWN -> context.getString(R.string.provider_link)
+            Provider.ZOOM -> text.getString(R.string.provider_zoom)
+            Provider.GOOGLE_MEET -> text.getString(R.string.provider_meet)
+            Provider.UNKNOWN -> text.getString(R.string.provider_link)
         }
         val hasLink = MeetingLink.isOpenable(lesson.url)
         val whenText = if (now.isBefore(start)) {
-            context.getString(R.string.notif_starts_soon, start.format(timeFormat))
+            text.getString(R.string.notif_starts_soon, start.format(timeFormat))
         } else {
-            context.getString(R.string.notif_started, start.format(timeFormat))
+            text.getString(R.string.notif_started, start.format(timeFormat))
         }
-        val detail = if (hasLink) "$whenText · $providerName" else "$whenText · ${context.getString(R.string.notif_no_link)}"
+        val detail = if (hasLink) "$whenText · $providerName" else "$whenText · ${text.getString(R.string.notif_no_link)}"
 
         val open = PendingIntent.getActivity(
             context, id,
@@ -105,7 +108,7 @@ object Notifications {
                     .putExtra(EXTRA_URL, lesson.url),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
-            builder.addAction(0, context.getString(R.string.notif_join), join)
+            builder.addAction(0, text.getString(R.string.notif_join), join)
         }
         val skip = PendingIntent.getBroadcast(
             context, id,
@@ -114,7 +117,7 @@ object Notifications {
                 .setData(uri("skip", lesson.id, day)),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        builder.addAction(0, context.getString(R.string.notif_skip), skip)
+        builder.addAction(0, text.getString(R.string.notif_skip), skip)
 
         NotificationManagerCompat.from(context).notify(id, builder.build())
     }

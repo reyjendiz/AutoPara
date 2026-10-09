@@ -10,17 +10,27 @@ import android.net.Uri
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onLast
+import androidx.compose.ui.test.onNode
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.performTouchInput
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.GrantPermissionRule
+import app.autopara.AppLanguage
+import app.autopara.LocaleManager
 import app.autopara.core.model.Lesson
 import app.autopara.core.schedule.Reminders
 import app.autopara.link.LaunchResult
@@ -35,6 +45,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
+import org.junit.rules.TestWatcher
+import org.junit.runner.Description
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
@@ -50,11 +62,19 @@ import java.time.temporal.TemporalAdjusters
  */
 @RunWith(AndroidJUnit4::class)
 class EmulatorTest {
+    /** The app defaults to Ukrainian; these tests read English labels, so they ask for English first. */
     @get:Rule(order = 0)
+    val language = object : TestWatcher() {
+        override fun starting(description: Description) {
+            LocaleManager.save(ApplicationProvider.getApplicationContext(), AppLanguage.ENGLISH)
+        }
+    }
+
+    @get:Rule(order = 1)
     val permissions: GrantPermissionRule =
         GrantPermissionRule.grant(*(if (Build.VERSION.SDK_INT >= 33) arrayOf(Manifest.permission.POST_NOTIFICATIONS) else emptyArray()))
 
-    @get:Rule(order = 1)
+    @get:Rule(order = 2)
     val compose = createAndroidComposeRule<MainActivity>()
 
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -140,19 +160,19 @@ class EmulatorTest {
         clearDatabase()
         importSample()
         compose.waitUntil(15_000) { showTextOnScreen("Schedule") }
-        // The week grid is offered from the medium width up; a portrait phone only has day and month.
-        val hasWeek = showTextOnScreen("Week")
-        assertEquals("Week view offered iff the window is wide (width ${context.resources.configuration.screenWidthDp}dp)", !isNarrow(), hasWeek)
+        // Day, week and month are offered on every screen size, phone or tablet.
+        assertTrue(showTextOnScreen("Day") && showTextOnScreen("Week") && showTextOnScreen("Month"))
+        compose.onNodeWithText("Week").performClick()
+        compose.waitForIdle()
+        screenshot("03-week")
+        compose.onNodeWithText("Month").performClick()
+        compose.waitForIdle()
+        screenshot("03-month")
         if (isTablet()) {
-            compose.onNodeWithText("Week").performClick()
-            compose.waitForIdle()
             // A tablet keeps a permanent details pane beside the calendar.
             assertTrue(showTextOnScreen("Up next") || showTextOnScreen("Select a class to see its details"))
         }
-        screenshot("03-layout")
     }
-
-    private fun isNarrow() = context.resources.configuration.screenWidthDp < 600
 
     @Test
     fun searchNarrowsTheDay() {
@@ -264,5 +284,133 @@ class EmulatorTest {
         val meet = MeetingLauncher.open(context, "https://meet.google.com/aaa-bbbb-ccc")
         assertTrue("unexpected result: $meet", meet is LaunchResult.OpenedInBrowser || meet is LaunchResult.OpenedStore)
         instrumentation.uiAutomation.executeShellCommand("input keyevent KEYCODE_HOME").close()
+    }
+
+    // ------------------------------------------------------------------ adding and editing classes
+
+    private fun showDay(lesson: Lesson) {
+        viewModel {
+            it.setViewMode(app.autopara.data.ViewMode.DAY)
+            it.dismissDetail()
+            it.selectDate(LocalDate.now().with(TemporalAdjusters.nextOrSame(lesson.dayOfWeek)))
+        }
+        compose.waitUntil(15_000) { showTextOnScreen(lesson.subject) }
+        compose.waitForIdle()
+    }
+
+    private fun editorField(label: String) = compose.onNode(hasSetTextAction() and hasText(label))
+
+    @Test
+    fun theHomePlusAddsAClass() {
+        clearDatabase()
+        importSample()
+        val anchor = selectedLessons().first()
+        showDay(anchor)
+
+        compose.onNodeWithContentDescription("Add class").performClick()
+        compose.waitUntil(10_000) { showTextOnScreen("New class") }
+        // Saving an empty class is refused and says why.
+        compose.onNodeWithText("Save").performClick()
+        compose.waitUntil(10_000) { showTextOnScreen("Enter a subject") }
+        screenshot("05-editor-new")
+
+        val name = "Added by hand ZZ"
+        editorField("Subject").performTextInput(name)
+        compose.onNodeWithText("Save").performClick()
+        compose.waitUntil(15_000) { showTextOnScreen(name) }
+
+        val saved = selectedLessons().firstOrNull { it.subject == name }
+        assertTrue("the class should be stored", saved != null)
+        assertFalse("a new class is a single date unless asked to repeat", saved!!.onDate == null)
+        screenshot("06-added")
+    }
+
+    @Test
+    fun aClassCanBeEditedByLongPressAndByThePencil() {
+        clearDatabase()
+        importSample()
+        val lesson = selectedLessons().first()
+        showDay(lesson)
+
+        // Long press opens the editor with the class's own values.
+        compose.onAllNodesWithText(lesson.subject).onFirst().performTouchInput { longClick() }
+        compose.waitUntil(10_000) { showTextOnScreen("Edit class") }
+        val renamed = lesson.subject + " (edited)"
+        editorField("Subject").performTextReplacement(renamed)
+        compose.onNodeWithText("Save").performClick()
+        compose.waitUntil(15_000) { showTextOnScreen(renamed) }
+        assertTrue(selectedLessons().any { it.id == lesson.id && it.subject == renamed })
+
+        // The pencil in the tile's corner does the same.
+        viewModel { it.dismissDetail() }
+        compose.waitForIdle()
+        screenshot("07-edited")
+        compose.onAllNodesWithContentDescription("Edit class").onFirst().performClick()
+        compose.waitUntil(10_000) { showTextOnScreen("Edit class") }
+        screenshot("08-editor-edit")
+        compose.onNodeWithText("Cancel").performClick()
+        compose.waitUntil(10_000) { !showTextOnScreen("Cancel") }
+    }
+
+    @Test
+    fun aClassCanBeDeleted() {
+        clearDatabase()
+        importSample()
+        val groupId = runBlocking { container.settings.current().selectedGroupId!! }
+        val day = LocalDate.now().plusDays(1)
+        val draft = app.autopara.core.schedule.LessonDraft(
+            "Delete me ZZ", "Тест Т.Т.", "", day, weekly = false,
+            java.time.LocalTime.of(8, 0), java.time.LocalTime.of(9, 20),
+        )
+        runBlocking { container.repository.saveLesson(null, draft, groupId) }
+        viewModel {
+            it.setViewMode(app.autopara.data.ViewMode.DAY)
+            it.selectDate(day)
+        }
+        compose.waitUntil(15_000) { showTextOnScreen("Delete me ZZ") }
+
+        compose.onAllNodesWithText("Delete me ZZ").onFirst().performTouchInput { longClick() }
+        compose.waitUntil(10_000) { showTextOnScreen("Edit class") }
+        compose.onNodeWithText("Delete").performClick()
+        compose.waitUntil(10_000) { showTextOnScreen("Delete this class?") }
+        compose.onAllNodesWithText("Delete").onLast().performClick()
+        compose.waitUntil(15_000) { !showTextOnScreen("Delete me ZZ") }
+        assertTrue(selectedLessons().none { it.subject == "Delete me ZZ" })
+    }
+
+    @Test
+    fun aClassAddedByHandSurvivesAReimport() {
+        clearDatabase()
+        importSample()
+        val groupId = runBlocking { container.settings.current().selectedGroupId!! }
+        val draft = app.autopara.core.schedule.LessonDraft(
+            "Mine ZZ", "", "https://meet.google.com/aaa-bbbb-ccc", LocalDate.now().plusDays(2), weekly = true,
+            java.time.LocalTime.of(10, 0), java.time.LocalTime.of(11, 20),
+        )
+        runBlocking { container.repository.saveLesson(null, draft, groupId) }
+        assertTrue(selectedLessons().any { it.subject == "Mine ZZ" })
+
+        importSample() // a fresh copy of the same timetable replaces the imported classes
+
+        val after = selectedLessons()
+        assertTrue("the user's own class is kept", after.any { it.subject == "Mine ZZ" })
+        assertEquals("imported classes are not duplicated", 22, runBlocking {
+            val ids = mutableSetOf<Long>()
+            container.repository.groups.first().forEach { group ->
+                container.repository.lessons(group.id).first().filter { it.subject != "Mine ZZ" }.forEach { ids += it.id }
+            }
+            ids.size
+        })
+    }
+
+    @Test
+    fun startingWithoutAFileGivesAnEmptyTimetableToAddTo() {
+        clearDatabase()
+        compose.waitUntil(15_000) { showTextOnScreen("Import your timetable") }
+        compose.onNodeWithText("Add classes by hand").performClick()
+        compose.waitUntil(15_000) { showTextOnScreen("Schedule") }
+        compose.onNodeWithContentDescription("Add class").performClick()
+        compose.waitUntil(10_000) { showTextOnScreen("New class") }
+        screenshot("09-empty-start")
     }
 }

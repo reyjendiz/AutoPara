@@ -26,7 +26,7 @@ import app.autopara.R
 
 /** First run: ask for the university's .docx timetable. */
 @Composable
-fun ImportScreen(importing: Boolean, onPick: () -> Unit, modifier: Modifier = Modifier) {
+fun ImportScreen(importing: Boolean, onPick: () -> Unit, onStartEmpty: () -> Unit, modifier: Modifier = Modifier) {
     Box(modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
         Column(
             Modifier.widthIn(max = 460.dp),
@@ -51,6 +51,7 @@ fun ImportScreen(importing: Boolean, onPick: () -> Unit, modifier: Modifier = Mo
                 Text(stringResource(R.string.importing), style = MaterialTheme.typography.bodyMedium)
             } else {
                 Button(onClick = onPick) { Text(stringResource(R.string.import_button)) }
+                androidx.compose.material3.TextButton(onClick = onStartEmpty) { Text(stringResource(R.string.start_empty)) }
             }
         }
     }

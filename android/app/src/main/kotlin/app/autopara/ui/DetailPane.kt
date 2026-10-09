@@ -31,6 +31,7 @@ fun LessonDetail(
     status: OccurrenceStatus?,
     onOpen: () -> Unit,
     onToggleSkip: () -> Unit,
+    onEdit: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val lesson = occurrence.lesson
@@ -75,6 +76,9 @@ fun LessonDetail(
                     ),
                 )
             }
+        }
+        OutlinedButton(onClick = onEdit, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.detail_edit))
         }
         OutlinedButton(onClick = onToggleSkip, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(if (status == OccurrenceStatus.SKIPPED) R.string.detail_unskip else R.string.detail_skip))

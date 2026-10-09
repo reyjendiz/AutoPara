@@ -41,6 +41,26 @@ interface ScheduleDao {
     @Query("SELECT COUNT(*) FROM lessons")
     suspend fun lessonCount(): Int
 
+    @Query("SELECT * FROM lessons WHERE id = :id")
+    suspend fun lessonRow(id: Long): LessonEntity?
+
+    @Query("SELECT * FROM study_groups WHERE id = :id")
+    suspend fun group(id: Long): GroupEntity?
+
+    @Query("SELECT ordinal FROM courses WHERE id = :id")
+    suspend fun courseOrdinal(id: Long): Int?
+
+    /** Classes the user added, with their groups, so a re-import can carry them over. */
+    @Transaction
+    @Query("SELECT * FROM lessons WHERE isManual = 1")
+    suspend fun manualLessons(): List<LessonWithGroups>
+
+    @androidx.room.Update
+    suspend fun updateLesson(lesson: LessonEntity)
+
+    @Query("DELETE FROM lessons WHERE id = :id")
+    suspend fun deleteLesson(id: Long)
+
     // ---- import
 
     @Query("DELETE FROM courses")
@@ -85,14 +105,23 @@ interface ScheduleDao {
         CourseEntity::class, GroupEntity::class, LessonEntity::class,
         LessonGroupEntity::class, OccurrenceEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 abstract class AutoParaDatabase : RoomDatabase() {
     abstract fun dao(): ScheduleDao
 
     companion object {
+        /** 1 -> 2: lessons can be added by the user, and a re-import keeps those. */
+        private val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE lessons ADD COLUMN isManual INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         fun create(context: Context): AutoParaDatabase =
-            Room.databaseBuilder(context.applicationContext, AutoParaDatabase::class.java, "autopara.db").build()
+            Room.databaseBuilder(context.applicationContext, AutoParaDatabase::class.java, "autopara.db")
+                .addMigrations(MIGRATION_1_2)
+                .build()
     }
 }

@@ -244,3 +244,52 @@ class DomainTest {
         assertEquals(LocalDate.of(2026, 4, 5), grid.last().last())
     }
 }
+
+class LessonDraftTest {
+    private val monday = LocalDate.of(2026, 3, 2)
+
+    private fun draft(
+        subject: String = "Логіка", url: String = "", start: String = "09:30", end: String = "10:50",
+    ) = app.autopara.core.schedule.LessonDraft(
+        subject, "Іваненко І.І.", url, monday, weekly = true, LocalTime.parse(start), LocalTime.parse(end),
+    )
+
+    @Test
+    fun `a draft needs a subject, an end after the start, and a link that can be opened`() {
+        assertTrue(draft().isValid)
+        assertEquals(listOf(app.autopara.core.schedule.LessonDraft.Problem.EMPTY_SUBJECT), draft(subject = "  ").problems())
+        assertEquals(listOf(app.autopara.core.schedule.LessonDraft.Problem.END_NOT_AFTER_START), draft(end = "09:30").problems())
+        assertEquals(listOf(app.autopara.core.schedule.LessonDraft.Problem.BAD_LINK), draft(url = "javascript:alert(1)").problems())
+        assertTrue(draft(url = "https://meet.google.com/aaa-bbbb-ccc").isValid)
+        assertTrue(draft(url = "").isValid)
+    }
+
+    @Test
+    fun `teacher and link are stored the way the timetable writes them`() {
+        val d = draft(url = "  https://zoom.us/j/1  ")
+        assertEquals("(Іваненко І.І.)", d.storedTeacher)
+        assertEquals("https://zoom.us/j/1", d.cleanUrl)
+        assertEquals("", d.copy(teacher = "  ").storedTeacher)
+        assertNull(draft(url = "").cleanUrl)
+    }
+
+    @Test
+    fun `moving the start keeps a later end and pulls an earlier one along`() {
+        assertEquals(LocalTime.parse("10:50"), draft().withStart(LocalTime.parse("09:00")).end)
+        assertEquals(LocalTime.parse("12:20"), draft().withStart(LocalTime.parse("11:00")).end)
+    }
+
+    @Test
+    fun `editing an existing class starts from its own values`() {
+        val lesson = Lesson(
+            id = 1, courseId = 1, dayOfWeek = DayOfWeek.MONDAY, pair = 2,
+            start = LocalTime.parse("09:30"), end = LocalTime.parse("10:50"),
+            subject = "Психологія", teacher = "(Петренко П.П.)", url = "https://zoom.us/j/9",
+        )
+        val d = app.autopara.core.schedule.LessonDraft.from(lesson, monday)
+        assertEquals("Петренко П.П.", d.teacher)
+        assertTrue(d.weekly) // a weekly template
+        assertEquals(lesson.start, d.start)
+        assertFalse(app.autopara.core.schedule.LessonDraft.from(lesson.copy(onDate = monday), monday).weekly)
+    }
+}

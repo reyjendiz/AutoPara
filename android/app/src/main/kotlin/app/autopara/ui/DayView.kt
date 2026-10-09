@@ -32,6 +32,7 @@ fun DayView(
     state: UiState,
     selected: Occurrence?,
     onSelect: (Occurrence) -> Unit,
+    onEdit: (Occurrence) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val occurrences = CalendarMath.occurrencesOn(state.visibleLessons, state.date)
@@ -40,7 +41,7 @@ fun DayView(
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp), // room for the + button
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         if (occurrences.isEmpty()) {
@@ -54,6 +55,7 @@ fun DayView(
                 ongoing = ongoing,
                 selected = selected?.lesson?.id == occurrence.lesson.id && selected.date == occurrence.date,
                 onClick = { onSelect(occurrence) },
+                onEdit = { onEdit(occurrence) },
                 modifier = Modifier.fillMaxWidth().widthIn(max = 720.dp),
             )
         }

@@ -16,6 +16,10 @@ import java.time.LocalDate
  * notification actions from starting activities through a receiver or service.
  */
 class JoinActivity : Activity() {
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(app.autopara.LocaleManager.wrap(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val url = intent.getStringExtra(Notifications.EXTRA_URL)

@@ -11,6 +11,7 @@ import app.autopara.core.model.Lesson
 import app.autopara.core.model.Occurrence
 import app.autopara.core.model.OccurrenceStatus
 import app.autopara.core.model.Provider
+import app.autopara.core.schedule.LessonDraft
 import app.autopara.core.schedule.LessonFilter
 import app.autopara.core.schedule.NextUp
 import app.autopara.core.schedule.findMatch
@@ -37,6 +38,9 @@ import java.io.IOException
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.YearMonth
+
+/** The class editor on screen: a new class ([lessonId] null) or an existing one being changed. */
+data class EditorState(val lessonId: Long?, val draft: LessonDraft, val weekly: Boolean)
 
 /** One-shot messages the screen turns into a snackbar. */
 sealed interface UiMessage {
@@ -67,6 +71,7 @@ data class UiState(
     val selected: Occurrence? = null,
     val importing: Boolean = false,
     val message: UiMessage? = null,
+    val editor: EditorState? = null,
 ) {
     val hasTimetable: Boolean get() = groups.isNotEmpty()
 }
@@ -81,6 +86,7 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
     private val selection = MutableStateFlow<Pair<Long, LocalDate>?>(null)
     private val importing = MutableStateFlow(false)
     private val message = MutableStateFlow<UiMessage?>(null)
+    private val editor = MutableStateFlow<EditorState?>(null)
 
     private val clock: Flow<LocalDateTime> = flow {
         while (true) {
@@ -116,7 +122,10 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
         set.filter { it.second == today }.map { it.first }.toSet()
     }
 
-    val state: StateFlow<UiState> = combine(core, screen, skippedToday, importing, message) { c, s, skipped, busy, msg ->
+    private val overlay = combine(importing, message, editor) { busy, msg, ed -> Triple(busy, msg, ed) }
+
+    val state: StateFlow<UiState> = combine(core, screen, skippedToday, overlay) { c, s, skipped, over ->
+        val (busy, msg, ed) = over
         val group = c.groups.firstOrNull { it.id == c.settings.selectedGroupId } ?: c.groups.firstOrNull()
         val visible = c.lessons.filter { s.filter.matches(it) }
         val selected = s.selection?.let { (id, day) -> c.lessons.firstOrNull { it.id == id }?.takeIf { it.occursOn(day) }?.let { Occurrence(it, day) } }
@@ -137,6 +146,7 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
             selected = selected,
             importing = busy,
             message = msg,
+            editor = ed,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UiState())
 
@@ -197,6 +207,47 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
 
     fun onLinkResult(occurrence: Occurrence, opened: Boolean) {
         if (opened) viewModelScope.launch { repository.markOpened(occurrence.lesson.id, occurrence.date) }
+    }
+
+    // ------------------------------------------------------------------ adding and editing classes
+
+    /** Opens the editor on a blank class for [day] (the day on screen unless told otherwise). */
+    fun startAdd(day: LocalDate = state.value.date) {
+        editor.value = EditorState(null, LessonDraft.blank(day), weekly = false)
+    }
+
+    /** Opens the editor on an existing class, as it falls on [day]. */
+    fun startEdit(lessonId: Long, day: LocalDate) {
+        val lesson = state.value.lessons.firstOrNull { it.id == lessonId } ?: return
+        val draft = LessonDraft.from(lesson, day)
+        editor.value = EditorState(lessonId, draft, weekly = draft.weekly)
+    }
+
+    fun closeEditor() { editor.value = null }
+
+    fun saveEditor(draft: LessonDraft) {
+        val current = editor.value ?: return
+        val groupId = state.value.selectedGroup?.id ?: return
+        if (!draft.isValid) return
+        viewModelScope.launch {
+            val id = repository.saveLesson(current.lessonId, draft, groupId)
+            editor.value = null
+            date.value = draft.date
+            selection.value = id to draft.date
+        }
+    }
+
+    fun deleteLesson(lessonId: Long) {
+        viewModelScope.launch {
+            repository.deleteLesson(lessonId)
+            editor.value = null
+            selection.value = null
+        }
+    }
+
+    /** First run, for someone who wants to type their classes in instead of importing a file. */
+    fun startEmpty(name: String) {
+        viewModelScope.launch { repository.createEmptyTimetable(name) }
     }
 
     // ------------------------------------------------------------------ settings

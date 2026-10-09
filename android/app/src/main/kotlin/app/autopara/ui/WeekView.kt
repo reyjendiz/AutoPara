@@ -1,7 +1,12 @@
 package app.autopara.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,6 +46,9 @@ import java.time.LocalDate
 import java.time.LocalTime
 
 private val TimeColumnWidth = 48.dp
+
+/** Below this a day column is too narrow to read, so the grid scrolls sideways instead of squeezing. */
+private val MinDayColumnWidth = 92.dp
 private val RowHeight = 84.dp
 private const val FIRST_PAIRS = 6
 
@@ -57,6 +65,7 @@ fun WeekView(
     state: UiState,
     selected: Occurrence?,
     onSelect: (Occurrence) -> Unit,
+    onEdit: (Occurrence) -> Unit,
     onDayClick: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -66,7 +75,13 @@ fun WeekView(
     val today = LocalDate.now()
     val lineColor = MaterialTheme.colorScheme.outlineVariant
 
-    Column(modifier.fillMaxSize()) {
+    BoxWithConstraints(modifier.fillMaxSize()) {
+    // Seven readable columns need more than a phone in portrait has: scroll the whole grid sideways.
+    val needed = TimeColumnWidth + MinDayColumnWidth * 7 + 8.dp
+    val scrolls = maxWidth < needed
+    val gridWidth = if (scrolls) needed else maxWidth
+    Box(Modifier.fillMaxSize().then(if (scrolls) Modifier.horizontalScroll(rememberScrollState()) else Modifier)) {
+    Column(Modifier.width(gridWidth).fillMaxHeight()) {
         // Day headers.
         Row(Modifier.fillMaxWidth().padding(end = 8.dp)) {
             Spacer(Modifier.width(TimeColumnWidth))
@@ -101,7 +116,7 @@ fun WeekView(
                 .weight(1f)
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(end = 8.dp, bottom = 12.dp),
+                .padding(end = 8.dp, bottom = 96.dp), // room for the + button
         ) {
             // Time labels: the pair number and its start time.
             Column(Modifier.width(TimeColumnWidth)) {
@@ -125,10 +140,13 @@ fun WeekView(
                     lineColor = lineColor,
                     isToday = day == today,
                     onSelect = onSelect,
+                    onEdit = onEdit,
                     modifier = Modifier.weight(1f),
                 )
             }
         }
+    }
+    }
     }
 }
 
@@ -141,6 +159,7 @@ private fun DayColumn(
     lineColor: androidx.compose.ui.graphics.Color,
     isToday: Boolean,
     onSelect: (Occurrence) -> Unit,
+    onEdit: (Occurrence) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val occurrences = CalendarMath.occurrencesOn(state.visibleLessons, day)
@@ -173,6 +192,7 @@ private fun DayColumn(
                         status = state.statuses[occurrence.lesson.id to occurrence.date],
                         selected = selected?.lesson?.id == occurrence.lesson.id && selected.date == occurrence.date,
                         onClick = { onSelect(occurrence) },
+                        onLongClick = { onEdit(occurrence) },
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                     )
                 }
@@ -214,21 +234,26 @@ private fun minutesOf(hhmm: String): Int {
     return h * 60 + m
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun WeekCell(
     occurrence: Occurrence,
     status: OccurrenceStatus?,
     selected: Boolean,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val lesson = occurrence.lesson
+    val shape = RoundedCornerShape(8.dp)
     Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(8.dp),
+        shape = shape,
         color = tintedFill(lesson.subject),
         border = if (selected) androidx.compose.foundation.BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
-        modifier = modifier.alpha(if (status == OccurrenceStatus.SKIPPED) 0.5f else 1f),
+        modifier = modifier
+            .alpha(if (status == OccurrenceStatus.SKIPPED) 0.5f else 1f)
+            .clip(shape)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
     ) {
         Row {
             Box(Modifier.width(3.dp).fillMaxHeight().background(subjectColor(lesson.subject)))

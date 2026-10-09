@@ -64,18 +64,16 @@ data class ScheduleActions(
     val onClearFilter: () -> Unit,
     val onJumpToMatch: (direction: Int) -> Unit,
     val onGroup: (Long) -> Unit,
+    val onEdit: (Occurrence) -> Unit,
+    val onAddOnDay: (LocalDate) -> Unit,
 )
 
-/** Which view modes a screen of this width offers. A phone in portrait has no room for seven columns. */
-fun availableModes(compactWidth: Boolean): List<ViewMode> =
-    if (compactWidth) listOf(ViewMode.DAY, ViewMode.MONTH) else listOf(ViewMode.DAY, ViewMode.WEEK, ViewMode.MONTH)
+/** Day, week and month are offered on every screen; the week grid scrolls sideways when it is narrow. */
+fun availableModes(): List<ViewMode> = listOf(ViewMode.DAY, ViewMode.WEEK, ViewMode.MONTH)
 
-/** The stored choice, or the right default for this screen, clamped to what the screen offers. */
-fun effectiveMode(stored: ViewMode?, compactWidth: Boolean): ViewMode {
-    val modes = availableModes(compactWidth)
-    val wanted = stored ?: if (compactWidth) ViewMode.DAY else ViewMode.WEEK
-    return if (wanted in modes) wanted else ViewMode.DAY
-}
+/** The stored choice, or the right default for this screen: a day on a phone, a week on a wider screen. */
+fun effectiveMode(stored: ViewMode?, compactWidth: Boolean): ViewMode =
+    stored ?: if (compactWidth) ViewMode.DAY else ViewMode.WEEK
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -138,7 +136,7 @@ fun ScheduleScreen(
 
         // ---- view switcher
         SingleChoiceSegmentedButtonRow(Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth()) {
-            val modes = availableModes(compactWidth)
+            val modes = availableModes()
             modes.forEachIndexed { index, option ->
                 SegmentedButton(
                     selected = option == mode,
@@ -171,18 +169,22 @@ fun ScheduleScreen(
                 .swipeToShift(mode, actions.onShift),
         ) {
             when (mode) {
-                ViewMode.DAY -> DayView(state, selected, actions.onSelect)
+                ViewMode.DAY -> DayView(state, selected, actions.onSelect, actions.onEdit)
                 ViewMode.WEEK -> WeekView(
-                    state, selected, actions.onSelect,
+                    state, selected, actions.onSelect, actions.onEdit,
                     onDayClick = { day ->
                         actions.onSelectDate(day)
                         actions.onViewMode(ViewMode.DAY)
                     },
                 )
-                ViewMode.MONTH -> MonthView(state, onDayClick = { day ->
-                    actions.onSelectDate(day)
-                    actions.onViewMode(ViewMode.DAY)
-                })
+                ViewMode.MONTH -> MonthView(
+                    state,
+                    onDayClick = { day ->
+                        actions.onSelectDate(day)
+                        actions.onViewMode(ViewMode.DAY)
+                    },
+                    onDayLongClick = actions.onAddOnDay,
+                )
             }
         }
     }

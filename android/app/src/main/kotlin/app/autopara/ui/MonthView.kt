@@ -1,7 +1,10 @@
 package app.autopara.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -39,6 +42,7 @@ private const val MAX_DOTS = 5
 fun MonthView(
     state: UiState,
     onDayClick: (LocalDate) -> Unit,
+    onDayLongClick: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val locale = currentLocale()
@@ -71,6 +75,7 @@ fun MonthView(
                             lessons = CalendarMath.occurrencesOn(state.visibleLessons, day).map { it.lesson },
                             wide = wide,
                             onClick = { onDayClick(day) },
+                            onLongClick = { onDayLongClick(day) },
                             modifier = Modifier.weight(1f).fillMaxSize(),
                         )
                     }
@@ -80,6 +85,7 @@ fun MonthView(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun MonthCell(
     day: LocalDate,
@@ -89,14 +95,18 @@ private fun MonthCell(
     lessons: List<app.autopara.core.model.Lesson>,
     wide: Boolean,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val shape = RoundedCornerShape(10.dp)
     Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(10.dp),
+        shape = shape,
         color = MaterialTheme.colorScheme.surface,
         border = if (isSelected) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
-        modifier = modifier.alpha(if (inMonth) 1f else 0.45f),
+        modifier = modifier
+            .alpha(if (inMonth) 1f else 0.45f)
+            .clip(shape)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
     ) {
         Column(Modifier.padding(4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(

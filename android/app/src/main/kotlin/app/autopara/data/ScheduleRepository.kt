@@ -2,7 +2,10 @@ package app.autopara.data
 
 import androidx.room.withTransaction
 import app.autopara.core.importer.DocxReader
+import app.autopara.core.importer.Normalize
 import app.autopara.core.importer.ScheduleParser
+import app.autopara.core.link.MeetingLink
+import app.autopara.core.schedule.LessonDraft
 import app.autopara.core.model.Course
 import app.autopara.core.model.Group
 import app.autopara.core.model.Lesson
@@ -63,13 +66,21 @@ class ScheduleRepository(
         var firstGroup: Long? = null
 
         db.withTransaction {
+            // The user's own classes outlive an import: remember them by (course number, group name).
+            val kept = dao.manualLessons().map { row ->
+                Triple(row, dao.courseOrdinal(row.lesson.courseId), row.groups.map { it.name })
+            }
             dao.clearAll()
+            val courseByOrdinal = HashMap<Int, Long>()
+            val groupByKey = HashMap<Pair<Int, String>, Long>()
             for (course in parsed) {
                 val courseId = dao.insertCourse(CourseEntity(ordinal = course.ordinal, name = course.name))
+                courseByOrdinal[course.ordinal] = courseId
                 val groupIds = LinkedHashMap<String, Long>()
                 for (group in course.groups) {
                     val id = dao.insertGroup(GroupEntity(courseId = courseId, name = group.name, specialty = group.specialty))
                     groupIds.putIfAbsent(group.name, id)
+                    groupByKey.putIfAbsent(course.ordinal to group.name, id)
                     groupCount++
                     if (firstGroup == null) firstGroup = id
                 }
@@ -94,12 +105,62 @@ class ScheduleRepository(
                     if (lesson.url.isNullOrBlank()) withoutLink++
                 }
             }
+            for ((row, ordinal, groupNames) in kept) {
+                val oldOrdinal = ordinal ?: continue
+                val courseId = courseByOrdinal[oldOrdinal] ?: continue
+                val targets = groupNames.mapNotNull { groupByKey[oldOrdinal to it] }
+                if (targets.isEmpty()) continue // its group is not in the new timetable
+                val newId = dao.insertLesson(row.lesson.copy(id = 0, courseId = courseId))
+                for (groupId in targets) dao.insertLessonGroup(LessonGroupEntity(newId, groupId))
+            }
         }
         // A schedule describes what happens from the moment it is imported: earlier classes of the
         // same day are not reminded about.
         settings.setActiveFrom(now)
         firstGroup?.let { settings.selectGroup(it) }
         return ImportSummary(parsed.size, groupCount, lessonCount, withoutLink)
+    }
+
+    /**
+     * Create ([lessonId] null) or change a class. A new one joins [groupId], the group on screen.
+     * Editing an imported class changes it for every group that shares it, as the desktop app does.
+     */
+    suspend fun saveLesson(lessonId: Long?, draft: LessonDraft, groupId: Long): Long = db.withTransaction {
+        fun entity(base: LessonEntity?, courseId: Long) = LessonEntity(
+            id = base?.id ?: 0,
+            courseId = courseId,
+            weekday = draft.date.dayOfWeek.value,
+            pair = Normalize.pairSlot(draft.start.toString()),
+            startTime = draft.start.toString(),
+            endTime = draft.end.toString(),
+            subject = draft.subject.trim(),
+            teacher = draft.storedTeacher,
+            url = draft.cleanUrl,
+            provider = MeetingLink.providerOf(draft.cleanUrl).name,
+            onDay = if (draft.weekly) null else draft.date.toString(),
+            repeatUntilDay = null,
+            isManual = base?.isManual ?: true,
+        )
+        if (lessonId == null) {
+            val group = checkNotNull(dao.group(groupId)) { "no such group" }
+            val id = dao.insertLesson(entity(null, group.courseId))
+            dao.insertLessonGroup(LessonGroupEntity(id, groupId))
+            id
+        } else {
+            val existing = checkNotNull(dao.lessonRow(lessonId)) { "no such lesson" }
+            dao.updateLesson(entity(existing, existing.courseId))
+            lessonId
+        }
+    }
+
+    suspend fun deleteLesson(lessonId: Long) = dao.deleteLesson(lessonId)
+
+    /** A timetable with one empty group, for someone who would rather type their classes in. */
+    suspend fun createEmptyTimetable(name: String) = db.withTransaction {
+        val courseId = dao.insertCourse(CourseEntity(ordinal = 1, name = name))
+        val groupId = dao.insertGroup(GroupEntity(courseId = courseId, name = name, specialty = ""))
+        settings.setActiveFrom(LocalDateTime.now())
+        settings.selectGroup(groupId)
     }
 
     /** Record what happened to a class on a date; null forgets it. */
