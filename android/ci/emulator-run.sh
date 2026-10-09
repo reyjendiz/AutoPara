@@ -36,7 +36,7 @@ adb uninstall app.autopara > /dev/null
 
 echo "== Instrumented tests"
 set +e
-(cd android && ./gradlew :app:connectedDebugAndroidTest --console=plain)
+(cd android && ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notClass=app.autopara.ScreenshotsTest --console=plain)
 status=$?
 set -e
 

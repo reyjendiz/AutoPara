@@ -1,0 +1,93 @@
+# Takes pictures of the Android app on a phone and a tablet emulator (in Ukrainian, light and dark,
+# the notification included) and commits them to docs/android/ so the README can show them.
+# Run it by hand whenever the interface changes: Actions -> Android screenshots -> Run workflow.
+
+name: Android screenshots
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write # the last job commits the pictures
+
+concurrency:
+  group: android-screenshots
+  cancel-in-progress: true
+
+jobs:
+  shoot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - profile: pixel_5
+            label: phone
+          - profile: pixel_tablet
+            label: tablet
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Take the pictures
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          OUT_DIR: ${{ github.workspace }}/emulator-out
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: ${{ matrix.profile }}
+          disable-animations: true
+          script: bash android/ci/screenshots-run.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shots-${{ matrix.label }}
+          path: emulator-out/screenshots
+          if-no-files-found: error
+
+  publish:
+    needs: shoot
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: shots-*
+          path: shots
+
+      - name: Commit the pictures
+        run: |
+          mkdir -p docs/android
+          for label in phone tablet; do
+            for f in shots/shots-$label/*.png; do
+              cp "$f" "docs/android/$label-$(basename "$f")"
+            done
+          done
+          ls -la docs/android
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/android
+          if git diff --cached --quiet; then
+            echo "No picture changed."
+          else
+            git commit -m "Refresh the Android screenshots [skip ci]"
+            git pull --rebase origin "${GITHUB_REF_NAME}"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi

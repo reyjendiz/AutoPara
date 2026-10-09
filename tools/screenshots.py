@@ -78,6 +78,7 @@ def main() -> int:
         ("week-grid.png", "light", "week"),
         ("week-grid-dark.png", "dark", "week"),
         ("month-view.png", "light", "month"),
+        ("day-view.png", "light", "day"),
     )
     for name, theme_name, view in shots:
         theme.apply(app, theme_name)
@@ -92,6 +93,29 @@ def main() -> int:
         window.grab().save(str(OUT / name))
         print("wrote", OUT / name)
         window.close()
+
+    # The two dialogs people ask about: changing a class, and the settings.
+    from autopara.ui.edit_dialog import EditDialog
+    from autopara.ui.settings_dialog import SettingsDialog
+
+    theme.apply(app, "light")
+    lesson = next(
+        item for item in storage.lessons_for_group(group.id) if item.occurs_on(PINNED.date())
+    )
+    for name, dialog in (
+        ("edit-dialog.png", EditDialog(storage, group.id, lesson, None, day=PINNED.date())),
+        ("settings.png", SettingsDialog(storage)),
+    ):
+        dialog.show()
+        for _ in range(3):  # let the form lay itself out before the picture is taken
+            app.processEvents()
+            dialog.layout().activate()
+        dialog.resize(dialog.sizeHint().expandedTo(dialog.minimumSizeHint()))
+        for _ in range(3):
+            app.processEvents()
+        dialog.grab().save(str(OUT / name))
+        print("wrote", OUT / name)
+        dialog.close()
     storage.close()
     return 0
 
