@@ -411,9 +411,3 @@ jobs:
             printf '%s\n\n%s\n' "$body" "**Android:** завантажте **${{ steps.plan.outputs.apk }}** і відкрийте його на телефоні чи планшеті (Android 8.0 і новіше). Android один раз попросить дозволити встановлення з браузера або файлового менеджера." > notes.md
             gh release edit "$tag" --notes-file notes.md
           fi
-
-      # One-off clean-up: the first Android build was published as its own release, which was too
-      # easy to miss. The APK now lives with the PC apps, so that release (and its tag) goes, which
-      # also hands the "Latest" badge back to the newest PC release.
-      - name: Retire the standalone Android release
-        run: gh release delete android-v1.0.0 --cleanup-tag --yes || echo "android-v1.0.0 is already gone"

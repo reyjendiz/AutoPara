@@ -1,6 +1,6 @@
 # AutoPara — автозапуск пар
 
-A Windows and macOS tray app for students. It imports a university timetable from a `.docx`, shows
+A Windows and macOS tray app — and an Android app — for students. It imports a university timetable from a `.docx`, shows
 it as a day, week or month calendar, and opens each class's Zoom or Google Meet link in your browser
 a minute before the class starts — so all that is left to do is be there. **The application's
 interface is Ukrainian**; this README and the design docs are English, for whoever maintains it.
@@ -14,6 +14,10 @@ interface is Ukrainian**; this README and the design docs are English, for whoev
 - **One timetable, every group**: import once, switch course and group without importing again.
 - **Light and dark themes**, following the system until you pin one. Windows installer, and macOS
   disk images for Apple Silicon and Intel.
+- **Android** (phone and tablet, Ukrainian by default): the same timetable with day, week and month
+  views, adding and editing classes by hand, and a notification exactly one minute before each class
+  with a one-tap Join that opens the meeting in the native Zoom or Meet app. See
+  [android/README.md](android/README.md).
 
 The interface is a light, friendly "education app" look: white cards on a soft grey canvas, each
 subject tinting its own cards so a week reads at a glance, one near-black anchor for whatever is
@@ -37,7 +41,8 @@ clock in them is pinned to a Monday morning.*
 
 Download **`AutoPara-<version>-Setup.exe`** from the latest release and run it. That is the whole
 procedure. On a Mac, take **`AutoPara-<version>.dmg`** (Apple Silicon) or
-**`AutoPara-Intel-<version>.dmg`** (Intel) from the same release.
+**`AutoPara-Intel-<version>.dmg`** (Intel) from the same release. On Android, take
+**`AutoPara-<version>.apk`** from it too — every download in a release has the same version number.
 
 The target PC needs **nothing preinstalled** — no Python, no Qt, no VC++ redistributable; they are
 all inside the installer. Windows 10/11 64-bit.
