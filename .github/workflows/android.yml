@@ -27,6 +27,11 @@ on:
       - "android/**"
       - ".github/workflows/android.yml"
   workflow_dispatch:
+    inputs:
+      make_latest:
+        description: "Mark this version's release as GitHub's Latest release (not a pre-release)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write # the release step creates a GitHub release and attaches the APK
@@ -131,6 +136,12 @@ jobs:
             --title "AutoPara for Android ${{ steps.release_apk.outputs.version }}" \
             --notes-file notes.md \
             --prerelease
+
+      - name: Make the release the latest one (manual runs only)
+        if: github.event_name == 'workflow_dispatch' && inputs.make_latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "android-v${{ steps.release_apk.outputs.version }}" --prerelease=false --latest
 
       - name: Upload test reports
         if: failure()
