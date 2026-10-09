@@ -34,8 +34,31 @@ into the new one.
 | --- | --- |
 | ![The week, in the dark theme](docs/week-grid-dark.png) | ![The month](docs/month-view.png) |
 
-*The pictures are rendered from an invented sample timetable by `python tools/screenshots.py`; the
-clock in them is pinned to a Monday morning.*
+| A day | Changing a class | Settings |
+| --- | --- | --- |
+| ![A day](docs/day-view.png) | ![The class editor](docs/edit-dialog.png) | ![Settings](docs/settings.png) |
+
+*The desktop pictures are rendered from an invented sample timetable by `python tools/screenshots.py`;
+the clock in them is pinned to a Monday morning.*
+
+### Android
+
+The same timetable on a phone and a tablet, in Ukrainian (the default; Settings has a language
+switch). The pictures are taken on emulators by the
+[Android screenshots workflow](.github/workflows/android-screenshots.yml) from the same invented
+timetable.
+
+| Day | Week | Month | Editing a class |
+| --- | --- | --- | --- |
+| <img src="docs/android/phone-02-day.png" width="200"> | <img src="docs/android/phone-04-week.png" width="200"> | <img src="docs/android/phone-05-month.png" width="200"> | <img src="docs/android/phone-06-editor.png" width="200"> |
+
+| Dark theme | Settings | The reminder, one minute before |
+| --- | --- | --- |
+| <img src="docs/android/phone-08-day-dark.png" width="200"> | <img src="docs/android/phone-07-settings.png" width="200"> | <img src="docs/android/phone-notification-reminder.png" width="330"> |
+
+On a tablet the week grid has room for all seven days and a details pane sits beside it:
+
+![The week on a tablet](docs/android/tablet-04-week.png)
 
 ## Install
 
