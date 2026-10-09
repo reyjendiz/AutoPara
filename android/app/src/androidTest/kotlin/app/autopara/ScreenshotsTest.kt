@@ -16,7 +16,12 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.GrantPermissionRule
+import app.autopara.core.schedule.CalendarMath
 import app.autopara.core.schedule.Reminders
+import app.autopara.ui.dayTitle
+import app.autopara.ui.monthTitle
+import app.autopara.ui.weekTitle
+import java.time.YearMonth
 import app.autopara.data.ThemeMode
 import app.autopara.data.ViewMode
 import app.autopara.notify.Notifications
@@ -45,6 +50,10 @@ class ScreenshotsTest {
     val language = object : TestWatcher() {
         override fun starting(description: Description) {
             LocaleManager.save(ApplicationProvider.getApplicationContext(), AppLanguage.UKRAINIAN)
+            // Allow exact alarms before the app starts, so no "exact alarms are off" banner is in the pictures.
+            InstrumentationRegistry.getInstrumentation().uiAutomation
+                .executeShellCommand("appops set app.autopara SCHEDULE_EXACT_ALARM allow").close()
+            Thread.sleep(500)
         }
     }
 
@@ -58,6 +67,8 @@ class ScreenshotsTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context: Context = ApplicationProvider.getApplicationContext()
     private val container get() = (context as AutoParaApp).container
+
+    private val uk: java.util.Locale = java.util.Locale.forLanguageTag("uk")
 
     private fun show(text: String) = compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
 
@@ -101,7 +112,7 @@ class ScreenshotsTest {
         val lesson = lessons.first { it.dayOfWeek == busiest }
 
         viewModel { it.setViewMode(ViewMode.DAY); it.selectDate(day) }
-        compose.waitUntil(15_000) { show(lesson.subject) }
+        compose.waitUntil(15_000) { show(lesson.subject) && show(dayTitle(day, uk)) }
         shot("02-day")
 
         viewModel { it.select(lesson.id, day) }
@@ -109,15 +120,18 @@ class ScreenshotsTest {
         shot("03-details")
         viewModel { it.dismissDetail() }
 
+        // The view mode is saved asynchronously, so wait for the view's own title before the picture.
         viewModel { it.setViewMode(ViewMode.WEEK) }
-        compose.waitForIdle()
+        compose.waitUntil(15_000) { show(weekTitle(CalendarMath.weekStart(day), uk)) }
         shot("04-week")
 
         viewModel { it.setViewMode(ViewMode.MONTH) }
-        compose.waitForIdle()
+        compose.waitUntil(15_000) { show(monthTitle(YearMonth.from(day), uk)) }
         shot("05-month")
 
-        viewModel { it.setViewMode(ViewMode.DAY); it.startEdit(lesson.id, day) }
+        viewModel { it.setViewMode(ViewMode.DAY); it.selectDate(day) }
+        compose.waitUntil(15_000) { show(dayTitle(day, uk)) }
+        viewModel { it.startEdit(lesson.id, day) }
         compose.waitUntil(10_000) { show("Редагування пари") }
         shot("06-editor")
         viewModel { it.closeEditor() }
@@ -130,10 +144,10 @@ class ScreenshotsTest {
         runBlocking { container.settings.setTheme(ThemeMode.DARK) }
         compose.onNodeWithText("Розклад").performClick()
         viewModel { it.setViewMode(ViewMode.DAY); it.selectDate(day) }
-        compose.waitUntil(15_000) { show(lesson.subject) }
+        compose.waitUntil(15_000) { show(lesson.subject) && show(dayTitle(day, uk)) }
         shot("08-day-dark")
         viewModel { it.setViewMode(ViewMode.WEEK) }
-        compose.waitForIdle()
+        compose.waitUntil(15_000) { show(weekTitle(CalendarMath.weekStart(day), uk)) }
         shot("09-week-dark")
 
         // The reminder itself: deliver the alarm and pull the notification shade down.

@@ -200,6 +200,9 @@ fun AutoParaRoot(viewModel: MainViewModel, windowSizeClass: WindowSizeClass) {
                                         FloatingActionButton(
                                             onClick = { viewModel.startAdd() },
                                             modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                                            // The desktop's black "+" pill: ink in the light theme, light in the dark one.
+                                            containerColor = MaterialTheme.colorScheme.primary,
+                                            contentColor = MaterialTheme.colorScheme.onPrimary,
                                         ) {
                                             Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.add_class))
                                         }

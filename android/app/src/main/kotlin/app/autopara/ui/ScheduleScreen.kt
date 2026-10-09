@@ -90,29 +90,30 @@ fun ScheduleScreen(
     val showSearch = searchOpen || state.filter.isActive
 
     Column(modifier.fillMaxSize()) {
-        // ---- header: period title + group, navigation, search
-        Row(
-            Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
+        // ---- header. The title has a row to itself so a long date is never cut off on a phone;
+        // below it sit the group on the left and the navigation on the right.
+        Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     periodTitle(mode, state.date, CalendarMath.weekStart(state.date), locale),
                     style = MaterialTheme.typography.titleLarge,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
                 )
-                GroupPicker(state, actions.onGroup)
+                IconButton(onClick = { searchOpen = !searchOpen }) {
+                    Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.search))
+                }
             }
-            IconButton(onClick = { searchOpen = !searchOpen }) {
-                Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.search))
-            }
-            IconButton(onClick = { actions.onShift(-1) }) {
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = stringResource(R.string.nav_previous))
-            }
-            TextButton(onClick = actions.onToday) { Text(stringResource(R.string.today)) }
-            IconButton(onClick = { actions.onShift(1) }) {
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = stringResource(R.string.nav_next))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f)) { GroupPicker(state, actions.onGroup) }
+                IconButton(onClick = { actions.onShift(-1) }) {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = stringResource(R.string.nav_previous))
+                }
+                TextButton(onClick = actions.onToday) { Text(stringResource(R.string.today)) }
+                IconButton(onClick = { actions.onShift(1) }) {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = stringResource(R.string.nav_next))
+                }
             }
         }
 
