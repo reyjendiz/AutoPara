@@ -155,6 +155,9 @@ jobs:
 
           **macOS (Intel):** те саме, але файл **AutoPara-Intel-${{ steps.version.outputs.version }}.dmg**.
 
+          **Android:** завантажте **AutoPara-${{ steps.version.outputs.version }}.apk** і відкрийте його на телефоні чи планшеті
+          (Android 8.0 і новіше). Android один раз попросить дозволити встановлення з браузера або файлового менеджера.
+
           Зібрано з ${{ github.sha }}.
           "@
           gh release create $tag "dist/${{ steps.version.outputs.setup }}" `
@@ -302,3 +305,115 @@ jobs:
       - name: Attach the image to the release
         if: steps.plan.outputs.build == 'true'
         run: gh release upload "v${{ steps.plan.outputs.version }}" "dist/${{ steps.plan.outputs.dmg }}" --clobber
+
+  # The Android app, built from android/ and attached to the same release under the same version
+  # number as the PC apps (its version is read from autopara/__init__.py, which bump_version.py keeps
+  # in step with APP_VERSION). Like the disk images it only adds a file to a release that exists.
+  #
+  # Signing: with the repository secrets ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
+  # ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD the APK carries that key and updates install over each
+  # other. Without them it carries the build machine's debug key: it installs, but a newer one needs
+  # the older uninstalled first.
+  build-android:
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Decide whether this version needs an APK
+        id: plan
+        run: |
+          version=$(sed -n 's/^!define[[:space:]]*APP_VERSION[[:space:]]*"\([^"]*\)".*/\1/p' installer/AutoPara.nsi | head -1)
+          apk="AutoPara-$version.apk"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "apk=$apk" >> "$GITHUB_OUTPUT"
+          have=$(gh release view "v$version" --json assets -q "[.assets[].name | select(. == \"$apk\")] | length" 2>/dev/null || echo none)
+          if [ "$have" = "none" ]; then
+            echo "No release v$version exists, so there is nothing to attach an APK to."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          elif [ "$have" != "0" ]; then
+            echo "v$version already has its APK."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-java@v4
+        if: steps.plan.outputs.build == 'true'
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        if: steps.plan.outputs.build == 'true'
+
+      - name: Accept SDK licences
+        if: steps.plan.outputs.build == 'true'
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+
+      - name: Decode the signing key (when the secrets exist)
+        if: steps.plan.outputs.build == 'true'
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            {
+              echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/release.keystore"
+              echo "ANDROID_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+              echo "ANDROID_KEY_ALIAS=$KEY_ALIAS"
+              echo "ANDROID_KEY_PASSWORD=$KEY_PASSWORD"
+            } >> "$GITHUB_ENV"
+            echo "SIGNING=release key" >> "$GITHUB_ENV"
+          else
+            echo "SIGNING=debug key" >> "$GITHUB_ENV"
+          fi
+
+      - name: Test the core and build the release APK
+        if: steps.plan.outputs.build == 'true'
+        working-directory: android
+        run: ./gradlew :core:test :app:assembleRelease --console=plain
+
+      - name: Check the APK carries this version and is signed
+        if: steps.plan.outputs.build == 'true'
+        run: |
+          mkdir -p dist
+          cp android/app/build/outputs/apk/release/*.apk "dist/${{ steps.plan.outputs.apk }}"
+          tools=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -n1)
+          "$tools/apksigner" verify --verbose "dist/${{ steps.plan.outputs.apk }}"
+          "$tools/aapt2" dump badging "dist/${{ steps.plan.outputs.apk }}" | grep -E "^package:" | tee badging.txt
+          grep -q "versionName='${{ steps.plan.outputs.version }}'" badging.txt
+
+      - name: Upload the APK as a workflow artifact
+        if: steps.plan.outputs.build == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoPara-${{ steps.plan.outputs.version }}-Android
+          path: dist/${{ steps.plan.outputs.apk }}
+          if-no-files-found: error
+
+      - name: Attach the APK to the release
+        if: steps.plan.outputs.build == 'true'
+        run: gh release upload "v${{ steps.plan.outputs.version }}" "dist/${{ steps.plan.outputs.apk }}" --clobber
+
+      - name: Say so in the release notes
+        if: steps.plan.outputs.build == 'true'
+        run: |
+          tag="v${{ steps.plan.outputs.version }}"
+          body=$(gh release view "$tag" --json body -q .body)
+          if ! grep -q "Android" <<< "$body"; then
+            printf '%s\n\n%s\n' "$body" "**Android:** завантажте **${{ steps.plan.outputs.apk }}** і відкрийте його на телефоні чи планшеті (Android 8.0 і новіше). Android один раз попросить дозволити встановлення з браузера або файлового менеджера." > notes.md
+            gh release edit "$tag" --notes-file notes.md
+          fi
+
+      # One-off clean-up: the first Android build was published as its own release, which was too
+      # easy to miss. The APK now lives with the PC apps, so that release (and its tag) goes, which
+      # also hands the "Latest" badge back to the newest PC release.
+      - name: Retire the standalone Android release
+        run: gh release delete android-v1.0.0 --cleanup-tag --yes || echo "android-v1.0.0 is already gone"

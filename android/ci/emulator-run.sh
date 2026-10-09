@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runs inside the emulator job (see .github/workflows/android-emulator.yml), with an emulator booted.
 #
-#  1. Installs the APK that was published as the release, launches it and checks it neither crashes
+#  1. Installs the release APK (the one published with the release, else one built here), launches it and checks it neither crashes
 #     nor exits -- the same file a user downloads.
 #  2. Uninstalls it (the debug build is signed with a different key) and runs the instrumented tests.
 set -euo pipefail
@@ -9,10 +9,17 @@ set -euo pipefail
 out="${OUT_DIR:-$PWD/emulator-out}"
 mkdir -p "$out"
 
-version=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' android/app/build.gradle.kts | head -n1)
+version=$(sed -n 's/^__version__ = "\([^"]*\)".*/\1/p' autopara/__init__.py | head -n1)
 apk="$out/AutoPara-$version.apk"
-echo "== Published release APK, version $version"
-curl -fsSL -o "$apk" "https://github.com/${GITHUB_REPOSITORY}/releases/download/android-v${version}/AutoPara-${version}.apk"
+echo "== Release APK, version $version"
+if curl -fsSL -o "$apk" "https://github.com/${GITHUB_REPOSITORY}/releases/download/v${version}/AutoPara-${version}.apk"; then
+  echo "Using the APK published with release v$version."
+else
+  # A push that bumps the version runs this before the release has its APK: test the build instead.
+  echo "v$version has no APK yet; building the release APK from this checkout."
+  (cd android && ./gradlew :app:assembleRelease --console=plain)
+  cp android/app/build/outputs/apk/release/*.apk "$apk"
+fi
 adb install -r "$apk"
 adb logcat -c
 adb shell monkey -p app.autopara -c android.intent.category.LAUNCHER 1

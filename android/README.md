@@ -105,6 +105,14 @@ cd android
 GitHub Actions (`.github/workflows/android.yml`) runs both on every change under `android/` and
 attaches the debug APK to the run.
 
+## Versioning and releases
+
+There is one version number for every download. `app/build.gradle.kts` reads `__version__` from
+`autopara/__init__.py` (which `tools/bump_version.py` already maintains), and `versionCode` is
+`major*10000 + minor*100 + patch`. The APK is built by the `build-android` job of
+`.github/workflows/installer.yml` and attached to the same GitHub release as the Windows installer
+and the Mac images, as `AutoPara-<version>.apk`. See `docs/RELEASING.md`.
+
 To try the reminders quickly on a device, import a timetable, then set the system clock a couple of
 minutes before a class (or `adb shell cmd alarm` / the date-time settings) and watch for the
 notification.

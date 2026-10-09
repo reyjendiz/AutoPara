@@ -31,6 +31,15 @@ and the push publishes. Two consequences worth holding onto:
 `tests/test_installer.py::TestVersion` fails if they differ. Nothing else should track a version of
 its own — anything that did would drift from the file the build reads.
 
+**Android.** The Android app is not versioned separately. `android/app/build.gradle.kts` reads
+`__version__` from `autopara/__init__.py`, so `bump_version.py` moves it too, and the `build-android`
+job of the same workflow builds `AutoPara-<version>.apk` and attaches it to `v<version>` next to the
+`.exe` and the disk images (only when that release has no APK yet, exactly like the `.dmg` jobs).
+Its `versionCode` is `major*10000 + minor*100 + patch`, so it always grows with the version.
+Repository secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and
+`ANDROID_KEY_PASSWORD` make the APK signed with a stable key (so updates install over each other);
+without them it is signed with the build machine's debug key.
+
 The update check also reads **the release you publish**: it compares the tag (`v<version>`) with
 `__version__` and downloads `AutoPara-<version>-Setup.exe`, the file CI attaches. Cutting a release
 therefore *is* shipping an update to everyone running an older copy.

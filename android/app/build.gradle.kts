@@ -7,6 +7,15 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+// One version number for every download: the Android app takes the desktop app's, which
+// tools/bump_version.py already keeps in autopara/__init__.py. Nothing here is edited by hand.
+val appVersion: Triple<Int, Int, Int> = run {
+    val source = file("../../autopara/__init__.py").readText()
+    val match = Regex("""__version__\s*=\s*"(\d+)\.(\d+)\.(\d+)"""").find(source)
+        ?: error("__version__ not found in autopara/__init__.py")
+    Triple(match.groupValues[1].toInt(), match.groupValues[2].toInt(), match.groupValues[3].toInt())
+}
+
 android {
     namespace = "app.autopara"
     compileSdk = 35
@@ -15,8 +24,9 @@ android {
         applicationId = "app.autopara"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        // 1.9.1 -> 10901: always grows with the version, which is what Android compares on update.
+        versionCode = appVersion.first * 10_000 + appVersion.second * 100 + appVersion.third
+        versionName = "${appVersion.first}.${appVersion.second}.${appVersion.third}"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

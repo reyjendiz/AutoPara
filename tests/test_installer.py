@@ -323,3 +323,27 @@ class TestWorkflowChecksItsTools:
         assert "choco install nsis" in step
         assert "1..3" in step, "a miss is tried again"
         assert "throw" in step, "and if it is still not there the step says so, rather than the build"
+
+
+class TestAndroidSharesTheVersion:
+    """The APK has no version of its own: it is built from the PC apps' number and rides their release."""
+
+    ROOT = Path(__file__).resolve().parents[1]
+
+    def test_gradle_reads_the_desktop_version(self):
+        gradle = (self.ROOT / "android" / "app" / "build.gradle.kts").read_text(encoding="utf-8")
+        assert "autopara/__init__.py" in gradle
+        assert "__version__" in gradle
+        # A hard-coded versionName would silently drift from the release it is attached to.
+        assert not re.search(r'versionName\s*=\s*"\d', gradle)
+
+    def test_the_apk_is_attached_to_the_pc_release(self):
+        flow = (self.ROOT / ".github" / "workflows" / "installer.yml").read_text(encoding="utf-8")
+        job = flow[flow.index("build-android:"):]
+        assert "AutoPara-$version.apk" in job
+        assert 'gh release upload "v${{ steps.plan.outputs.version }}"' in job
+        assert "needs: build" in job  # the Windows job is the one that creates the release
+
+    def test_android_is_not_released_on_its_own(self):
+        flow = (self.ROOT / ".github" / "workflows" / "android.yml").read_text(encoding="utf-8")
+        assert "gh release create" not in flow

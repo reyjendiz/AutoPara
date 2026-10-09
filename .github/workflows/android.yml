@@ -1,15 +1,9 @@
-# Builds and tests the Android app (android/): the pure-Kotlin core module's unit tests, then the
-# debug APK, which is attached to the run as an artifact.
+# Builds and tests the Android app (android/): the pure-Kotlin core module's unit tests, then the debug
+# and release builds (and the instrumented-test APK, so a compile error there shows up here rather than
+# on the emulator). The debug APK is attached to the run as an artifact.
 #
-# On a push to main, a release APK is built and published as `android-v<versionName>` (the version in
-# android/app/build.gradle.kts) when no release with that tag exists yet -- bump versionName in the
-# commit you want released. It is marked a pre-release on purpose: the desktop app's updater reads
-# GitHub's "latest release", and a pre-release never counts as that, so the Android build cannot be
-# mistaken for a Windows/Mac update.
-#
-# Signing: if the repository has the secrets ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
-# ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD the APK is signed with that key, and updates install
-# over each other. Without them the debug key is used: it installs, but every build differs.
+# Releases are not made here. The Android app shares the PC apps' version number and is attached to
+# the same GitHub release by the `build-android` job of installer.yml.
 #
 # The core module (parser, scheduling rules) needs no Android SDK, so it is also built on its own
 # first: a parser regression fails in seconds, before the slower app build starts.
@@ -27,14 +21,9 @@ on:
       - "android/**"
       - ".github/workflows/android.yml"
   workflow_dispatch:
-    inputs:
-      make_latest:
-        description: "Mark this version's release as GitHub's Latest release (not a pre-release)"
-        type: boolean
-        default: false
 
 permissions:
-  contents: write # the release step creates a GitHub release and attaches the APK
+  contents: read
 
 concurrency:
   group: android-${{ github.ref }}
@@ -65,7 +54,7 @@ jobs:
         run: ./gradlew -PcoreOnly=true :core:test --console=plain
 
       - name: Build the app and run its unit tests
-        run: ./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest --console=plain
+        run: ./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest :app:assembleRelease --console=plain
 
       - name: Upload the debug APK
         uses: actions/upload-artifact@v4
@@ -73,75 +62,6 @@ jobs:
           name: AutoPara-debug-apk
           path: android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-
-      - name: Decode the signing key (when the secrets exist)
-        if: github.event_name != 'pull_request'
-        env:
-          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: |
-          if [ -n "$KEYSTORE_B64" ]; then
-            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
-            {
-              echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/release.keystore"
-              echo "ANDROID_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
-              echo "ANDROID_KEY_ALIAS=$KEY_ALIAS"
-              echo "ANDROID_KEY_PASSWORD=$KEY_PASSWORD"
-            } >> "$GITHUB_ENV"
-            echo "SIGNING=release key" >> "$GITHUB_ENV"
-          else
-            echo "SIGNING=debug key" >> "$GITHUB_ENV"
-          fi
-
-      - name: Build the release APK
-        if: github.event_name != 'pull_request'
-        id: release_apk
-        run: |
-          version=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n1)
-          test -n "$version"
-          ./gradlew :app:assembleRelease --console=plain
-          mkdir -p dist
-          cp app/build/outputs/apk/release/*.apk "dist/AutoPara-$version.apk"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-
-      - name: Check the APK is signed
-        if: github.event_name != 'pull_request'
-        run: |
-          apksigner=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n1)
-          "$apksigner" verify --verbose "dist/AutoPara-${{ steps.release_apk.outputs.version }}.apk"
-
-      - name: Publish the release
-        if: github.event_name != 'pull_request'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          tag="android-v${{ steps.release_apk.outputs.version }}"
-          if gh release view "$tag" > /dev/null 2>&1; then
-            echo "Release $tag already exists; leaving it alone."
-            exit 0
-          fi
-          cat > notes.md <<NOTES
-          AutoPara for Android ${{ steps.release_apk.outputs.version }}.
-
-          Download **AutoPara-${{ steps.release_apk.outputs.version }}.apk** and open it on the phone or tablet
-          (Android 8.0 or newer). Android asks once to allow installing from your browser or file manager.
-
-          Signed with the ${SIGNING}. Import your .docx timetable on first launch; allow notifications and
-          "Alarms & reminders" when asked so the reminder arrives exactly one minute before each class.
-          NOTES
-          gh release create "$tag" "dist/AutoPara-${{ steps.release_apk.outputs.version }}.apk" \
-            --target "$GITHUB_SHA" \
-            --title "AutoPara for Android ${{ steps.release_apk.outputs.version }}" \
-            --notes-file notes.md \
-            --prerelease
-
-      - name: Make the release the latest one (manual runs only)
-        if: github.event_name == 'workflow_dispatch' && inputs.make_latest
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release edit "android-v${{ steps.release_apk.outputs.version }}" --prerelease=false --latest
 
       - name: Upload test reports
         if: failure()
