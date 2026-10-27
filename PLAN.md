@@ -76,7 +76,7 @@ Run the worker from the repository root:
 
 ## Notes and helpers (7.7)
 
-- [ ] **T08** Transcript window (worker)
+- [x] **T08** Transcript window (worker)
   - edit: `rust/crates/lecture-assist/src/notes.rs` (the `Transcript` part)
   - read: `rust/crates/lecture-assist/src/lib.rs`
   - result: `Transcript { segments: Vec<Segment>, summary: String }` with `push`,
@@ -84,7 +84,7 @@ Run the worker from the repository root:
     `since(ms) -> String`, `last_text() -> &str`. Tests.
   - verify: `cargo test -p lecture-assist notes`
 
-- [ ] **T09** Notes prompt and reply parsing (worker)
+- [x] **T09** Notes prompt and reply parsing (worker)
   - edit: `rust/crates/lecture-assist/src/notes.rs` (the `Notes` part)
   - result: `Notes { topic, key_points, definitions, deadlines, flagged }`,
     `notes_messages(context, transcript) -> Vec<Message>` asking for strict JSON
