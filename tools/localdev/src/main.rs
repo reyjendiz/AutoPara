@@ -33,6 +33,9 @@ struct Config {
     error_lines: usize,
     #[serde(default)]
     env: BTreeMap<String, String>,
+    /// Merged into every chat request, for server-specific options.
+    #[serde(default)]
+    extra: serde_json::Map<String, Value>,
 }
 
 #[derive(Debug, Deserialize, Clone, Copy, PartialEq)]
@@ -78,9 +81,12 @@ fn run() -> Result<ExitCode, String> {
     let plan_path = root.join(&config.plan);
     let plan = read(&plan_path)?;
     let tasks = parse_plan(&plan);
-    let wanted = std::env::args().nth(1);
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    // --dry-run writes the request to logs/ and stops, for tuning prompts.
+    let dry_run = args.iter().any(|a| a == "--dry-run");
+    let wanted = args.iter().find(|a| !a.starts_with("--"));
     let task = match &wanted {
-        Some(id) => tasks.iter().find(|t| &t.id == id),
+        Some(id) => tasks.iter().find(|t| &&t.id == id),
         None => tasks.iter().find(|t| t.worker && !t.done),
     }
     .ok_or("no such task, or no unchecked worker task left")?;
@@ -93,10 +99,6 @@ fn run() -> Result<ExitCode, String> {
     for path in &task.edit {
         safe_path(&root, path)?;
     }
-    if !git(&root, &["status", "--porcelain"])?.trim().is_empty() {
-        return Err("the working tree has changes; commit them first".into());
-    }
-
     let rules = read(&root.join(&config.rules))?;
     let config = Config {
         format: task.format.unwrap_or(config.format),
@@ -109,6 +111,17 @@ fn run() -> Result<ExitCode, String> {
     let first = task_prompt(&root, task, budget)?;
     let logs = root.join("tools/localdev/logs");
     fs::create_dir_all(&logs).map_err(|e| e.to_string())?;
+    if dry_run {
+        let request =
+            json!({"system": system, "user": first, "tokens": tokens(&system) + tokens(&first)});
+        let file = logs.join(format!("{}.request.json", task.id));
+        fs::write(&file, request.to_string()).map_err(|e| e.to_string())?;
+        println!("{}: request written to {}", task.id, file.display());
+        return Ok(ExitCode::SUCCESS);
+    }
+    if !git(&root, &["status", "--porcelain"])?.trim().is_empty() {
+        return Err("the working tree has changes; commit them first".into());
+    }
     let mut log = format!("# {} {}\n\n## prompt\n\n{first}\n", task.id, task.title);
 
     let mut feedback: Option<(String, String)> = None;
@@ -124,8 +137,11 @@ fn run() -> Result<ExitCode, String> {
             messages.push(json!({"role": "user", "content": retry_prompt(config.format, error)}));
         }
         eprintln!("{}: attempt {attempt}/{}", task.id, config.max_retries);
-        let reply = chat(&config, &messages)?;
+        let (reply, thinking) = chat(&config, &messages)?;
         log.push_str(&format!("\n## reply {attempt}\n\n{reply}\n"));
+        if reply.trim().len() < 40 {
+            log.push_str(&format!("\n## reasoning tail {attempt}\n\n{thinking}\n"));
+        }
 
         let outcome = apply(&config, &root, task, &reply)
             .and_then(|applied| verify(&config, &root, task).map(|out| (applied, out)));
@@ -315,18 +331,22 @@ fn tokens(text: &str) -> usize {
 
 // ---- the model ----
 
-fn chat(config: &Config, messages: &[Value]) -> Result<String, String> {
+/// The reply, and the end of the model's hidden reasoning for the log.
+fn chat(config: &Config, messages: &[Value]) -> Result<(String, String), String> {
     let agent: ureq::Agent = ureq::Agent::config_builder()
         .timeout_global(Some(Duration::from_secs(config.request_timeout_secs)))
         .build()
         .into();
-    let body = json!({
+    let mut body = json!({
         "model": config.model,
         "messages": messages,
         "temperature": config.temperature,
         "max_tokens": config.max_output_tokens,
         "stream": false,
     });
+    if let Some(map) = body.as_object_mut() {
+        map.extend(config.extra.clone());
+    }
     let url = format!("{}/chat/completions", config.base_url.trim_end_matches('/'));
     let mut response = agent
         .post(&url)
@@ -338,11 +358,19 @@ fn chat(config: &Config, messages: &[Value]) -> Result<String, String> {
         .map_err(|e| format!("{url}: unreadable reply: {e}"))?;
     let choice = &value["choices"][0];
     let content = choice["message"]["content"].as_str().unwrap_or_default();
+    let reasoning = choice["message"]["reasoning_content"]
+        .as_str()
+        .unwrap_or_default();
+    let skip = reasoning.chars().count().saturating_sub(3000);
+    let thinking: String = reasoning.chars().skip(skip).collect();
     if choice["finish_reason"] == "length" {
         // Let the attempt fail visibly instead of applying a cut-off file.
-        return Ok(format!("{content}\n(cut off at max_output_tokens)"));
+        return Ok((
+            format!("{content}\n(cut off at max_output_tokens)"),
+            thinking,
+        ));
     }
-    Ok(content.to_string())
+    Ok((content.to_string(), thinking))
 }
 
 // ---- applying ----
