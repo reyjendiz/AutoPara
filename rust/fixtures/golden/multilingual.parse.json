@@ -1,0 +1,244 @@
+[
+ {
+  "ordinal": 1,
+  "name": "I курс",
+  "groups": [
+   {
+    "name": "Group A",
+    "specialty": "Pedagogy",
+    "col_lo": 3,
+    "col_hi": 3
+   },
+   {
+    "name": "Group B",
+    "specialty": "Pedagogy",
+    "col_lo": 4,
+    "col_hi": 4
+   }
+  ],
+  "lessons": [
+   {
+    "day_index": 0,
+    "pair": 1,
+    "start_time": "08:00",
+    "end_time": "09:20",
+    "subject": "Subject 1",
+    "teacher": "(Teacher 1)",
+    "url": "https://meet.google.com/ggg-hhhh-iii",
+    "provider": "google_meet",
+    "group_names": [
+     "Group A"
+    ],
+    "linked_cells": 1,
+    "needs_link": false,
+    "source_key": "1|0|1|subject 1"
+   },
+   {
+    "day_index": 1,
+    "pair": 2,
+    "start_time": "09:30",
+    "end_time": "10:50",
+    "subject": "Subject 2",
+    "teacher": "(Teacher 2)",
+    "url": "https://us02web.zoom.us/j/2000000001",
+    "provider": "zoom",
+    "group_names": [
+     "Group A"
+    ],
+    "linked_cells": 1,
+    "needs_link": false,
+    "source_key": "1|1|2|subject 2"
+   },
+   {
+    "day_index": 2,
+    "pair": 3,
+    "start_time": "11:20",
+    "end_time": "12:40",
+    "subject": "Subject 3",
+    "teacher": "(Teacher 3)",
+    "url": "https://meet.google.com/ggg-hhhh-iii",
+    "provider": "google_meet",
+    "group_names": [
+     "Group A"
+    ],
+    "linked_cells": 1,
+    "needs_link": false,
+    "source_key": "1|2|3|subject 3"
+   },
+   {
+    "day_index": 3,
+    "pair": 4,
+    "start_time": "13:00",
+    "end_time": "14:20",
+    "subject": "Subject 4",
+    "teacher": "(Teacher 4)",
+    "url": "https://us02web.zoom.us/j/2000000001",
+    "provider": "zoom",
+    "group_names": [
+     "Group A"
+    ],
+    "linked_cells": 1,
+    "needs_link": false,
+    "source_key": "1|3|4|subject 4"
+   },
+   {
+    "day_index": 4,
+    "pair": 5,
+    "start_time": "14:40",
+    "end_time": "16:00",
+    "subject": "Subject 5",
+    "teacher": "(Teacher 5)",
+    "url": "https://meet.google.com/ggg-hhhh-iii",
+    "provider": "google_meet",
+    "group_names": [
+     "Group A"
+    ],
+    "linked_cells": 1,
+    "needs_link": false,
+    "source_key": "1|4|5|subject 5"
+   },
+   {
+    "day_index": 5,
+    "pair": 6,
+    "start_time": "16:10",
+    "end_time": "17:30",
+    "subject": "Subject 6",
+    "teacher": "(Teacher 6)",
+    "url": "https://us02web.zoom.us/j/2000000001",
+    "provider": "zoom",
+    "group_names": [
+     "Group A"
+    ],
+    "linked_cells": 1,
+    "needs_link": false,
+    "source_key": "1|5|6|subject 6"
+   }
+  ]
+ },
+ {
+  "ordinal": 2,
+  "name": "II курс",
+  "groups": [
+   {
+    "name": "Группа 1",
+    "specialty": "Педагогика",
+    "col_lo": 3,
+    "col_hi": 3
+   }
+  ],
+  "lessons": [
+   {
+    "day_index": 0,
+    "pair": 1,
+    "start_time": "08:00",
+    "end_time": "09:20",
+    "subject": "Предмет 1",
+    "teacher": "(Преподаватель 1)",
+    "url": "https://zoom.us/j/2000000002?pwd=abc",
+    "provider": "zoom",
+    "group_names": [
+     "Группа 1"
+    ],
+    "linked_cells": 1,
+    "needs_link": false,
+    "source_key": "2|0|1|предмет 1"
+   },
+   {
+    "day_index": 1,
+    "pair": 2,
+    "start_time": "09:30",
+    "end_time": "10:50",
+    "subject": "Предмет 2",
+    "teacher": "(Преподаватель 2)",
+    "url": "https://zoom.us/j/2000000002?pwd=abc",
+    "provider": "zoom",
+    "group_names": [
+     "Группа 1"
+    ],
+    "linked_cells": 1,
+    "needs_link": false,
+    "source_key": "2|1|2|предмет 2"
+   },
+   {
+    "day_index": 2,
+    "pair": 3,
+    "start_time": "11:20",
+    "end_time": "12:40",
+    "subject": "Предмет 3",
+    "teacher": "(Преподаватель 3)",
+    "url": "https://zoom.us/j/2000000002?pwd=abc",
+    "provider": "zoom",
+    "group_names": [
+     "Группа 1"
+    ],
+    "linked_cells": 1,
+    "needs_link": false,
+    "source_key": "2|2|3|предмет 3"
+   },
+   {
+    "day_index": 3,
+    "pair": 4,
+    "start_time": "13:00",
+    "end_time": "14:20",
+    "subject": "Предмет 4",
+    "teacher": "(Преподаватель 4)",
+    "url": "https://zoom.us/j/2000000002?pwd=abc",
+    "provider": "zoom",
+    "group_names": [
+     "Группа 1"
+    ],
+    "linked_cells": 1,
+    "needs_link": false,
+    "source_key": "2|3|4|предмет 4"
+   },
+   {
+    "day_index": 4,
+    "pair": 5,
+    "start_time": "14:40",
+    "end_time": "16:00",
+    "subject": "Предмет 5",
+    "teacher": "(Преподаватель 5)",
+    "url": "https://zoom.us/j/2000000002?pwd=abc",
+    "provider": "zoom",
+    "group_names": [
+     "Группа 1"
+    ],
+    "linked_cells": 1,
+    "needs_link": false,
+    "source_key": "2|4|5|предмет 5"
+   },
+   {
+    "day_index": 5,
+    "pair": 6,
+    "start_time": "16:10",
+    "end_time": "17:30",
+    "subject": "Предмет 6",
+    "teacher": "(Преподаватель 6)",
+    "url": "https://zoom.us/j/2000000002?pwd=abc",
+    "provider": "zoom",
+    "group_names": [
+     "Группа 1"
+    ],
+    "linked_cells": 1,
+    "needs_link": false,
+    "source_key": "2|5|6|предмет 6"
+   },
+   {
+    "day_index": 6,
+    "pair": 7,
+    "start_time": "17:40",
+    "end_time": "19:00",
+    "subject": "Предмет 7",
+    "teacher": "(Преподаватель 7)",
+    "url": "https://zoom.us/j/2000000002?pwd=abc",
+    "provider": "zoom",
+    "group_names": [
+     "Группа 1"
+    ],
+    "linked_cells": 1,
+    "needs_link": false,
+    "source_key": "2|6|7|предмет 7"
+   }
+  ]
+ }
+]

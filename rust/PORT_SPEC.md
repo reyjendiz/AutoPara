@@ -933,6 +933,11 @@ Found while reading the code for this spec:
 18. `theme` and `catchup_mode` are not validated when read; an unknown `catchup_mode` behaves as
     notify, an unknown theme as system.
 19. Window size and position are not persisted (the plan adds this in 4.3).
+20. **The cold-start guard lasts one tick.** With `catchup_mode = open`, an app started while a
+    class is running offers it on the first tick and then opens it on the second, 15 s later,
+    without the user pressing anything (`rust/fixtures/golden/*.scheduler.json`, scenario
+    `late_start_open`). README and FRONTEND.md say nothing opens until a button is pressed; the plan
+    (step 3.4) requires that.
 
 ---
 

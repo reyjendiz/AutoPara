@@ -7,8 +7,8 @@ Ticked only when the step's quality gate is green.
 - [x] 0.2 Read everything
 - [x] 0.3 `PORT_SPEC.md`
 - [x] 0.4 Python baseline
-- [ ] 0.5 Golden fixtures
-- [ ] 0.6 Visual baseline
+- [x] 0.5 Golden fixtures
+- [x] 0.6 Visual baseline
 
 ## Phase 1 — Workspace scaffold and CI
 - [ ] 1.1 Cargo workspace

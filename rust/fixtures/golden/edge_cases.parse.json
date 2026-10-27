@@ -1,0 +1,195 @@
+[
+ {
+  "ordinal": 1,
+  "name": "I курс",
+  "groups": [
+   {
+    "name": "G1",
+    "specialty": "Spec one",
+    "col_lo": 3,
+    "col_hi": 3
+   },
+   {
+    "name": "G2",
+    "specialty": "Spec two",
+    "col_lo": 4,
+    "col_hi": 4
+   }
+  ],
+  "lessons": [
+   {
+    "day_index": 0,
+    "pair": 1,
+    "start_time": "08:00",
+    "end_time": "10:50",
+    "subject": "Algebra",
+    "teacher": "(Smith J.)",
+    "url": "https://us02web.zoom.us/j/2000000001",
+    "provider": "zoom",
+    "group_names": [
+     "G1",
+     "G2"
+    ],
+    "linked_cells": 2,
+    "needs_link": false,
+    "source_key": "1|0|1|algebra"
+   },
+   {
+    "day_index": 0,
+    "pair": 3,
+    "start_time": "11:20",
+    "end_time": "12:40",
+    "subject": "Geometry",
+    "teacher": "(Doe A.)",
+    "url": "https://meet.google.com/ggg-hhhh-iii",
+    "provider": "google_meet",
+    "group_names": [
+     "G1"
+    ],
+    "linked_cells": 1,
+    "needs_link": false,
+    "source_key": "1|0|3|geometry"
+   },
+   {
+    "day_index": 0,
+    "pair": 5,
+    "start_time": "14:40",
+    "end_time": "16:00",
+    "subject": "Algebra",
+    "teacher": "(Smith J.)",
+    "url": "https://us02web.zoom.us/j/2000000001",
+    "provider": "zoom",
+    "group_names": [
+     "G1",
+     "G2"
+    ],
+    "linked_cells": 1,
+    "needs_link": false,
+    "source_key": "1|0|5|algebra"
+   },
+   {
+    "day_index": 2,
+    "pair": 3,
+    "start_time": "12:00",
+    "end_time": "13:20",
+    "subject": "Seminar",
+    "teacher": "(Brown K.)",
+    "url": null,
+    "provider": "unknown",
+    "group_names": [
+     "G1"
+    ],
+    "linked_cells": 0,
+    "needs_link": true,
+    "source_key": "1|2|3|seminar"
+   },
+   {
+    "day_index": 2,
+    "pair": 6,
+    "start_time": "16:10",
+    "end_time": "17:30",
+    "subject": "Late class",
+    "teacher": "(X Y.)",
+    "url": "https://meet.google.com/ggg-hhhh-iii",
+    "provider": "google_meet",
+    "group_names": [
+     "G1"
+    ],
+    "linked_cells": 1,
+    "needs_link": false,
+    "source_key": "1|2|6|late class"
+   },
+   {
+    "day_index": 4,
+    "pair": 7,
+    "start_time": "17:40",
+    "end_time": "19:00",
+    "subject": "Evening",
+    "teacher": "(Y.)",
+    "url": "https://zoom.us/j/2000000002?pwd=abc",
+    "provider": "zoom",
+    "group_names": [
+     "G2"
+    ],
+    "linked_cells": 1,
+    "needs_link": false,
+    "source_key": "1|4|7|evening"
+   },
+   {
+    "day_index": 6,
+    "pair": 1,
+    "start_time": "08:00",
+    "end_time": "09:20",
+    "subject": "Мийка й лійка",
+    "teacher": "(Іван Петро)",
+    "url": "https://teams.example.org/meet/42",
+    "provider": "unknown",
+    "group_names": [
+     "G1"
+    ],
+    "linked_cells": 1,
+    "needs_link": false,
+    "source_key": "1|6|1|мийка й лійка"
+   }
+  ]
+ },
+ {
+  "ordinal": 2,
+  "name": "II курс",
+  "groups": [],
+  "lessons": []
+ },
+ {
+  "ordinal": 3,
+  "name": "III курс",
+  "groups": [
+   {
+    "name": "G-A",
+    "specialty": "Wide",
+    "col_lo": 3,
+    "col_hi": 5
+   },
+   {
+    "name": "G-B",
+    "specialty": "Narrow",
+    "col_lo": 6,
+    "col_hi": 6
+   }
+  ],
+  "lessons": [
+   {
+    "day_index": 1,
+    "pair": 1,
+    "start_time": "08:00",
+    "end_time": "09:20",
+    "subject": "Shared",
+    "teacher": "(Kim L.)",
+    "url": "https://meet.google.com/jjj-kkkk-lll",
+    "provider": "google_meet",
+    "group_names": [
+     "G-A",
+     "G-B"
+    ],
+    "linked_cells": 1,
+    "needs_link": false,
+    "source_key": "3|1|1|shared"
+   },
+   {
+    "day_index": 1,
+    "pair": 2,
+    "start_time": "09:30",
+    "end_time": "10:50",
+    "subject": "Wide only",
+    "teacher": "(Lee M.)",
+    "url": "https://us02web.zoom.us/j/2000000001",
+    "provider": "zoom",
+    "group_names": [
+     "G-A"
+    ],
+    "linked_cells": 1,
+    "needs_link": false,
+    "source_key": "3|1|2|wide only"
+   }
+  ]
+ }
+]
