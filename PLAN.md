@@ -30,7 +30,7 @@ Run the worker from the repository root:
 
 ## LLM provider layer (7.6)
 
-- [ ] **T02** SSE parser (worker)
+- [x] **T02** SSE parser (worker)
   - edit: `rust/crates/lecture-assist/src/llm/sse.rs`
   - result: `pub struct SseParser` with `pub fn push(&mut self, bytes: &[u8]) -> Vec<String>`
     returning the payload of every complete `data:` line (bytes may split lines and UTF-8
