@@ -155,7 +155,7 @@ mod tests {
         assert_eq!(transcript.window(1), "третє");
         assert_eq!(transcript.window(2), "друге третє");
         assert_eq!(transcript.window(10), "перше друге третє");
-        assert_eq!(transcript.since(130), "третє");
+        assert_eq!(transcript.since(130_000), "третє");
         assert_eq!(transcript.last_text(), "третє");
         assert_eq!(Transcript::default().window(5), "");
     }
