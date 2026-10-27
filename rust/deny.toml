@@ -1,0 +1,46 @@
+# cargo deny check: licences (permissive only, plan rule R11), advisories, sources.
+
+[graph]
+# The platforms AutoPara ships on; dependencies only other platforms pull in are not judged.
+targets = [
+    "x86_64-pc-windows-msvc",
+    "aarch64-apple-darwin",
+    "x86_64-apple-darwin",
+]
+
+[advisories]
+version = 2
+yanked = "deny"
+ignore = []
+
+[licenses]
+version = 2
+confidence-threshold = 0.9
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-3-Clause",
+    "Unicode-3.0",
+    "Zlib",
+    "CC0-1.0",
+]
+# MPL-2.0 (file-level copyleft, used unmodified) only for these crates, all pulled in by Tauri
+# itself. See DECISIONS.md, "MPL-2.0 crates under Tauri".
+exceptions = [
+    { crate = "cssparser", allow = ["MPL-2.0"] },
+    { crate = "cssparser-macros", allow = ["MPL-2.0"] },
+    { crate = "dtoa-short", allow = ["MPL-2.0"] },
+    { crate = "option-ext", allow = ["MPL-2.0"] },
+    { crate = "selectors", allow = ["MPL-2.0"] },
+]
+# Our own crates are not published and carry no licence field.
+private = { ignore = true }
+
+[bans]
+multiple-versions = "allow"
+wildcards = "deny"
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

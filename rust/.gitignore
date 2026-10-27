@@ -1,0 +1,4 @@
+/target/
+node_modules/
+/crates/autopara-app/dist/
+/crates/autopara-app/src-tauri/gen/

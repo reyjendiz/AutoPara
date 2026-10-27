@@ -1,0 +1,27 @@
+[package]
+name = "autopara-app"
+description = "AutoPara desktop app: opens each class's meeting link a minute before it starts."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+default-run = "autopara"
+
+[lib]
+name = "autopara_app"
+
+[[bin]]
+name = "autopara"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build.workspace = true
+
+[dependencies]
+autopara-core.workspace = true
+serde.workspace = true
+tauri.workspace = true
+ts-rs.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,39 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/autopara-core",
+    "crates/lecture-assist",
+    "crates/autopara-app/src-tauri",
+    "xtask",
+]
+
+# The one place the version lives. Every crate inherits it, and the Tauri app reads it from its
+# own crate, so the installer, the updater and the window all report the same number.
+[workspace.package]
+version = "2.0.0-alpha.1"
+edition = "2024"
+rust-version = "1.90"
+publish = false
+
+[workspace.dependencies]
+autopara-core = { path = "crates/autopara-core" }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+ts-rs = "12.0.1"
+tauri = { version = "2.12.5", features = ["tray-icon"] }
+tauri-build = { version = "2.7.4", features = [] }
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+unused_qualifications = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+dbg_macro = "warn"
+todo = "warn"
+unwrap_used = "warn"
+
+[profile.release]
+codegen-units = 1
+lto = true
+strip = true
