@@ -50,7 +50,7 @@ Run the worker from the repository root:
     (timeout, network, HTTP 429/5xx → `ChatUnavailable`, so the chain falls back).
   - verify: `cargo test -p lecture-assist llm`
 
-- [ ] **T05** OpenAI-compatible streaming client (worker)
+- [x] **T05** OpenAI-compatible streaming client (worker)
   - edit: `rust/crates/lecture-assist/src/llm/openai.rs`
   - read: `rust/crates/lecture-assist/src/llm/mod.rs`, `rust/crates/lecture-assist/src/llm/sse.rs`
   - result: `OpenAiCompatible { base_url, model, api_key: Option<String>, temperature, timeout }`
