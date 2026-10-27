@@ -18,14 +18,14 @@ Ticked only when the step's quality gate is green.
 - [x] 1.5 `xtask` commands
 
 ## Phase 2 — Core: parsing and storage
-- [ ] 2.1 Domain types
-- [ ] 2.2 Day-name recogniser
-- [ ] 2.3 `.docx` reading
-- [ ] 2.4 Timetable extraction
-- [ ] 2.5 SQLite layer
-- [ ] 2.6 Import service
+- [x] 2.1 Domain types
+- [x] 2.2 Day-name recogniser
+- [x] 2.3 `.docx` reading
+- [x] 2.4 Timetable extraction
+- [x] 2.5 SQLite layer
+- [x] 2.6 Import service
 - [ ] 2.7 Legacy migration
-- [ ] 2.8 Parity tests
+- [ ] 2.8 Parity tests (golden parser comparison done; proptest still to add)
 
 ## Phase 3 — Scheduler and joining
 - [ ] 3.1 `Clock` trait
