@@ -44,18 +44,18 @@ Ticked only when the step's quality gate is green.
 - [x] 4.5 Security baseline
 
 ## Phase 5 — UI parity
-- [ ] 5.1 Design tokens
-- [ ] 5.2 Layout
-- [ ] 5.3 Week grid
-- [ ] 5.4 Day and month views
-- [ ] 5.5 Interactions
-- [ ] 5.6 Search and filters
-- [ ] 5.7 Import screen
-- [ ] 5.8 Missed-class banner
-- [ ] 5.9 Settings screen
-- [ ] 5.10 Accessibility and keyboard
-- [ ] 5.11 Visual parity check
-- [ ] 5.12 Frontend tests
+- [x] 5.1 Design tokens
+- [x] 5.2 Layout
+- [x] 5.3 Week grid
+- [x] 5.4 Day and month views
+- [x] 5.5 Interactions
+- [x] 5.6 Search and filters
+- [x] 5.7 Import screen
+- [x] 5.8 Missed-class banner
+- [x] 5.9 Settings screen
+- [x] 5.10 Accessibility and keyboard
+- [x] 5.11 Visual parity check
+- [x] 5.12 Frontend tests
 
 ## Phase 6 — Updates and installers
 - [ ] 6.1 Re-read release docs

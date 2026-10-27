@@ -177,3 +177,37 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
 - **Python:** accepted `http://` too.
 - **Why:** the scheduler would never open it (see "Only https links are opened"); saying so when
   the link is typed is better than a class that silently never opens.
+
+## Interface: morphs, dragging and native fields
+
+- **Morphs** use the View Transitions API: a class keeps a `view-transition-name` (its place within
+  one view, its date across views), so it grows from its old box to the new one; everything else
+  cross-fades. `prefers-reduced-motion` turns all motion off. The Python overlay's 14 px drift of
+  the empty calendar is not reproduced.
+- **Dragging** a class uses pointer events, not HTML drag and drop: the webview's own file-drop
+  handling, which delivers a dropped `.docx` with its real path, disables HTML drag and drop on
+  Windows.
+- **Date and time fields** in the editor are the webview's own (`<input type="date|time">`), with
+  its calendar and clock pickers, in place of Qt's spin boxes.
+- **Text size on macOS** is the same CSS points as on Windows; the Python app's 1.15 Mac scale is
+  not carried over.
+- **Demo backend** (`?demo`): the interface can run in an ordinary browser on the sample timetable
+  with a pinned clock; `cargo xtask demo-data` regenerates it from the core, and `cargo xtask
+  screenshots` photographs it for `PARITY_UI.md`.
+
+## Interface: morphs, dragging and native fields
+
+- **Morphs** use the View Transitions API: a class keeps a `view-transition-name` (its place within
+  one view, its date across views), so it grows from its old box to the new one; everything else
+  cross-fades. `prefers-reduced-motion` turns all motion off. The Python overlay's 14 px drift of
+  the empty calendar is not reproduced.
+- **Dragging** a class uses pointer events, not HTML drag and drop: the webview's own file-drop
+  handling, which delivers a dropped `.docx` with its real path, disables HTML drag and drop on
+  Windows.
+- **Date and time fields** in the editor are the webview's own (`<input type="date|time">`), with
+  its calendar and clock pickers, in place of Qt's spin boxes.
+- **Text size on macOS** is the same CSS points as on Windows; the Python app's 1.15 Mac scale is
+  not carried over.
+- **Demo backend** (`?demo`): the interface can run in an ordinary browser on the sample timetable
+  with a pinned clock; `cargo xtask demo-data` regenerates it from the core, and `cargo xtask
+  screenshots` photographs it for `PARITY_UI.md`.
