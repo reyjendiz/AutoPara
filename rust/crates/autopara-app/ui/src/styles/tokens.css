@@ -1,0 +1,115 @@
+/* Design tokens, both themes (PORT_SPEC §F.1): the Python app's palettes, value for value.
+ * The active theme is the `data-theme` attribute on <html>; nothing outside this file names a
+ * colour. */
+
+:root {
+  --canvas: #f5f5f6;
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --sunken: #f5f5f6;
+  --text: #0e0e10;
+  --text-muted: #6b6b75;
+  --text-faint: #7e7e88;
+  --border: #e6e6ea;
+  --border-soft: #ececef;
+  --grid-line: #e2e2e7;
+  --accent: #0e0e10;
+  --accent-fill: #0e0e10;
+  --accent-hover: #2b2b30;
+  --accent-ink: #0e0e10;
+  --accent-soft: #efeff1;
+  --accent-text: #ffffff;
+  --today-bg: #fafafb;
+  --now-bg: #fafafb;
+  --card-bg: #ffffff;
+  --opened-bg: #fafafb;
+  --missed-bg: #fffafa;
+  --nolink-bg: #fffdf4;
+  --skipped-bg: #fafafb;
+  --chip-bg: #f0f0f2;
+  --success-bg: #dff4e5;
+  --success-fg: #1f7a47;
+  --danger: #e5534d;
+  --danger-bg: #fdecea;
+  --danger-fg: #c23a30;
+  --warn-bg: #fff3c9;
+  --warn-fg: #7d6200;
+  --zoom-bg: #e1f0fd;
+  --zoom-fg: #1f67ad;
+  --meet-bg: #dff4e5;
+  --meet-fg: #1f7a47;
+  --tooltip-bg: #0e0e10;
+  --tooltip-fg: #ffffff;
+  --scroll: #dcdce0;
+  --scroll-hover: #c4c4ca;
+  --drop-bg: #f0f0f2;
+  --drop-border: #cfcfd6;
+  --drop-hover-bg: #efeff1;
+  --hero-bg: #a8bdd6;
+  --banner-bg: #fff3c9;
+  --banner-border: #f0dc8a;
+  --banner-text: #5c4700;
+  --rail-bg: #0e0e10;
+  --rail-icon: #ffffff;
+  --rail-hover: #2b2b30;
+  --rail-primary-bg: #ffffff;
+  --rail-primary-fg: #0e0e10;
+
+  --subject-tint: 0.16;
+}
+
+:root[data-theme="dark"] {
+  --canvas: #0a0a0b;
+  --bg: #151517;
+  --surface: #151517;
+  --sunken: #1d1d20;
+  --text: #f2f2f4;
+  --text-muted: #a0a0aa;
+  --text-faint: #8a8a94;
+  --border: #2a2a2e;
+  --border-soft: #232326;
+  --grid-line: #2a2a2e;
+  --accent: #f2f2f4;
+  --accent-fill: #f2f2f4;
+  --accent-hover: #d6d6da;
+  --accent-ink: #f2f2f4;
+  --accent-soft: #26262b;
+  --accent-text: #0e0e10;
+  --today-bg: #19191c;
+  --now-bg: #19191c;
+  --card-bg: #1d1d20;
+  --opened-bg: #18181a;
+  --missed-bg: #241a1a;
+  --nolink-bg: #22200f;
+  --skipped-bg: #18181a;
+  --chip-bg: #26262b;
+  --success-bg: #17301f;
+  --success-fg: #7edc9e;
+  --danger: #f0665c;
+  --danger-bg: #33191a;
+  --danger-fg: #ff8a84;
+  --warn-bg: #33290c;
+  --warn-fg: #f1d86b;
+  --zoom-bg: #142b40;
+  --zoom-fg: #8cc8f5;
+  --meet-bg: #17301f;
+  --meet-fg: #7edc9e;
+  --tooltip-bg: #f2f2f4;
+  --tooltip-fg: #0e0e10;
+  --scroll: #33333a;
+  --scroll-hover: #4a4a52;
+  --drop-bg: #1d1d20;
+  --drop-border: #3a3a40;
+  --drop-hover-bg: #26262b;
+  --hero-bg: #26262b;
+  --banner-bg: #33290c;
+  --banner-border: #5c4a12;
+  --banner-text: #f1d86b;
+  --rail-bg: #1d1d20;
+  --rail-icon: #f2f2f4;
+  --rail-hover: #2e2e33;
+  --rail-primary-bg: #f2f2f4;
+  --rail-primary-fg: #0e0e10;
+
+  --subject-tint: 0.2;
+}
