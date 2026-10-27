@@ -1,0 +1,99 @@
+# Checks the Rust rewrite (rust/) on every platform AutoPara ships for: formatting, lints, tests,
+# the frontend's type check, lint and tests, and a debug build of the app itself. The same gates as
+# `cargo xtask check`, so a green local run and a green CI run mean the same thing.
+
+name: Rust CI
+
+on:
+  push:
+    branches: [main, rust-rewrite]
+    paths:
+      - "rust/**"
+      - ".github/workflows/rust-ci.yml"
+  pull_request:
+    paths:
+      - "rust/**"
+      - ".github/workflows/rust-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rust-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+    working-directory: rust
+
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    env:
+      APP: crates/autopara-app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: rust/crates/autopara-app/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix "$APP"
+
+      - name: Formatting
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Tests
+        run: cargo test --workspace
+
+      - name: TypeScript bindings are committed
+        run: |
+          changes=$(git status --porcelain -- "$APP/ui/src/bindings")
+          if [ -n "$changes" ]; then
+            echo "cargo test changed the TypeScript bindings; commit them:"
+            echo "$changes"
+            exit 1
+          fi
+
+      - name: Frontend checks
+        run: |
+          npm run --prefix "$APP" typecheck
+          npm run --prefix "$APP" lint
+          npm run --prefix "$APP" test
+
+      - name: Install the Tauri CLI
+        run: cargo install tauri-cli --version "^2.9" --locked
+
+      - name: Debug build of the app
+        working-directory: rust/crates/autopara-app
+        run: cargo tauri build --debug --no-bundle
+
+  deny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          manifest-path: rust/Cargo.toml
+          command: check
