@@ -67,19 +67,19 @@ Ticked only when the step's quality gate is green.
 - [x] 6.7 Release checklist
 
 ## Phase 7 — Lecture Assist
-- [ ] 7.1 Engine API
-- [ ] 7.2 Audio capture — Windows
+- [x] 7.1 Engine API
+- [ ] 7.2 Audio capture — Windows (loopback, device list, reconnect, resampling done; device picker UI and a hardware run pending)
 - [ ] 7.3 Audio capture — macOS
-- [ ] 7.4 VAD and segmentation
-- [ ] 7.5 Speech recognition
-- [ ] 7.6 LLM provider layer
-- [ ] 7.7 Assist features
+- [x] 7.4 VAD and segmentation (Silero through whisper.cpp, loudness fallback; see DECISIONS.md)
+- [ ] 7.5 Speech recognition (whisper backend, prompt, filters, streaming done; model manager pending, not yet run on a real model)
+- [ ] 7.6 LLM provider layer (client, SSE, fallback chain, presets, rate guard done; keychain pending)
+- [ ] 7.7 Assist features (engine side done; overlay display pending)
 - [ ] 7.8 Overlay window
 - [ ] 7.9 Integration
-- [ ] 7.10 Storage
+- [ ] 7.10 Storage (tables, retention and wipe done; startup job pending)
 - [ ] 7.11 Settings UI
 - [ ] 7.12 Performance budgets
-- [ ] 7.13 Tests
+- [ ] 7.13 Tests (unit and synthetic end-to-end done; real speech fixtures pending)
 - [ ] 7.14 Docs
 
 ## Phase 8 — Cutover and documentation
