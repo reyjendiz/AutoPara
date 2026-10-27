@@ -6,6 +6,7 @@ pub mod days;
 pub mod db;
 pub mod docx;
 pub mod i18n;
+pub mod import;
 pub mod model;
 pub mod parser;
 pub mod text;
