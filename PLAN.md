@@ -153,7 +153,7 @@ Run the worker from the repository root:
     second, final on silence; flags; notes timer; helpers; end-of-class summary; event stream.
   - verify: `cargo test -p lecture-assist engine`
 
-- [ ] **T18** End-to-end engine test (worker)
+- [x] **T18** End-to-end engine test (worker)
   - edit: `rust/crates/lecture-assist/tests/engine.rs`
   - read: `rust/crates/lecture-assist/src/engine.rs`, `rust/crates/lecture-assist/src/audio/fake.rs`
   - result: fake source + scripted recognizer + mock chat provider; asserts transcript,
