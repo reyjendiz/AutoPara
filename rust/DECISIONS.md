@@ -211,3 +211,62 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
 - **Demo backend** (`?demo`): the interface can run in an ordinary browser on the sample timetable
   with a pinned clock; `cargo xtask demo-data` regenerates it from the core, and `cargo xtask
   screenshots` photographs it for `PARITY_UI.md`.
+
+## Updates
+
+- **Decision:** `tauri-plugin-updater` reads `latest.json` from the newest GitHub release of
+  `reyjendiz/AutoPara`; every file is checked against the minisign public key in `tauri.conf.json`.
+  Windows runs the downloaded `Setup.exe` silently (`/S /UPDATE /R`) and the installer restarts the
+  app. **macOS replaces `AutoPara.app` through the updater** (a signed `.app.tar.gz`) and restarts,
+  instead of opening the `.dmg` as the Python app did. The plugin is built without its `zip`
+  feature: Tauri 2's own update archives are `.tar.gz` on macOS and the bare installer on Windows.
+- **Python:** asked the GitHub API for the latest release and picked the asset by name (PORT_SPEC
+  §G); on macOS it only opened the disk image.
+- **Why:** signature checking and the install step come with the plugin; a `.dmg` would leave the
+  user to drag the app by hand. Releases with a pre-release version are GitHub pre-releases, which
+  `releases/latest` (and so the updater) skips. `latest.json` carries no notes yet, so the update
+  strip shows no detail line.
+
+## Windows installer
+
+- **Decision:** the Tauri bundler's NSIS target with a **custom template**,
+  `src-tauri/installer/installer.nsi`: Tauri 2.10's own template changed to do what
+  `installer/AutoPara.nsi` does. Per-user into `%LOCALAPPDATA%\Programs\AutoPara` with no UAC
+  prompt; a components page with the app (read-only), `Ярлик на робочому столі` and `Запускати
+  разом із Windows` (both on, so `/S` installs both); the HKCU `Run` value `AutoPara` = `"<exe>"
+  --hidden`, which a test compares with `autostart::startup_command`; Start Menu folder `AutoPara`
+  with the app and `Видалити AutoPara`; Add/Remove entry `AutoPara — автозапуск пар` under HKCU;
+  Ukrainian only. Uninstall removes the files, shortcuts, `Run` value and registry keys, then asks
+  whether to delete `%APPDATA%\AutoPara`; No, `/S` and `/P` keep it.
+- **Alternatives:** installer hooks on Tauri's default template. Hooks run inside the install
+  section, so they can neither change the default folder (`%LOCALAPPDATA%\AutoPara`) shown on the
+  directory page nor add a components page; the default template also offers to delete
+  `%APPDATA%\com.autopara.app`, not the folder AutoPara's data is in.
+- **Strings:** `build.rs` writes `gen/installer-strings.nsh` (`!define STR_*`) from the `installer_*`
+  keys and `app_title` of `i18n/uk.json`; Tauri includes it as the "installer hooks" file, the only
+  file path the bundler passes into a template. The template's other messages (the reinstall page,
+  WebView2, "the app is running") are Tauri's own Ukrainian language file.
+- **Differences from `AutoPara.nsi`:** a running copy is found by its executable through the
+  Restart Manager and closed after an OK (Tauri's `CheckIfAppIsRunning`) instead of by the window
+  title; a previous install is offered for removal on Tauri's reinstall page; an update (`/UPDATE`)
+  leaves the shortcuts and the autostart choice alone; Yes on uninstall also deletes the webview's
+  and window state's folders (`%APPDATA%\com.autopara.app`, `%LOCALAPPDATA%\com.autopara.app`); the
+  install folder is removed only when empty. Installing over the Python app removes its
+  `_internal` folder, finds its folder through `Software\AutoPara\InstallDir`, and replaces its
+  shortcuts and Add/Remove entry (same paths and key).
+- **WebView2:** the Evergreen bootstrapper is embedded and runs silently when WebView2 is missing.
+  It still downloads the runtime, so a PC without WebView2 needs the network once; Windows 11 and an
+  updated Windows 10 already have it. The fixed runtime would add about 180 MB to every download.
+- **No MSI:** bundle targets are `nsis`, `app` and `dmg`; WiX would need an admin install and does
+  not accept a pre-release version.
+
+## Release workflow
+
+- **Decision:** `.github/workflows/rust-release.yml` builds Windows, Apple Silicon and Intel in
+  parallel and creates the release only after all three succeed, with `latest.json`; the version is
+  read with `cargo metadata` from the workspace.
+- **Python:** `installer.yml` created the release from the Windows job and the Mac jobs attached
+  their images afterwards.
+- **Why:** `latest.json` names every platform's file, so it can only be written once all exist;
+  a release missing a file would point the updater at nothing. The Android APK is still built and
+  attached by `installer.yml` under the Python app's version; it moves over in phase 8.

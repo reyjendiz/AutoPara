@@ -38,7 +38,20 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["nsis", "app", "dmg"],
+    "publisher": "AutoPara",
+    "copyright": "AutoPara",
+    "windows": {
+      "webviewInstallMode": { "type": "embedBootstrapper", "silent": true },
+      "nsis": {
+        "template": "installer/installer.nsi",
+        "installerHooks": "gen/installer-strings.nsh",
+        "installMode": "currentUser",
+        "languages": ["Ukrainian"],
+        "installerIcon": "icons/icon.ico",
+        "compression": "lzma"
+      }
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

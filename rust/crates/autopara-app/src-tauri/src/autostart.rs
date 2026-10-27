@@ -140,3 +140,24 @@ pub fn sync(enabled: bool) -> io::Result<bool> {
     }
     Ok(is_enabled())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The installer writes the same Run value, or the app would rewrite it on every launch
+    /// (installer/installer.nsi, section SEC_AUTOSTART).
+    #[test]
+    fn the_installer_writes_the_same_entry() {
+        let template = include_str!("../installer/installer.nsi");
+        let config: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        assert_eq!(config["productName"], VALUE_NAME);
+        assert_eq!(config["mainBinaryName"], "AutoPara");
+        assert!(template.contains(
+            r#"WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${PRODUCTNAME}" '"$INSTDIR\${MAINBINARYNAME}.exe" --hidden'"#
+        ));
+        let command = startup_command().unwrap();
+        assert!(command.starts_with('"') && command.ends_with("\" --hidden"));
+    }
+}

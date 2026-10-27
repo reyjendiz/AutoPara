@@ -26,6 +26,7 @@ check` (`deny.toml`); exceptions are explained in `DECISIONS.md`.
 | tauri-plugin-opener | 2.7.2 | Apache-2.0 OR MIT | opening meeting links |
 | tauri-plugin-single-instance | 2.5.4 | Apache-2.0 OR MIT | one running copy |
 | tauri-plugin-window-state | 2.5.0 | Apache-2.0 OR MIT | window size and position |
+| tauri-plugin-updater (no `zip` feature) | 2.14.0 | Apache-2.0 OR MIT | signed updates from GitHub Releases |
 | tracing / tracing-subscriber / tracing-appender | 0.1.44 / 0.3.23 / 0.2.5 | MIT | the log file |
 | windows-registry (Windows only) | 0.100.0 | MIT OR Apache-2.0 | the autostart entry |
 
@@ -66,3 +67,12 @@ Their transitive packages are MIT, Apache-2.0, BSD-2/3-Clause, ISC and BlueOak-1
 | Asset | Licence |
 |---|---|
 | App icons (`src-tauri/icons`) | rendered from the project's own `autopara/ui/assets/logo.png` |
+
+## Installer (Windows, shipped inside the Setup.exe)
+
+| Component | Licence |
+|---|---|
+| NSIS template `src-tauri/installer/installer.nsi` | adapted from tauri-bundler 2.10.4's own template, MIT OR Apache-2.0 |
+| NSIS and its plugins (downloaded by the Tauri CLI at build time) | zlib/libpng (its LZMA decoder: CPL-1.0 with NSIS's exception for installers) |
+| `nsis_tauri_utils` plugin | MIT OR Apache-2.0 |
+| Microsoft Edge WebView2 Evergreen bootstrapper | Microsoft WebView2 distribution terms (redistribution allowed) |

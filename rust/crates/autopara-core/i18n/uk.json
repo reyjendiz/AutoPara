@@ -268,5 +268,15 @@
   "notify_update_title": "Доступна нова версія",
   "notify_update_body": "AutoPara {version}",
   "notify_ready_title": "Оновлення готове",
-  "notify_ready_body": "AutoPara {version} завантажено. Натисніть, щоб встановити."
+  "notify_ready_body": "AutoPara {version} завантажено. Натисніть, щоб встановити.",
+  "installer_core": "AutoPara (обов'язково)",
+  "installer_core_hint": "Програма AutoPara та все, що їй потрібно для роботи.",
+  "installer_desktop": "Ярлик на робочому столі",
+  "installer_desktop_hint": "Створити ярлик на робочому столі.",
+  "installer_autostart": "Запускати разом із Windows",
+  "installer_autostart_hint": "Запускати AutoPara у трей разом із Windows, щоб пари відкривалися навіть тоді, коли ви забули увімкнути програму. Це можна змінити в налаштуваннях.",
+  "installer_run": "Запустити AutoPara",
+  "installer_finished": "AutoPara встановлено.\n\nПри першому запуску перетягніть у вікно файл розкладу (.docx), а потім оберіть свій курс і групу.",
+  "installer_uninstall_link": "Видалити AutoPara",
+  "installer_delete_data": "Видалити також збережений розклад і налаштування?\n\n{path}"
 }
