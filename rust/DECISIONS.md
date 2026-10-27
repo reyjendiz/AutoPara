@@ -270,3 +270,24 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
 - **Why:** `latest.json` names every platform's file, so it can only be written once all exist;
   a release missing a file would point the updater at nothing. The Android APK is still built and
   attached by `installer.yml` under the Python app's version; it moves over in phase 8.
+
+## Lecture Assist: voice activity detection
+
+- **Decision:** Silero VAD runs through whisper.cpp's own implementation (`whisper_rs::WhisperVadContext`,
+  the ggml conversion of Silero v5, MIT), with a loudness detector against an adapting noise floor
+  as the fallback.
+- **Plan:** Silero through ONNX Runtime (`ort`), `webrtc-vad` as fallback.
+- **Why:** whisper.cpp is already shipped for recognition; ONNX Runtime would add a second
+  inference runtime and a native library to every installer for a model of 2 MB. The loudness
+  fallback needs no native code and is enough for meeting audio, where the far side is near silent
+  between phrases.
+
+## Lecture Assist: building whisper.cpp
+
+- **Decision:** `whisper-rs-sys` generates its bindings at build time, which needs libclang and
+  cmake. CI runners have both. On a Windows machine without LLVM, set `LIBCLANG_PATH` to any
+  libclang 18 (the `libclang` wheel from PyPI works) and put Visual Studio's bundled cmake on
+  `PATH`.
+- **Alternative:** the bindings bundled with the crate (`WHISPER_DONT_GENERATE_BINDINGS`).
+- **Why:** they are generated on Linux, where `long` is 8 bytes, and fail the layout checks on
+  Windows.

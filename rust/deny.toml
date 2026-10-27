@@ -24,6 +24,7 @@ allow = [
     "Zlib",
     "CC0-1.0",
     "ISC",
+    "Unlicense",
 ]
 # MPL-2.0 (file-level copyleft, used unmodified) only for these crates, all pulled in by Tauri
 # itself. See DECISIONS.md, "MPL-2.0 crates under Tauri".
