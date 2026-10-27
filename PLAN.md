@@ -110,7 +110,7 @@ Run the worker from the repository root:
     48 kHz stereo gives 16000 ± 64 samples.
   - verify: `cargo test -p lecture-assist audio::resample`
 
-- [ ] **T12** Audio sources: trait, WASAPI loopback, device list, reconnect, level (lead)
+- [x] **T12** Audio sources: trait, WASAPI loopback, device list, reconnect, level (lead)
   - edit: `rust/crates/lecture-assist/src/audio/mod.rs`, `rust/crates/lecture-assist/src/audio/capture.rs`
   - result: `AudioSource` trait; `cpal` capture of an output device's loopback on Windows and an
     input device elsewhere; device list; reconnect on device change; pause stops the stream.
