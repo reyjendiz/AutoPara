@@ -67,7 +67,7 @@ Run the worker from the repository root:
     Tests with two fake providers.
   - verify: `cargo test -p lecture-assist llm::chain`
 
-- [ ] **T07** Provider presets (worker)
+- [x] **T07** Provider presets (worker)
   - edit: `rust/crates/lecture-assist/src/llm/presets.rs`
   - result: `pub struct Preset { id, base_url, model, local: bool }` and `pub const PRESETS`:
     DeepSeek, Qwen (DashScope compatible mode), Ollama, LM Studio, llama.cpp server.
