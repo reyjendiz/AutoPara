@@ -2,7 +2,8 @@
 
 Broken out of `AUTOPARA_RUST_PLAN.md`, Phase 7 (steps 7.1–7.14). Every task follows `RULES.md`.
 Run `verify` commands from `rust/`. `(lead)` tasks are architectural or span many files and are
-done by hand. `(worker)` tasks go through `tools/localdev`.
+done by hand. `(worker)` tasks were meant for `tools/localdev`;
+the local model proved too slow on them, so they are done by hand as well.
 
 Task format: `edit` lists the files the task may change, `read` lists files given as context only.
 
