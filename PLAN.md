@@ -93,7 +93,7 @@ Run the worker from the repository root:
     `Notes::to_markdown()`. Tests, including a reply wrapped in prose.
   - verify: `cargo test -p lecture-assist notes`
 
-- [ ] **T10** Helper prompts (worker)
+- [x] **T10** Helper prompts (worker)
   - edit: `rust/crates/lecture-assist/src/helpers.rs`
   - read: `rust/crates/lecture-assist/src/lib.rs`, `rust/crates/lecture-assist/src/notes.rs`
   - result: `helper_messages(kind: AskKind, context, transcript, text) -> Vec<Message>` for
