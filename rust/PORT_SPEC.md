@@ -954,3 +954,36 @@ The one failure is
 `tests/test_installer.py::TestUpdateAssetNaming::test_the_repository_the_updater_asks_is_the_one_this_is_cloned_from`:
 `updater.GITHUB_REPO` (`sevcenkoa864-oss/AutoPara`) is not the repository the checkout is cloned
 from (`reyjendiz/AutoPara`). The suite itself catches §I.7; the bug is in the shipped 1.10.0.
+
+---
+
+## K. Visual baseline (step 0.6)
+
+Reference pictures (last refreshed in `1b2d079`, rendered by `python tools/screenshots.py`):
+
+| File | Size | Theme | What |
+|---|---|---|---|
+| `docs/week-grid.png` | 1240×800 | light | week view |
+| `docs/week-grid-dark.png` | 1240×800 | dark | week view |
+| `docs/month-view.png` | 1240×800 | light | month view |
+| `docs/day-view.png` | 1240×800 | light | day view |
+| `docs/edit-dialog.png` | 440×444 | light | class editor for today's first class |
+| `docs/settings.png` | 470×915 | light | settings dialog |
+
+Setup in `tools/screenshots.py`, to be reproduced by `cargo xtask screenshots` (5.11):
+
+- Timetable: `tests/sample_timetable.py` (`rust/fixtures/golden/sample_timetable.docx`), imported
+  into a fresh database; course = the first (`I курс`), group = its first (`А2-Бд26-11 група`).
+  The scheduler is constructed but never started, so no class carries a verdict.
+- Clock pinned to **Monday 2026-03-02 09:40:20** (the middle of the 09:30 class): today's date
+  circle, the "now" line at 09:40, the pill `Зараз · Загальна педагогіка · ще 70 хв`, and the rail
+  clock `09:40:20` all show. The anchor is the pinned date.
+- Window 1240×800; animations off; the theme applied explicitly per picture (light, dark, light,
+  light); `view_mode` set per picture.
+- Editor: `EditDialog` for the first lesson that occurs on the pinned date (Історія України,
+  08:00), with `day` = the pinned date. Settings: `SettingsDialog` with default settings; the
+  autostart box shows whatever the rendering machine's registry says (unchecked in the reference).
+- Dialogs are grabbed after three event-loop passes and a resize to their size hint.
+- The reference images were rendered offscreen in **Inter** with the Windows autostart wording, i.e.
+  on a platform that is neither Windows (which would use Segoe UI) nor macOS. Comparisons on Windows
+  must expect Segoe UI there, or pin Inter for the screenshot run.
