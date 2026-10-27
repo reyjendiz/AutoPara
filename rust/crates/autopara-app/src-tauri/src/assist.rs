@@ -517,3 +517,62 @@ pub fn assist_ask(app: AppHandle, kind: AskKind, text: String) {
     app.state::<Assist>()
         .with(|r| r.as_ref().map(|r| r.handle.ask(kind, text)));
 }
+
+#[cfg(test)]
+mod tests {
+    use lecture_assist::AssistError;
+
+    use super::*;
+
+    /// `t` asserts in debug builds when a key is missing.
+    #[test]
+    fn every_assistant_message_has_a_string() {
+        let errors = [
+            AssistError::Audio(String::new()),
+            AssistError::SourceEnded,
+            AssistError::Model(String::new()),
+            AssistError::Recognition(String::new()),
+            AssistError::Chat(String::new()),
+            AssistError::ChatUnavailable(String::new()),
+            AssistError::RateLimited,
+            AssistError::Io(std::io::Error::other("x")),
+        ];
+        for error in errors {
+            assert!(!t(error.code()).is_empty());
+        }
+        for key in [
+            "assist_error_crash",
+            "assist_md_key_points",
+            "assist_md_definitions",
+            "assist_md_deadlines",
+            "assist_md_flagged",
+            "tray_stop_listening",
+            "assist_recording",
+        ] {
+            assert!(!t(key).is_empty(), "{key}");
+        }
+    }
+
+    #[test]
+    fn no_provider_means_no_chat() {
+        let settings = AssistSettings {
+            consent: true,
+            device: String::new(),
+            model: "small".into(),
+            language: Language::Auto,
+            glossary: String::new(),
+            provider: String::new(),
+            base_url: String::new(),
+            chat_model: String::new(),
+            fallback: true,
+            retention_days: 30,
+            has_key: false,
+        };
+        assert!(chat(&settings).is_none());
+        let ollama = AssistSettings {
+            provider: "ollama".into(),
+            ..settings
+        };
+        assert!(chat(&ollama).is_some());
+    }
+}
