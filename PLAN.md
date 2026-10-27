@@ -178,7 +178,7 @@ Run the worker from the repository root:
 
 ## App integration (7.8, 7.9, 7.11)
 
-- [ ] **T21** Ukrainian strings for Lecture Assist (worker)
+- [x] **T21** Ukrainian strings for Lecture Assist (worker)
   - edit: `rust/crates/autopara-core/i18n/uk.json`
   - result: the keys listed in the task (consent text, tray items, states, errors, settings,
     helper buttons, end-of-class question).
