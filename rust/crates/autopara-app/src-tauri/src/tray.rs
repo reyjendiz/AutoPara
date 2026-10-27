@@ -23,13 +23,16 @@ pub fn create(app: &AppHandle) -> tauri::Result<TrayIcon> {
     let show = MenuItem::with_id(app, "show", t("tray_show"), true, None::<&str>)?;
     let import = MenuItem::with_id(app, "import", t("tray_import"), true, None::<&str>)?;
     let settings = MenuItem::with_id(app, "settings", t("tray_settings"), true, None::<&str>)?;
+    let updates = MenuItem::with_id(app, "updates", t("tray_updates"), true, None::<&str>)?;
     // Reserved for Lecture Assist (phase 7); shown, but not yet usable.
     let listen = MenuItem::with_id(app, "listen", t("tray_listen"), false, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", t("tray_quit"), true, None::<&str>)?;
     let separator = PredefinedMenuItem::separator(app)?;
     let menu: Menu<Wry> = Menu::with_items(
         app,
-        &[&show, &import, &settings, &listen, &separator, &quit],
+        &[
+            &show, &import, &settings, &updates, &listen, &separator, &quit,
+        ],
     )?;
 
     let theme = app
@@ -46,6 +49,10 @@ pub fn create(app: &AppHandle) -> tauri::Result<TrayIcon> {
             "import" | "settings" => {
                 crate::show_main_window(app);
                 let _ = app.emit(TRAY_ACTION_EVENT, event.id().as_ref());
+            }
+            "updates" => {
+                crate::show_main_window(app);
+                tauri::async_runtime::spawn(crate::updates::check(app.clone(), true));
             }
             "quit" => app.exit(0),
             _ => {}

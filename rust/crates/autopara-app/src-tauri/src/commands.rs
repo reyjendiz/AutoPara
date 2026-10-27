@@ -645,6 +645,44 @@ pub fn clear_mark(
     Ok(())
 }
 
+// -------------------------------------------------------------------- updates
+
+/// "Перевірити зараз" and the tray's "Перевірити оновлення": a manual check always answers.
+#[tauri::command]
+pub async fn check_updates(app: tauri::AppHandle) {
+    crate::updates::check(app, true).await;
+}
+
+#[tauri::command]
+pub async fn download_update(app: tauri::AppHandle) {
+    crate::updates::download(app).await;
+}
+
+/// Installing is always the user's click; on success the app restarts and this never returns.
+#[tauri::command]
+pub fn install_update(app: tauri::AppHandle) -> CommandResult<()> {
+    crate::updates::install(&app)
+}
+
+/// "Що нового" / "Відкрити сторінку": only this repository's release pages, nothing else.
+#[tauri::command]
+pub fn open_release_page(app: tauri::AppHandle, url: String) -> CommandResult<()> {
+    use tauri_plugin_opener::OpenerExt;
+    if !url.starts_with("https://github.com/reyjendiz/AutoPara/releases/") {
+        return Err("invalid_url".into());
+    }
+    app.opener().open_url(url, None::<&str>).map_err(failed)
+}
+
+/// "Пропустити версію": automatic checks stay quiet about exactly this version.
+#[tauri::command]
+pub fn skip_update(state: State<'_, AppState>, version: String) -> CommandResult<()> {
+    state
+        .storage()
+        .set_setting("skipped_update_version", &version)
+        .map_err(failed)
+}
+
 // ------------------------------------------------------------------ diagnostics
 
 /// The text "copy diagnostics" puts on the clipboard.

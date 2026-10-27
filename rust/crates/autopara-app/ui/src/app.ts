@@ -15,6 +15,7 @@ import {
 } from "./lib/calendar";
 import { type LessonFilter, findMatch, isActive, matches, nextUp, nextUpLabel, occursOn, repeats, subjects } from "./lib/lessons";
 import { CatchupBanner } from "./ui/banner";
+import { UpdateBanner } from "./ui/updates";
 import { FilterBar } from "./ui/filters";
 import { renderGrid } from "./ui/grid";
 import { Landing } from "./ui/landing";
@@ -60,6 +61,7 @@ export class App {
   readonly nav: NavBar;
   readonly filters: FilterBar;
   readonly catchup: CatchupBanner;
+  readonly updates: UpdateBanner;
   readonly landing: Landing;
   readonly surface = h("div", { class: "surface-host" });
   private readonly content: HTMLElement;
@@ -70,8 +72,9 @@ export class App {
     this.nav = new NavBar(this);
     this.filters = new FilterBar(this);
     this.catchup = new CatchupBanner(this);
+    this.updates = new UpdateBanner(this);
     this.landing = new Landing(this);
-    this.content = h("main", { class: "content" }, this.nav.element, this.filters.element, this.catchup.element, this.surface);
+    this.content = h("main", { class: "content" }, this.nav.element, this.filters.element, this.updates.element, this.catchup.element, this.surface);
     replace(root, h("div", { class: "app" }, this.rail.element, this.content));
     this.surface.style.setProperty("display", "contents");
   }
@@ -145,6 +148,7 @@ export class App {
         void this.reload();
       }
     });
+    this.backend.onUpdate((status) => void this.updates.show(status));
     this.backend.onTrayAction((action) => void (action === "import" ? this.openImport() : this.openSettings()));
     this.backend.onFileDrop((kind, paths) => {
       const docx = paths.find((path) => path.toLowerCase().endsWith(".docx"));

@@ -12,6 +12,7 @@ import type { SchedulerEvent } from "./bindings/SchedulerEvent";
 import type { Settings } from "./bindings/Settings";
 import type { SettingsInput } from "./bindings/SettingsInput";
 import type { Theme } from "./bindings/Theme";
+import type { UpdateStatus } from "./bindings/UpdateStatus";
 import type { ViewMode } from "./bindings/ViewMode";
 import * as ipc from "./ipc";
 import { type IsoDate, addDays, addMinutes, toMinutes, weekday } from "./lib/calendar";
@@ -39,6 +40,13 @@ export interface Backend {
   markLesson(lessonId: number, date: IsoDate, status: OccurrenceStatus): Promise<void>;
   clearMark(lessonId: number, date: IsoDate): Promise<void>;
   diagnostics(): Promise<string>;
+  checkUpdates(): Promise<void>;
+  downloadUpdate(): Promise<void>;
+  installUpdate(): Promise<void>;
+  skipUpdate(version: string): Promise<void>;
+  /** A release page, in the system browser. */
+  openPage(url: string): Promise<void>;
+  onUpdate(handler: (status: UpdateStatus) => void): void;
   onSchedulerEvent(handler: (event: SchedulerEvent) => void): void;
   onTrayAction(handler: (action: string) => void): void;
   /** A file dropped anywhere on the window: its path, while dragging (`hover`) and on drop. */
@@ -79,6 +87,12 @@ export function tauriBackend(): Backend {
     markLesson: ipc.markLesson,
     clearMark: ipc.clearMark,
     diagnostics: ipc.diagnostics,
+    checkUpdates: ipc.checkUpdates,
+    downloadUpdate: ipc.downloadUpdate,
+    installUpdate: ipc.installUpdate,
+    skipUpdate: ipc.skipUpdate,
+    openPage: ipc.openReleasePage,
+    onUpdate: (handler) => void ipc.onUpdate(handler),
     onSchedulerEvent: (handler) => void ipc.onSchedulerEvent(handler),
     onTrayAction: (handler) => void ipc.onTrayAction(handler),
     onFileDrop: (handler) => void tauriFileDrop(handler),
@@ -198,6 +212,12 @@ export async function demoBackend(params: URLSearchParams): Promise<Backend> {
     },
     clearMark: async (lessonId, date) => void marks.delete(`${lessonId}|${date}`),
     diagnostics: async () => "AutoPara demo",
+    checkUpdates: async () => undefined,
+    downloadUpdate: async () => undefined,
+    installUpdate: async () => undefined,
+    skipUpdate: async () => undefined,
+    openPage: async () => undefined,
+    onUpdate: () => undefined,
     onSchedulerEvent: () => undefined,
     onTrayAction: () => undefined,
     onFileDrop: () => undefined,

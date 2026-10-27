@@ -79,7 +79,7 @@ export function openSettings(app: App): Promise<boolean | null> {
       h("p", { class: "hint" }, t(mac ? "settings_autostart_mac_hint" : "settings_autostart_windows_hint")),
       h("div", { class: "section" }, t("settings_updates")),
       updates,
-      h("div", { class: "row" }, version, h("span", { class: "grow" }), h("button", { class: "btn", type: "button", disabled: true }, t("settings_check_now"))),
+      h("div", { class: "row" }, version, h("span", { class: "grow" }), h("button", { class: "btn", type: "button", onclick: () => void app.backend.checkUpdates() }, t("settings_check_now"))),
       h("p", { class: "hint" }, t("settings_updates_hint")),
       h("p", { class: "hint" }, t("settings_duration_hint")),
       h("div", { class: "section" }, t("settings_assist")),

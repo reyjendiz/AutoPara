@@ -15,6 +15,7 @@ import type { SchedulerEvent } from "./bindings/SchedulerEvent";
 import type { Settings } from "./bindings/Settings";
 import type { SettingsInput } from "./bindings/SettingsInput";
 import type { Theme } from "./bindings/Theme";
+import type { UpdateStatus } from "./bindings/UpdateStatus";
 import type { ViewMode } from "./bindings/ViewMode";
 
 /** An ISO date, `YYYY-MM-DD`, as the Rust side reads and writes it. */
@@ -54,6 +55,16 @@ export const clearMark = (lessonId: number, date: IsoDate): Promise<void> =>
   invoke("clear_mark", { lessonId, date });
 
 export const diagnostics = (): Promise<string> => invoke<string>("diagnostics");
+
+export const checkUpdates = (): Promise<void> => invoke("check_updates");
+export const downloadUpdate = (): Promise<void> => invoke("download_update");
+export const installUpdate = (): Promise<void> => invoke("install_update");
+export const skipUpdate = (version: string): Promise<void> => invoke("skip_update", { version });
+export const openReleasePage = (url: string): Promise<void> => invoke("open_release_page", { url });
+
+/** The updater's news: a version is out, downloading, ready, or nothing new. */
+export const onUpdate = (handler: (status: UpdateStatus) => void): Promise<UnlistenFn> =>
+  listen<UpdateStatus>("update", (event) => handler(event.payload));
 
 /** Scheduler events: opened, missed, a class waiting for an answer, a reminder. */
 export const onSchedulerEvent = (handler: (event: SchedulerEvent) => void): Promise<UnlistenFn> =>

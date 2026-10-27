@@ -1,7 +1,6 @@
 {
   "app_title": "AutoPara — автозапуск пар",
   "course_label": "{numeral} курс",
-
   "day_0": "Понеділок",
   "day_1": "Вівторок",
   "day_2": "Середа",
@@ -47,7 +46,6 @@
   "month_gen_9": "жовтня",
   "month_gen_10": "листопада",
   "month_gen_11": "грудня",
-
   "plural_pair_one": "пара",
   "plural_pair_few": "пари",
   "plural_pair_many": "пар",
@@ -56,7 +54,6 @@
   "plural_time_one": "раз",
   "plural_time_few": "рази",
   "plural_time_many": "разів",
-
   "rail_add": "Додати пару",
   "rail_import": "Імпортувати розклад…",
   "rail_group": "Обрати інший курс і групу…",
@@ -66,7 +63,6 @@
   "rail_clock": "Поточний час",
   "rail_no_schedule": "Розклад ще не імпортовано",
   "rail_lead": "відкриття за {minutes} хв",
-
   "nav_day": "День",
   "nav_week": "Тиждень",
   "nav_month": "Місяць",
@@ -81,7 +77,6 @@
   "nextup_now": "Зараз · {subject} · ще {minutes} хв",
   "nextup_in": "Далі · {subject} · через {minutes} хв",
   "nextup_at": "Далі · {subject} · о {start}",
-
   "filter_placeholder": "Пошук: предмет або викладач",
   "filter_tip": "Знайти пару за предметом чи викладачем\nEnter — до наступного збігу · Shift+Enter — до попереднього · Esc — очистити",
   "filter_all_subjects": "Усі предмети",
@@ -93,13 +88,11 @@
   "filter_reset": "Скинути",
   "filter_reset_tip": "Прибрати пошук і фільтри",
   "filter_clear": "Очистити пошук",
-
   "grid_slot_tip": "{day}, {date} {month} · {time}",
   "grid_slot_hint": "Клацніть, щоб створити пару",
   "grid_create": "➕ Створити пару · {day}, {date} {month}, {time}",
   "grid_date_tip": "{date} {month} {year}",
   "grid_now": "Зараз {time}",
-
   "card_opened": "✓ відкрито",
   "card_missed": "не відкрито",
   "card_skipped": "пропущено",
@@ -110,7 +103,6 @@
   "card_groups": "Групи: {groups}",
   "card_no_link": "Без посилання",
   "card_hint": "Клац — підключитися · правий клац — меню · перетягніть, щоб перенести",
-
   "menu_open": "Відкрити посилання",
   "menu_add_link": "Додати посилання…",
   "menu_edit": "Редагувати…",
@@ -119,7 +111,6 @@
   "menu_clear_mark": "Зняти позначку",
   "menu_delete": "Видалити пару",
   "menu_cancel": "Скасувати",
-
   "open_failed_title": "Не вдалося відкрити",
   "open_failed_text": "Посилання не вдалося відкрити у браузері.",
   "delete_title": "Видалити пару",
@@ -136,19 +127,16 @@
   "ok": "Гаразд",
   "cancel": "Скасувати",
   "save": "Зберегти",
-
   "month_more": "ще {count}",
   "month_add": "Додати пару на цей день",
   "month_day_tip": "{day}, {date} {month}",
   "month_count": "{count} {pairs}",
-
   "catchup_title": "Пара вже почалася: {subject}",
   "catchup_detail": "Початок о {start}, до {end}",
   "catchup_queue": "ще {count} у черзі",
   "catchup_connect": "Підключитися зараз",
   "catchup_close": "Закрити",
   "catchup_no_link": "У цієї пари немає посилання",
-
   "landing_title": "Розклад ще не імпортовано",
   "landing_text": "Імпортуйте файл .docx із розкладом — і AutoPara відкриватиме пари сама, за кілька хвилин до початку.",
   "landing_empty_title": "Тут поки порожньо",
@@ -156,7 +144,6 @@
   "landing_browse": "Обрати файл…",
   "drop_prompt": "Перетягніть сюди файл .docx",
   "drop_other": "Натисніть, щоб обрати інший",
-
   "import_title": "Імпорт розкладу",
   "import_hint": "Оберіть файл .docx із розкладом, а потім свій курс і групу. Документ може бути будь-якою мовою — записи створюються українською.",
   "import_course": "Курс",
@@ -174,11 +161,9 @@
   "import_no_tables_title": "Нічого не знайдено",
   "import_no_tables": "У цьому документі немає таблиць розкладу.",
   "import_failed": "Імпорт не вдався",
-
   "group_title": "Курс і група",
   "group_hint": "Оберіть іншу групу з уже імпортованого розкладу. Файл перечитувати не потрібно.",
   "group_choose": "Обрати",
-
   "edit_title": "Редагувати пару",
   "edit_new_title": "Нова пара",
   "edit_create": "Створити пару",
@@ -216,7 +201,6 @@
   "error_invalid_date_title": "Хибна дата",
   "error_invalid_date": "Серія не може закінчитися раніше, ніж починається.",
   "error_generic_title": "Щось пішло не так",
-
   "settings_title": "Налаштування",
   "settings_lead": "Відкривати посилання",
   "settings_lead_suffix": "хв до початку",
@@ -252,7 +236,6 @@
   "settings_assist_soon": "З'явиться в наступній версії.",
   "settings_diagnostics": "Скопіювати діагностику",
   "settings_diagnostics_done": "Скопійовано",
-
   "dialog_pick_timetable": "Оберіть розклад",
   "dialog_word_documents": "Документи Word",
   "notify_catchup_body": "{subject} почалася о {start}. Відкрийте AutoPara, щоб підключитися.",
@@ -265,5 +248,25 @@
   "tray_listen": "Слухати пару",
   "tray_quit": "Вийти з AutoPara",
   "tray_settings": "Налаштування…",
-  "tray_show": "Показати розклад"
+  "tray_show": "Показати розклад",
+  "update_available": "Доступна нова версія AutoPara {version}",
+  "update_current": "Зараз у вас {version}.",
+  "update_download": "Завантажити",
+  "update_skip": "Пропустити версію",
+  "update_later": "Пізніше",
+  "update_whats_new": "Що нового",
+  "update_open_page": "Відкрити сторінку",
+  "update_downloading": "Завантажую AutoPara {version}…",
+  "update_ready": "Оновлення {version} завантажено",
+  "update_ready_restart": "Встановлення закриє AutoPara і запустить нову версію.",
+  "update_install": "Встановити й перезапустити",
+  "update_none_title": "Оновлень немає",
+  "update_none_text": "У вас остання версія AutoPara — {version}.",
+  "update_failed_title": "Не вдалося оновити",
+  "update_failed_text": "Не вдалося зв'язатися з GitHub або завантажити файл. Перевірте з'єднання з інтернетом і спробуйте ще раз.",
+  "tray_updates": "Перевірити оновлення",
+  "notify_update_title": "Доступна нова версія",
+  "notify_update_body": "AutoPara {version}",
+  "notify_ready_title": "Оновлення готове",
+  "notify_ready_body": "AutoPara {version} завантажено. Натисніть, щоб встановити."
 }

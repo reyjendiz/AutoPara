@@ -7,6 +7,7 @@ mod ipc;
 mod logging;
 mod opener;
 mod tray;
+mod updates;
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -123,6 +124,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(move |app| {
             let handle = app.handle().clone();
             let root = data_root(&handle);
@@ -179,6 +181,8 @@ pub fn run() {
                 }
             }
             tray::create(&handle)?;
+            app.manage(updates::Updates::default());
+            updates::schedule(handle.clone());
             Ok(())
         })
         .on_window_event(|window, event| match event {
@@ -211,6 +215,11 @@ pub fn run() {
             commands::mark_lesson,
             commands::clear_mark,
             commands::diagnostics,
+            commands::check_updates,
+            commands::download_update,
+            commands::install_update,
+            commands::skip_update,
+            commands::open_release_page,
         ])
         .build(tauri::generate_context!())
         .expect("the Tauri runtime failed to start")
