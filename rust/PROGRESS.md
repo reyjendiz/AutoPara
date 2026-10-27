@@ -24,8 +24,8 @@ Ticked only when the step's quality gate is green.
 - [x] 2.4 Timetable extraction
 - [x] 2.5 SQLite layer
 - [x] 2.6 Import service
-- [ ] 2.7 Legacy migration
-- [ ] 2.8 Parity tests (golden parser comparison done; proptest still to add)
+- [x] 2.7 Legacy migration
+- [x] 2.8 Parity tests
 
 ## Phase 3 — Scheduler and joining
 - [ ] 3.1 `Clock` trait

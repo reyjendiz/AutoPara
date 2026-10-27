@@ -12,9 +12,24 @@ check` (`deny.toml`); exceptions are explained in `DECISIONS.md`.
 | serde | 1.0.229 | MIT OR Apache-2.0 | serialisation |
 | serde_json | 1.0.154 | MIT OR Apache-2.0 | JSON (string table, IPC) |
 | ts-rs | 12.0.1 | MIT | TypeScript types from Rust types |
+| caseless | 0.2.2 | MIT | Unicode case folding, as Python's `casefold` |
+| chrono | 0.4.45 | MIT OR Apache-2.0 | dates and times |
+| quick-xml | 0.42.0 | MIT | reading the `.docx` XML |
+| regex | 1.13.1 | MIT OR Apache-2.0 | times and URLs in cell text |
+| rusqlite (bundled SQLite) | 0.41.0 | MIT (SQLite: public domain) | the database |
+| thiserror | 2.0.21 | MIT OR Apache-2.0 | error types |
+| unicode-normalization | 0.1.26 | (MIT OR Apache-2.0) AND Unicode-3.0 | NFC normalisation |
+| zip (deflate only) | 9.1.2 | MIT | reading the `.docx` archive |
 
 Tauri pulls in five MPL-2.0 crates (`cssparser`, `cssparser-macros`, `selectors`, `dtoa-short`,
 `option-ext`), used unmodified; their source is on crates.io.
+
+## Rust (tests only)
+
+| Crate | Version | Licence |
+|---|---|---|
+| proptest | 1.12.0 | MIT OR Apache-2.0 |
+| tempfile | 3.27.0 | MIT OR Apache-2.0 |
 
 ## Frontend (shipped)
 
