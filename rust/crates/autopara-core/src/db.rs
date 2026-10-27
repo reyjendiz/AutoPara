@@ -178,6 +178,11 @@ impl Storage {
         Ok(())
     }
 
+    /// The raw connection, for the legacy importer's row-for-row copy.
+    pub(crate) fn connection_mut(&mut self) -> &mut Connection {
+        &mut self.conn
+    }
+
     // ------------------------------------------------------------------ settings
 
     pub fn get_setting(&self, key: &str) -> Result<Option<String>, DbError> {
