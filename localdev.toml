@@ -1,0 +1,29 @@
+# tools/localdev settings. Run from the repository root:
+#   cargo run --release --manifest-path tools/localdev/Cargo.toml -- [TASK_ID]
+
+base_url = "http://localhost:1235/v1"
+model = "underdog-saluki-27b-1.0"
+# Prompt plus reply must fit the model's loaded context.
+max_context_tokens = 24000
+# Room left for the reply, reasoning included.
+max_output_tokens = 8000
+temperature = 0.2
+max_retries = 3
+request_timeout_secs = 900
+# "files": the model returns whole files. "diff": a unified diff applied with `git apply`.
+format = "files"
+plan = "PLAN.md"
+rules = "RULES.md"
+# Where task `verify` commands run, relative to the repository root.
+verify_cwd = "rust"
+# Run before the task's own command (formatting fixes, not failures).
+pre_verify = ["cargo fmt --all"]
+# Run after it; any failure fails the task.
+post_verify = ["cargo clippy --workspace --all-targets -- -D warnings"]
+# Output lines sent back to the model after a failure.
+error_lines = 60
+
+# Extra environment for verify commands; ${VAR} expands. PATH_PREPEND goes in front of PATH.
+[env]
+PATH_PREPEND = '${ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin'
+LIBCLANG_PATH = '${LOCALAPPDATA}\autopara-dev\libclang\clang\native'

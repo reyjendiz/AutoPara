@@ -1,0 +1,15 @@
+[package]
+name = "localdev"
+description = "Runs PLAN.md tasks through a local OpenAI-compatible model, verifies and commits them."
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+# Standalone: not part of the app's workspace in rust/.
+[workspace]
+
+[dependencies]
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+toml = "1.1.8"
+ureq = { version = "3.5.0", default-features = false, features = ["json"] }
