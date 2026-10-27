@@ -139,7 +139,7 @@ Run the worker from the repository root:
     Test against `wiremock` (good hash, bad hash leaves nothing behind).
   - verify: `cargo test -p lecture-assist models`
 
-- [ ] **T16** `Recognizer` trait and whisper backend (lead)
+- [x] **T16** `Recognizer` trait and whisper backend (lead)
   - edit: `rust/crates/lecture-assist/src/stt.rs`
   - result: load model (GPU when built with `cuda`/`metal`), language auto/fixed, initial
     prompt, no-speech threshold, segments with timestamps.
