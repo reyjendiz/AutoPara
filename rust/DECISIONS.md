@@ -64,3 +64,32 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
   point at their source, which is on crates.io. The exception is per crate, so any new MPL
   dependency still fails `cargo deny`. The frontend toolchain has one MPL package, `lightningcss`
   (Vite's CSS processor), which runs at build time and is not shipped.
+
+## Data folder
+
+- **Decision:** the Rust app keeps its data in the Python app's folder (`%APPDATA%\AutoPara`,
+  `~/Library/Application Support/AutoPara`) under names of its own: `autopara2.db` and
+  `timetables/`. The Python app's `autopara.db` and `schedules/` are only ever read (step 2.7).
+- **Alternatives:** Tauri's identifier folder (`%APPDATA%\com.autopara.app`); reusing
+  `autopara.db` in place.
+- **Why:** the installer's promise ("uninstall keeps `%APPDATA%\AutoPara` unless you ask") keeps
+  covering everything, and the legacy files are never modified, so a user can still go back.
+
+## Import uses the class-length setting
+
+- **Decision:** the import passes `class_duration_minutes` to the parser.
+- **Python:** `SetupDialog._load` calls `parse_file(path)` with the 80-minute default although
+  Settings says the length applies to future imports (PORT_SPEC §I.8).
+- **Why:** the setting's own wording; with the default (80) the result is identical.
+
+## ASCII digits in time and pair cells
+
+- **Decision:** times and pair numbers are read from ASCII digits only.
+- **Python:** `\d` and `str.isdigit` also accept other Unicode digits (and `int()` then fails on
+  some of them, such as superscripts).
+- **Why:** no timetable seen uses them; the golden documents parse identically.
+
+## Timestamps come from the caller
+
+- **Decision:** `autopara-core` never reads the clock; `import_courses`, `claim_occurrence` and
+  friends take `now`. Phase 3's `Clock` supplies it.
