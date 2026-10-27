@@ -41,7 +41,7 @@ pub struct AppState {
 }
 
 impl AppState {
-    fn storage(&self) -> MutexGuard<'_, Storage> {
+    pub(crate) fn storage(&self) -> MutexGuard<'_, Storage> {
         self.shared
             .storage
             .lock()

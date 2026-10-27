@@ -285,6 +285,7 @@ dependencies = [
  "autopara-core",
  "chrono",
  "keyring",
+ "lecture-assist",
  "serde",
  "serde_json",
  "tauri",

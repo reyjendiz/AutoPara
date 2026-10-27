@@ -1,12 +1,12 @@
 //! The desktop shell: the window, the tray, the background scheduler and the commands the
 //! interface calls.
 
+mod assist;
 mod autostart;
 mod commands;
 mod ipc;
 mod logging;
 mod opener;
-#[allow(dead_code)] // used by the assistant commands that follow
 mod secrets;
 mod tray;
 mod updates;
@@ -192,6 +192,7 @@ pub fn run() {
                     window.show()?;
                 }
             }
+            app.manage(assist::Assist::default());
             tray::create(&handle)?;
             app.manage(updates::Updates::default());
             updates::schedule(handle.clone());
@@ -232,6 +233,20 @@ pub fn run() {
             commands::install_update,
             commands::skip_update,
             commands::open_release_page,
+            assist::assist_settings,
+            assist::save_assist_settings,
+            assist::set_assist_consent,
+            assist::assist_devices,
+            assist::assist_models,
+            assist::assist_download_model,
+            assist::assist_delete_model,
+            assist::assist_delete_all,
+            assist::assist_start,
+            assist::assist_stop,
+            assist::assist_pause,
+            assist::assist_resume,
+            assist::assist_ask,
+            assist::assist_keep_listening,
         ])
         .build(tauri::generate_context!())
         .expect("the Tauri runtime failed to start")

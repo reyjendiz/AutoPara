@@ -14,6 +14,11 @@ name = "autopara_app"
 name = "autopara"
 path = "src/main.rs"
 
+[features]
+# GPU speech recognition; see DECISIONS.md, "GPU builds on Windows".
+cuda = ["lecture-assist/cuda"]
+metal = ["lecture-assist/metal"]
+
 [build-dependencies]
 serde_json.workspace = true
 tauri-build.workspace = true
@@ -22,6 +27,7 @@ tauri-build.workspace = true
 autopara-core.workspace = true
 chrono.workspace = true
 keyring.workspace = true
+lecture-assist.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tauri.workspace = true

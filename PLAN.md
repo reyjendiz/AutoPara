@@ -184,7 +184,7 @@ Run the worker from the repository root:
     helper buttons, end-of-class question).
   - verify: `cargo test -p autopara-core i18n`
 
-- [ ] **T22** App wiring: assist state, commands, events, storage, tray, keychain (lead)
+- [x] **T22** App wiring: assist state, commands, events, storage, tray, keychain (lead)
   - edit: `rust/crates/autopara-app/src-tauri/src/assist.rs`, `src/lib.rs`, `src/tray.rs`, `Cargo.toml`
   - result: start/pause/resume/stop/ask commands, consent gate, events to both windows, text
     saved to the database, tray item and icon change, API key in the OS keychain, isolation
