@@ -15,8 +15,8 @@ fn golden_dir() -> PathBuf {
 
 fn documents() -> Vec<PathBuf> {
     let mut found: Vec<PathBuf> = fs::read_dir(golden_dir())
-        .unwrap()
-        .map(|entry| entry.unwrap().path())
+        .expect("the golden directory is readable")
+        .map(|entry| entry.expect("a golden directory entry").path())
         .filter(|path| path.extension().is_some_and(|ext| ext == "docx"))
         .collect();
     found.sort();
