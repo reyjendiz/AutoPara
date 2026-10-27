@@ -37,11 +37,11 @@ Ticked only when the step's quality gate is green.
 - [x] 3.7 Fake-clock tests
 
 ## Phase 4 — Application shell
-- [ ] 4.1 Command and event API
-- [ ] 4.2 Single instance, tray
-- [ ] 4.3 Autostart, settings, theme, window state
-- [ ] 4.4 Logging and diagnostics
-- [ ] 4.5 Security baseline
+- [x] 4.1 Command and event API
+- [x] 4.2 Single instance, tray
+- [x] 4.3 Autostart, settings, theme, window state
+- [x] 4.4 Logging and diagnostics
+- [x] 4.5 Security baseline
 
 ## Phase 5 — UI parity
 - [ ] 5.1 Design tokens

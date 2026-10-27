@@ -131,3 +131,49 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
   hour that does not exist is offered, not opened, because the wall clock jumps past its trigger.
 - **Why:** classes are written as local wall times; the Europe/Kyiv tests in `tests/scheduler.rs`
   pin both cases.
+
+## Autostart without a plugin
+
+- **Decision:** `src-tauri/src/autostart.rs` writes the same entries as the Python app: the
+  `AutoPara` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` holding
+  `"<exe>" --hidden`, and `~/Library/LaunchAgents/com.autopara.app.plist` on macOS. It defaults to
+  on and is synced on every launch, as before. A debug build never writes either.
+- **Alternatives:** `tauri-plugin-autostart`, whose value name and command format are its own.
+- **Why:** the installer (phase 6) and the upgrade from 1.x must agree with the app byte for byte,
+  or the app silently rewrites the installer's entry (PORT_SPEC §D). The debug-build rule keeps a
+  run from a checkout from replacing the user's real entry with a path into `target/`.
+
+## Data folder override
+
+- **Decision:** `AUTOPARA_DATA_DIR`, when set, replaces the data folder.
+- **Why:** the default folder is the Python app's; development and smoke runs must not create
+  files there.
+
+## Window size and position
+
+- **Decision:** `tauri-plugin-window-state`, restoring size, position and maximised state but
+  never visibility (a `--hidden` start stays in the tray). It keeps its file in Tauri's config
+  folder.
+- **Why:** it handles monitors that went away; a hand-written version would have to re-learn that.
+
+## Tray glyph variants
+
+- **Decision:** the tray picks `tray-light.png` or `tray-dark.png` from the system theme and follows
+  theme changes. Both are the app mark today.
+- **Why:** the mark is a full-colour tile that reads on both backgrounds, as in the Python app. The
+  mechanism is there for a monochrome glyph, and for the "recording" glyph Lecture Assist needs.
+
+## Command errors are codes
+
+- **Decision:** a command that rejects its input answers with a short code (`subject_required`,
+  `invalid_url`, `invalid_time`, `invalid_date`, `scope_required`, `not_found`, `no_group`,
+  `out_of_range`); the interface owns the Ukrainian sentence for each.
+- **Why:** every user-visible word stays in the one string table (R2), and the Rust side stays
+  testable without it.
+
+## The editor accepts https links only
+
+- **Decision:** `save_lesson` rejects a link that is not `https://`.
+- **Python:** accepted `http://` too.
+- **Why:** the scheduler would never open it (see "Only https links are opened"); saying so when
+  the link is typed is better than a class that silently never opens.

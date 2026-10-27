@@ -938,6 +938,10 @@ Found while reading the code for this spec:
     without the user pressing anything (`rust/fixtures/golden/*.scheduler.json`, scenario
     `late_start_open`). README and FRONTEND.md say nothing opens until a button is pressed; the plan
     (step 3.4) requires that.
+21. **The two apps do not know about each other.** The Python app's single-instance guard is a Qt
+    local socket; the Rust app's is Tauri's. With both running (the Python app autostarts), each
+    has its own database and each would open every class. The upgrade (step 8.2) must stop and
+    remove the old autostart entry, or the new app must refuse to schedule while the old one runs.
 
 ---
 

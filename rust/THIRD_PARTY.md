@@ -21,6 +21,13 @@ check` (`deny.toml`); exceptions are explained in `DECISIONS.md`.
 | tokio | 1.54.1 | MIT | the scheduler's background task |
 | unicode-normalization | 0.1.26 | (MIT OR Apache-2.0) AND Unicode-3.0 | NFC normalisation |
 | zip (deflate only) | 9.1.2 | MIT | reading the `.docx` archive |
+| tauri-plugin-dialog | 2.8.3 | Apache-2.0 OR MIT | the file picker |
+| tauri-plugin-notification | 2.7.0 | Apache-2.0 OR MIT | reminders and notices |
+| tauri-plugin-opener | 2.7.2 | Apache-2.0 OR MIT | opening meeting links |
+| tauri-plugin-single-instance | 2.5.4 | Apache-2.0 OR MIT | one running copy |
+| tauri-plugin-window-state | 2.5.0 | Apache-2.0 OR MIT | window size and position |
+| tracing / tracing-subscriber / tracing-appender | 0.1.44 / 0.3.23 / 0.2.5 | MIT | the log file |
+| windows-registry (Windows only) | 0.100.0 | MIT OR Apache-2.0 | the autostart entry |
 
 Tauri pulls in five MPL-2.0 crates (`cssparser`, `cssparser-macros`, `selectors`, `dtoa-short`,
 `option-ext`), used unmodified; their source is on crates.io.

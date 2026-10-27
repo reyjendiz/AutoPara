@@ -1,5 +1,18 @@
 {
   "app_title": "AutoPara — автозапуск пар",
   "course_label": "{numeral} курс",
-  "settings_version": "Версія {version}"
+  "dialog_pick_timetable": "Оберіть розклад",
+  "dialog_word_documents": "Документи Word",
+  "notify_catchup_body": "{subject} почалася о {start}. Відкрийте AutoPara, щоб підключитися.",
+  "notify_catchup_title": "Пара вже почалася",
+  "notify_opened_body": "{subject} — {start}",
+  "notify_opened_title": "Відкриваю пару",
+  "notify_reminder_body": "{subject} о {start}",
+  "notify_reminder_title": "Скоро пара",
+  "settings_version": "Версія {version}",
+  "tray_import": "Імпортувати розклад…",
+  "tray_listen": "Слухати пару",
+  "tray_quit": "Вийти з AutoPara",
+  "tray_settings": "Налаштування…",
+  "tray_show": "Показати розклад"
 }
