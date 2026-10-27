@@ -72,11 +72,11 @@ Ticked only when the step's quality gate is green.
 - [ ] 7.3 Audio capture — macOS
 - [x] 7.4 VAD and segmentation (Silero through whisper.cpp, loudness fallback; see DECISIONS.md)
 - [ ] 7.5 Speech recognition (whisper backend, prompt, filters, streaming, model manager done; not yet run on a real model)
-- [ ] 7.6 LLM provider layer (client, SSE, fallback chain, presets, rate guard done; keychain pending)
+- [ ] 7.6 LLM provider layer (client, SSE, fallback chain, presets, rate guard, keychain done; settings screen pending)
 - [ ] 7.7 Assist features (engine side done; overlay display pending)
 - [ ] 7.8 Overlay window
-- [ ] 7.9 Integration
-- [ ] 7.10 Storage (tables, retention and wipe done; startup job pending)
+- [ ] 7.9 Integration (commands, consent gate, tray item and recording icon, saved text, end-of-class stop done; hotkey and the button by the "now" pill pending)
+- [ ] 7.10 Storage (done in core and app; the wipe button arrives with the settings screen)
 - [ ] 7.11 Settings UI
 - [ ] 7.12 Performance budgets
 - [ ] 7.13 Tests (unit and synthetic end-to-end done; real speech fixtures pending)
