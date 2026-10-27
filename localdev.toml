@@ -4,9 +4,9 @@
 base_url = "http://localhost:1235/v1"
 model = "underdog-saluki-27b-1.0"
 # Prompt plus reply must fit the model's loaded context.
-max_context_tokens = 24000
+max_context_tokens = 32000
 # Room left for the reply, reasoning included.
-max_output_tokens = 8000
+max_output_tokens = 20000
 temperature = 0.2
 max_retries = 3
 request_timeout_secs = 900

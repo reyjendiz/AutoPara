@@ -276,7 +276,9 @@ fn system_prompt(format: Format, rules: &str) -> String {
     };
     format!(
         "You are a careful developer working in an existing repository. Follow the project \
-         rules exactly.\n\nReply format (anything else is ignored):\n{shape}\n\
+         rules exactly. Keep your reasoning short: plan in a few lines, do not draft the code \
+         while thinking, and write each file once, in the reply.\n\n\
+         Reply format (anything else is ignored):\n{shape}\n\
          Finish with one line:\n=== COMMIT: <short imperative commit message, under 60 \
          characters, describing the change>\n\n# Project rules\n\n{rules}"
     )
