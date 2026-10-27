@@ -103,7 +103,7 @@ Run the worker from the repository root:
 
 ## Audio (7.2, 7.3)
 
-- [ ] **T11** Resampling to 16 kHz mono (worker)
+- [x] **T11** Resampling to 16 kHz mono (worker)
   - edit: `rust/crates/lecture-assist/src/audio/resample.rs`
   - result: `To16k::new(rate: u32, channels: u16)`, `process(&mut self, interleaved: &[f32])
     -> Vec<f32>` using `rubato` (downmix first, keep leftovers between calls). Test: 1 s of
