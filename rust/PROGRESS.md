@@ -71,7 +71,7 @@ Ticked only when the step's quality gate is green.
 - [ ] 7.2 Audio capture — Windows (loopback, device list, reconnect, resampling done; device picker UI and a hardware run pending)
 - [ ] 7.3 Audio capture — macOS
 - [x] 7.4 VAD and segmentation (Silero through whisper.cpp, loudness fallback; see DECISIONS.md)
-- [ ] 7.5 Speech recognition (whisper backend, prompt, filters, streaming done; model manager pending, not yet run on a real model)
+- [ ] 7.5 Speech recognition (whisper backend, prompt, filters, streaming, model manager done; not yet run on a real model)
 - [ ] 7.6 LLM provider layer (client, SSE, fallback chain, presets, rate guard done; keychain pending)
 - [ ] 7.7 Assist features (engine side done; overlay display pending)
 - [ ] 7.8 Overlay window

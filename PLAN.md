@@ -131,7 +131,7 @@ Run the worker from the repository root:
 
 ## Speech recognition (7.5)
 
-- [ ] **T15** Model catalogue and manager (worker)
+- [x] **T15** Model catalogue and manager (worker)
   - edit: `rust/crates/lecture-assist/src/models.rs`
   - result: catalogue (id, file, URL, size, SHA-256; given in the task) for `large-v3-turbo-q5_0`,
     `medium-q5_0`, `small`, Silero VAD; `path`, `installed`, `delete`, and `download` with a
