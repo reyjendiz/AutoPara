@@ -3,6 +3,7 @@ import "./styles/app.css";
 import { App } from "./app";
 import { demoBackend, tauriBackend } from "./backend";
 import { t } from "./i18n";
+import { occursOn } from "./lib/lessons";
 import { installTooltips } from "./ui/popups";
 
 async function start(): Promise<void> {
@@ -19,6 +20,15 @@ async function start(): Promise<void> {
   const backend = demo ? await demoBackend(params) : tauriBackend();
   const app = new App(backend, document.querySelector("#app") as HTMLElement);
   await app.start();
+  // The reference pictures of the two dialogs: the editor on today's first class, and settings.
+  const dialog = params.get("dialog");
+  if (demo && dialog === "edit") {
+    const today = app.today();
+    const first = app.lessons.filter((l) => occursOn(l, today)).sort((a, b) => a.start.localeCompare(b.start))[0];
+    if (first) void app.editClass(first, today);
+  } else if (demo && dialog === "settings") {
+    void app.openSettings();
+  }
 }
 
 void start();
