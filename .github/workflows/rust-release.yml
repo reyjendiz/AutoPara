@@ -1,0 +1,178 @@
+# Builds the Rust app's installers on every push to main that touches rust/ and publishes them as a
+# GitHub release, together with the latest.json the in-app updater reads
+# (https://github.com/<repo>/releases/latest/download/latest.json).
+#
+# The version lives in one place, [workspace.package] version in rust/Cargo.toml. A release is cut
+# only when v<version> has no release yet, so bump that number in the commit you want released.
+# Every build job must succeed before anything is published: a release with a latest.json that
+# points at a missing file would break updates for everyone. A version with a pre-release part
+# (2.0.0-alpha.1) is published as a pre-release, which releases/latest -- and so the updater --
+# skips.
+#
+# Secrets: TAURI_SIGNING_PRIVATE_KEY (the updater key's contents) and, if the key has one,
+# TAURI_SIGNING_PRIVATE_KEY_PASSWORD. See docs/RELEASE_CHECKLIST.md.
+
+name: Rust release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "rust/**"
+      - ".github/workflows/rust-release.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write # create the release and upload its files
+
+# Two pushes in quick succession would otherwise race to create the same tag.
+concurrency:
+  group: rust-release
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.plan.outputs.version }}
+      released: ${{ steps.plan.outputs.released }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(cargo metadata --no-deps --format-version 1 --manifest-path rust/Cargo.toml \
+            | jq -r '.packages[] | select(.name == "autopara-app") | .version')
+          if gh release view "v$version" > /dev/null 2>&1; then released=true; else released=false; fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "released=$released" >> "$GITHUB_OUTPUT"
+          echo "AutoPara $version, already released: $released"
+
+  build:
+    needs: plan
+    if: needs.plan.outputs.released == 'false'
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows-x86_64
+          - os: macos-14 # Apple Silicon
+            platform: darwin-aarch64
+            dmg: AutoPara-${{ needs.plan.outputs.version }}.dmg
+          - os: macos-15-intel
+            platform: darwin-x86_64
+            dmg: AutoPara-Intel-${{ needs.plan.outputs.version }}.dmg
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: rust
+    env:
+      VERSION: ${{ needs.plan.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: rust/crates/autopara-app/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix crates/autopara-app
+
+      - name: Install the Tauri CLI
+        run: cargo install tauri-cli --version "2.12.4" --locked
+
+      - name: Build and sign
+        working-directory: rust/crates/autopara-app
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: cargo tauri build
+
+      # Release names: AutoPara-<v>-Setup.exe, AutoPara-<v>.dmg, AutoPara-Intel-<v>.dmg, and one
+      # updater archive per Mac. The Windows updater installs the Setup.exe itself.
+      - name: Collect the files
+        run: |
+          mkdir -p out
+          bundle=target/release/bundle
+          if [ "${{ matrix.platform }}" = windows-x86_64 ]; then
+            setup=$(ls "$bundle"/nsis/*-setup.exe)
+            cp "$setup" "out/AutoPara-$VERSION-Setup.exe"
+            cp "$setup.sig" "out/AutoPara-$VERSION-Setup.exe.sig"
+          else
+            cp "$bundle"/dmg/*.dmg "out/${{ matrix.dmg }}"
+            cp "$bundle/macos/AutoPara.app.tar.gz" "out/AutoPara-$VERSION-${{ matrix.platform }}.app.tar.gz"
+            cp "$bundle/macos/AutoPara.app.tar.gz.sig" "out/AutoPara-$VERSION-${{ matrix.platform }}.app.tar.gz.sig"
+          fi
+          ls -l out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.platform }}
+          path: rust/out/*
+          if-no-files-found: error
+
+  publish:
+    needs: [plan, build]
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.plan.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+
+      - name: Write latest.json
+        run: |
+          base="https://github.com/${{ github.repository }}/releases/download/v$VERSION"
+          entry() { jq -n --rawfile sig "dist/$1.sig" --arg url "$base/$1" '{signature: $sig, url: $url}'; }
+          jq -n \
+            --arg version "$VERSION" \
+            --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --argjson windows "$(entry "AutoPara-$VERSION-Setup.exe")" \
+            --argjson arm "$(entry "AutoPara-$VERSION-darwin-aarch64.app.tar.gz")" \
+            --argjson intel "$(entry "AutoPara-$VERSION-darwin-x86_64.app.tar.gz")" \
+            '{version: $version, notes: "", pub_date: $date, platforms: {
+                "windows-x86_64": $windows, "darwin-aarch64": $arm, "darwin-x86_64": $intel}}' \
+            > dist/latest.json
+          cat dist/latest.json
+
+      - name: Publish the release
+        run: |
+          prerelease=()
+          case "$VERSION" in *-*) prerelease=(--prerelease) ;; esac
+          notes=$(cat <<EOF
+          **Windows:** завантажте **AutoPara-$VERSION-Setup.exe** нижче та запустіть його.
+          Нічого більше встановлювати не треба.
+
+          **macOS (Apple Silicon):** завантажте **AutoPara-$VERSION.dmg**, відкрийте його й перетягніть
+          AutoPara у «Програми». Застосунок не підписано, тож при першому запуску відкрийте його через
+          контекстне меню → «Відкрити».
+
+          **macOS (Intel):** те саме, але файл **AutoPara-Intel-$VERSION.dmg**.
+
+          Встановлені копії оновлюються самі: AutoPara повідомить про нову версію.
+
+          Зібрано з $GITHUB_SHA.
+          EOF
+          )
+          gh release create "v$VERSION" dist/* \
+            --repo "${{ github.repository }}" \
+            --target "$GITHUB_SHA" \
+            --title "AutoPara $VERSION" \
+            --notes "$notes" \
+            "${prerelease[@]}"

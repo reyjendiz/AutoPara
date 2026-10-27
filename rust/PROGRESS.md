@@ -58,13 +58,13 @@ Ticked only when the step's quality gate is green.
 - [x] 5.12 Frontend tests
 
 ## Phase 6 — Updates and installers
-- [ ] 6.1 Re-read release docs
-- [ ] 6.2 Updater
-- [ ] 6.3 Windows installer
-- [ ] 6.4 macOS images
-- [ ] 6.5 Release workflow
-- [ ] 6.6 Updater signing
-- [ ] 6.7 Release checklist
+- [x] 6.1 Re-read release docs
+- [x] 6.2 Updater (untested end to end: needs two published releases)
+- [x] 6.3 Windows installer (built locally; install/uninstall untested on a clean VM, see docs/RELEASE_CHECKLIST.md)
+- [ ] 6.4 macOS images (configured in rust-release.yml; not built yet: needs a Mac runner, untested on hardware)
+- [ ] 6.5 Release workflow (written; not run yet: the branch has not been pushed)
+- [x] 6.6 Updater signing
+- [x] 6.7 Release checklist
 
 ## Phase 7 — Lecture Assist
 - [ ] 7.1 Engine API
