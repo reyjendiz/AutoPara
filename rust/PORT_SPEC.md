@@ -933,8 +933,6 @@ Found while reading the code for this spec:
 18. `theme` and `catchup_mode` are not validated when read; an unknown `catchup_mode` behaves as
     notify, an unknown theme as system.
 19. Window size and position are not persisted (the plan adds this in 4.3).
-</content>
-</invoke>
 
 ---
 

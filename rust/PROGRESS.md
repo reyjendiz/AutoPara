@@ -94,7 +94,3 @@ Ticked only when the step's quality gate is green.
 - [ ] 9.2 Manual smoke
 - [ ] 9.3 Security pass
 - [ ] 9.4 Final summary
-</content>
-</invoke>
-<invoke name="Bash">
-<parameter name="command">cd "/c/Users/anire/OneDrive/Desktop/AiEd/AutoPara" && git add rust/PORT_SPEC.md rust/PROGRESS.md && git commit -q -m "Write the port specification for the Rust rewrite" && git log --oneline -1 && git status --short
