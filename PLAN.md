@@ -162,7 +162,7 @@ Run the worker from the repository root:
 
 ## Storage (7.10)
 
-- [ ] **T19** Assist tables migration (worker)
+- [x] **T19** Assist tables migration (worker)
   - edit: `rust/crates/autopara-core/src/db.rs`
   - result: a new entry in `MIGRATIONS` adding `assist_sessions`, `assist_segments`,
     `assist_notes`, plus `Storage` methods to create a session, add segments, save notes and
@@ -170,7 +170,7 @@ Run the worker from the repository root:
   - verify: `cargo test -p autopara-core db`
   - format: `diff`
 
-- [ ] **T20** Retention and "delete everything" (worker)
+- [x] **T20** Retention and "delete everything" (worker)
   - edit: `rust/crates/autopara-core/src/db.rs`
   - result: `purge_assist_older_than(days, now)` and `delete_all_assist()`. Tests.
   - verify: `cargo test -p autopara-core db`

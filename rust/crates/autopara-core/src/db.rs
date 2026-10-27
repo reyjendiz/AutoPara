@@ -79,6 +79,34 @@ const MIGRATIONS: &[&str] = &[
     CREATE INDEX idx_lessons_on_date ON lessons(on_date);
     CREATE INDEX idx_occurrences_date ON occurrences(occur_date);
     ",
+    // 2: Lecture Assist keeps text only: sessions, transcript segments and notes (plan 7.10).
+    r"
+    CREATE TABLE assist_sessions (
+        id INTEGER PRIMARY KEY,
+        lesson_id INTEGER,
+        occur_date TEXT,
+        subject TEXT NOT NULL DEFAULT '',
+        started_at TEXT NOT NULL,
+        ended_at TEXT,
+        summary TEXT NOT NULL DEFAULT ''
+    );
+    CREATE TABLE assist_segments (
+        id INTEGER PRIMARY KEY,
+        session_id INTEGER NOT NULL REFERENCES assist_sessions(id),
+        start_ms INTEGER NOT NULL,
+        end_ms INTEGER NOT NULL,
+        text TEXT NOT NULL,
+        flag TEXT
+    );
+    CREATE TABLE assist_notes (
+        session_id INTEGER PRIMARY KEY REFERENCES assist_sessions(id),
+        notes TEXT NOT NULL,
+        terms TEXT NOT NULL DEFAULT '[]',
+        updated_at TEXT NOT NULL
+    );
+    CREATE INDEX idx_assist_segments_session ON assist_segments(session_id);
+    CREATE INDEX idx_assist_sessions_started ON assist_sessions(started_at);
+    ",
 ];
 
 /// Defaults written on first open (`INSERT OR IGNORE`), as the Python app seeds them.
@@ -778,6 +806,180 @@ impl Storage {
         )?;
         rows.collect()
     }
+
+    /// A new listening session for a class occurrence (or none, when started by hand).
+    pub fn start_assist_session(
+        &self,
+        lesson_id: Option<i64>,
+        date: Option<NaiveDate>,
+        subject: &str,
+        now: NaiveDateTime,
+    ) -> Result<i64, DbError> {
+        self.conn.execute(
+            "INSERT INTO assist_sessions (lesson_id, occur_date, subject, started_at) \
+             VALUES (?1, ?2, ?3, ?4)",
+            params![
+                lesson_id,
+                date.map(format_date),
+                subject,
+                format_datetime(now)
+            ],
+        )?;
+        Ok(self.conn.last_insert_rowid())
+    }
+
+    pub fn add_assist_segment(&self, session: i64, segment: &AssistSegment) -> Result<(), DbError> {
+        self.conn.execute(
+            "INSERT INTO assist_segments (session_id, start_ms, end_ms, text, flag) \
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![
+                session,
+                segment.start_ms,
+                segment.end_ms,
+                segment.text,
+                segment.flag
+            ],
+        )?;
+        Ok(())
+    }
+
+    /// Replace the session's notes; both values are JSON from the assistant.
+    pub fn save_assist_notes(
+        &self,
+        session: i64,
+        notes: &str,
+        terms: &str,
+        now: NaiveDateTime,
+    ) -> Result<(), DbError> {
+        self.conn.execute(
+            "INSERT INTO assist_notes (session_id, notes, terms, updated_at) \
+             VALUES (?1, ?2, ?3, ?4) ON CONFLICT(session_id) DO UPDATE SET \
+             notes = excluded.notes, terms = excluded.terms, updated_at = excluded.updated_at",
+            params![session, notes, terms, format_datetime(now)],
+        )?;
+        Ok(())
+    }
+
+    pub fn finish_assist_session(
+        &self,
+        session: i64,
+        summary: &str,
+        now: NaiveDateTime,
+    ) -> Result<(), DbError> {
+        self.conn.execute(
+            "UPDATE assist_sessions SET ended_at = ?2, summary = ?3 WHERE id = ?1",
+            params![session, format_datetime(now), summary],
+        )?;
+        Ok(())
+    }
+
+    /// Newest first.
+    pub fn assist_sessions(&self) -> Result<Vec<AssistSession>, DbError> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, lesson_id, occur_date, subject, started_at, ended_at, summary \
+             FROM assist_sessions ORDER BY started_at DESC, id DESC",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok(AssistSession {
+                id: row.get(0)?,
+                lesson_id: row.get(1)?,
+                date: parse_date(row.get(2)?),
+                subject: row.get(3)?,
+                started_at: parse_datetime(&row.get::<_, String>(4)?).unwrap_or_default(),
+                ended_at: row
+                    .get::<_, Option<String>>(5)?
+                    .and_then(|d| parse_datetime(&d)),
+                summary: row.get(6)?,
+            })
+        })?;
+        rows.collect()
+    }
+
+    pub fn assist_segments(&self, session: i64) -> Result<Vec<AssistSegment>, DbError> {
+        let mut stmt = self.conn.prepare(
+            "SELECT start_ms, end_ms, text, flag FROM assist_segments \
+             WHERE session_id = ?1 ORDER BY start_ms, id",
+        )?;
+        let rows = stmt.query_map([session], |row| {
+            Ok(AssistSegment {
+                start_ms: row.get(0)?,
+                end_ms: row.get(1)?,
+                text: row.get(2)?,
+                flag: row.get(3)?,
+            })
+        })?;
+        rows.collect()
+    }
+
+    /// `(notes, terms)` as saved.
+    pub fn assist_notes(&self, session: i64) -> Result<Option<(String, String)>, DbError> {
+        self.conn
+            .query_row(
+                "SELECT notes, terms FROM assist_notes WHERE session_id = ?1",
+                [session],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()
+    }
+
+    /// The retention job: sessions started more than `days` ago go, with their text.
+    pub fn purge_assist_older_than(&self, days: u32, now: NaiveDateTime) -> Result<usize, DbError> {
+        let cutoff = format_datetime(now - chrono::Duration::days(i64::from(days)));
+        self.delete_assist_where("started_at < ?1", &cutoff)
+    }
+
+    /// "Delete all assistant data".
+    pub fn delete_all_assist(&self) -> Result<usize, DbError> {
+        self.delete_assist_where("?1 = ?1", "")
+    }
+
+    fn delete_assist_where(&self, condition: &str, value: &str) -> Result<usize, DbError> {
+        // Overwrite deleted text in the file instead of leaving it in free pages.
+        self.conn.pragma_update(None, "secure_delete", "ON")?;
+        let sessions = format!("SELECT id FROM assist_sessions WHERE {condition}");
+        self.conn.execute_batch("BEGIN")?;
+        let result = (|| {
+            self.conn.execute(
+                &format!("DELETE FROM assist_segments WHERE session_id IN ({sessions})"),
+                [value],
+            )?;
+            self.conn.execute(
+                &format!("DELETE FROM assist_notes WHERE session_id IN ({sessions})"),
+                [value],
+            )?;
+            self.conn.execute(
+                &format!("DELETE FROM assist_sessions WHERE {condition}"),
+                [value],
+            )
+        })();
+        self.conn
+            .execute_batch(if result.is_ok() { "COMMIT" } else { "ROLLBACK" })?;
+        result
+    }
+}
+
+/// One listening session, for the history list.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, ts_rs::TS)]
+#[ts(export)]
+pub struct AssistSession {
+    pub id: i64,
+    pub lesson_id: Option<i64>,
+    pub date: Option<NaiveDate>,
+    pub subject: String,
+    pub started_at: NaiveDateTime,
+    pub ended_at: Option<NaiveDateTime>,
+    /// The end-of-class summary, Markdown.
+    pub summary: String,
+}
+
+/// A transcript line as stored; `flag` is `question` or `task`.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, ts_rs::TS)]
+#[ts(export)]
+pub struct AssistSegment {
+    pub start_ms: i64,
+    pub end_ms: i64,
+    pub text: String,
+    pub flag: Option<String>,
 }
 
 #[cfg(test)]
@@ -998,5 +1200,97 @@ mod tests {
         let settings = storage.settings().unwrap();
         assert_eq!((settings.theme, settings.lead_minutes), (Theme::System, 1));
         assert_eq!(settings.catchup_mode, CatchupMode::Notify);
+    }
+
+    fn october(day: u32, hour: u32) -> NaiveDateTime {
+        NaiveDate::from_ymd_opt(2026, 10, day)
+            .and_then(|d| d.and_hms_opt(hour, 0, 0))
+            .unwrap()
+    }
+
+    fn line(start_ms: i64, text: &str, flag: Option<&str>) -> AssistSegment {
+        AssistSegment {
+            start_ms,
+            end_ms: start_ms + 1000,
+            text: text.into(),
+            flag: flag.map(str::to_string),
+        }
+    }
+
+    #[test]
+    fn assist_sessions_keep_their_text() {
+        let storage = Storage::open_in_memory().unwrap();
+        let date = NaiveDate::from_ymd_opt(2026, 10, 27);
+        let id = storage
+            .start_assist_session(None, date, "Графи", october(27, 9))
+            .unwrap();
+        storage
+            .add_assist_segment(id, &line(2000, "друге", Some("task")))
+            .unwrap();
+        storage
+            .add_assist_segment(id, &line(0, "перше", None))
+            .unwrap();
+        storage
+            .save_assist_notes(id, r#"{"topic":"А"}"#, "[]", october(27, 9))
+            .unwrap();
+        storage
+            .save_assist_notes(id, r#"{"topic":"Б"}"#, "[1]", october(27, 10))
+            .unwrap();
+        storage
+            .finish_assist_session(id, "# Підсумок", october(27, 10))
+            .unwrap();
+
+        let sessions = storage.assist_sessions().unwrap();
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].date, date);
+        assert_eq!(sessions[0].ended_at, Some(october(27, 10)));
+        assert_eq!(sessions[0].summary, "# Підсумок");
+        let texts: Vec<_> = storage
+            .assist_segments(id)
+            .unwrap()
+            .into_iter()
+            .map(|s| (s.text, s.flag))
+            .collect();
+        assert_eq!(
+            texts,
+            [
+                ("перше".into(), None),
+                ("друге".into(), Some("task".into()))
+            ]
+        );
+        assert_eq!(
+            storage.assist_notes(id).unwrap(),
+            Some((r#"{"topic":"Б"}"#.into(), "[1]".into()))
+        );
+    }
+
+    #[test]
+    fn retention_and_delete_all_remove_text() {
+        let storage = Storage::open_in_memory().unwrap();
+        let old = storage
+            .start_assist_session(None, None, "old", october(1, 9))
+            .unwrap();
+        let new = storage
+            .start_assist_session(None, None, "new", october(26, 9))
+            .unwrap();
+        for id in [old, new] {
+            storage
+                .add_assist_segment(id, &line(0, "текст", None))
+                .unwrap();
+            storage
+                .save_assist_notes(id, "{}", "[]", october(26, 9))
+                .unwrap();
+        }
+        assert_eq!(
+            storage.purge_assist_older_than(20, october(27, 9)).unwrap(),
+            1
+        );
+        assert!(storage.assist_segments(old).unwrap().is_empty());
+        assert_eq!(storage.assist_notes(old).unwrap(), None);
+        assert_eq!(storage.assist_sessions().unwrap()[0].id, new);
+
+        assert_eq!(storage.delete_all_assist().unwrap(), 1);
+        assert!(storage.assist_sessions().unwrap().is_empty());
+        assert!(storage.assist_segments(new).unwrap().is_empty());
     }
 }
