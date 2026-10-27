@@ -11,11 +11,11 @@ Ticked only when the step's quality gate is green.
 - [x] 0.6 Visual baseline
 
 ## Phase 1 — Workspace scaffold and CI
-- [ ] 1.1 Cargo workspace
-- [ ] 1.2 Tauri 2 skeleton
-- [ ] 1.3 Typed IPC
-- [ ] 1.4 CI
-- [ ] 1.5 `xtask` commands
+- [x] 1.1 Cargo workspace
+- [x] 1.2 Tauri 2 skeleton
+- [x] 1.3 Typed IPC
+- [x] 1.4 CI
+- [x] 1.5 `xtask` commands
 
 ## Phase 2 — Core: parsing and storage
 - [ ] 2.1 Domain types
