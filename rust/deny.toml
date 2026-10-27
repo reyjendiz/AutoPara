@@ -23,6 +23,7 @@ allow = [
     "Unicode-3.0",
     "Zlib",
     "CC0-1.0",
+    "ISC",
 ]
 # MPL-2.0 (file-level copyleft, used unmodified) only for these crates, all pulled in by Tauri
 # itself. See DECISIONS.md, "MPL-2.0 crates under Tauri".
