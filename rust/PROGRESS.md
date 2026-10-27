@@ -14,7 +14,7 @@ Ticked only when the step's quality gate is green.
 - [x] 1.1 Cargo workspace
 - [x] 1.2 Tauri 2 skeleton
 - [x] 1.3 Typed IPC
-- [x] 1.4 CI
+- [ ] 1.4 CI (workflow written; not run yet: the branch has not been pushed)
 - [x] 1.5 `xtask` commands
 
 ## Phase 2 — Core: parsing and storage
