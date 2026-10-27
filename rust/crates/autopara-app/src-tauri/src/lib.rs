@@ -141,6 +141,16 @@ pub fn run() {
                     tracing::error!(%error, "could not import the previous version's data")
                 }
             }
+            // Lecture Assist keeps its text for a limited time: 30 days unless set otherwise.
+            let days = storage
+                .get_setting("assist_retention_days")?
+                .and_then(|value| value.parse().ok())
+                .unwrap_or(30);
+            match storage.purge_assist_older_than(days, clock.now()) {
+                Ok(0) => {}
+                Ok(removed) => tracing::info!(removed, "removed old assistant sessions"),
+                Err(error) => tracing::warn!(%error, "could not remove old assistant sessions"),
+            }
             let wanted = storage.settings()?.autostart_enabled;
             match autostart::sync(wanted) {
                 Ok(actual) => {
