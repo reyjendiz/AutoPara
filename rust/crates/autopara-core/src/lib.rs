@@ -1,6 +1,11 @@
 //! AutoPara's core: everything that is not window or tray.
 //!
-//! The behaviour it ports is described in `rust/PORT_SPEC.md`; the parser, the database and the
-//! scheduler arrive in phases 2 and 3.
+//! The behaviour it ports is described in `rust/PORT_SPEC.md`.
 
+pub mod days;
+pub mod docx;
 pub mod i18n;
+pub mod model;
+pub mod parser;
+pub mod text;
+pub mod time;

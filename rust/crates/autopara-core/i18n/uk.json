@@ -1,4 +1,5 @@
 {
   "app_title": "AutoPara — автозапуск пар",
+  "course_label": "{numeral} курс",
   "settings_version": "Версія {version}"
 }
