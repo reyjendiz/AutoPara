@@ -6,12 +6,14 @@ use std::fmt;
 
 use chrono::{Datelike, NaiveDate, NaiveDateTime};
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 use crate::time::{TimeOfDay, last_pair_covered};
 
 /// A day of the week, Monday first. Stored and serialised as 0 (Monday) ..= 6 (Sunday).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, TS)]
 #[serde(into = "u8", try_from = "u8")]
+#[ts(export, type = "number")]
 pub enum Weekday {
     Monday,
     Tuesday,
@@ -64,7 +66,8 @@ impl TryFrom<u8> for Weekday {
 macro_rules! stored_enum {
     ($(#[$meta:meta])* $name:ident { $($variant:ident = $text:literal),+ $(,)? }) => {
         $(#[$meta])*
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+        #[ts(export)]
         pub enum $name {
             $(#[serde(rename = $text)] $variant),+
         }
@@ -118,12 +121,14 @@ stored_enum!(
 );
 
 /// When a lesson happens (PORT_SPEC §A.10, "Lessons that belong to a date").
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+#[ts(export)]
 pub enum Recurrence {
     /// Every week on the lesson's weekday: every imported class.
     Weekly,
     /// That date only.
-    Once(NaiveDate),
+    Once { date: NaiveDate },
     /// Every week from `from` to `until`, both included.
     WeeklyUntil { from: NaiveDate, until: NaiveDate },
 }
@@ -133,7 +138,7 @@ impl Recurrence {
     pub fn columns(self) -> (Option<NaiveDate>, Option<NaiveDate>) {
         match self {
             Recurrence::Weekly => (None, None),
-            Recurrence::Once(date) => (Some(date), None),
+            Recurrence::Once { date } => (Some(date), None),
             Recurrence::WeeklyUntil { from, until } => (Some(from), Some(until)),
         }
     }
@@ -141,7 +146,7 @@ impl Recurrence {
     pub fn from_columns(on_date: Option<NaiveDate>, repeat_until: Option<NaiveDate>) -> Self {
         match (on_date, repeat_until) {
             (None, _) => Recurrence::Weekly,
-            (Some(date), None) => Recurrence::Once(date),
+            (Some(date), None) => Recurrence::Once { date },
             (Some(from), Some(until)) => Recurrence::WeeklyUntil { from, until },
         }
     }
@@ -151,16 +156,21 @@ impl Recurrence {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct Course {
+    #[ts(type = "number")]
     pub id: i64,
     pub ordinal: u32,
     pub name: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct Group {
+    #[ts(type = "number")]
     pub id: i64,
+    #[ts(type = "number")]
     pub course_id: i64,
     pub name: String,
     pub specialty: String,
@@ -169,9 +179,12 @@ pub struct Group {
 }
 
 /// One class of the timetable: a weekly row, a one-off, or a weekly series.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct Lesson {
+    #[ts(type = "number")]
     pub id: i64,
+    #[ts(type = "number")]
     pub course_id: i64,
     pub weekday: Weekday,
     /// The slot the lesson starts in; part of `source_key`, no longer used for drawing.
@@ -200,7 +213,7 @@ impl Lesson {
         }
         match self.recurrence {
             Recurrence::Weekly => true,
-            Recurrence::Once(date) => day == date,
+            Recurrence::Once { date } => day == date,
             Recurrence::WeeklyUntil { from, until } => from <= day && day <= until.max(from),
         }
     }
@@ -209,7 +222,7 @@ impl Lesson {
     pub fn repeats(&self) -> bool {
         match self.recurrence {
             Recurrence::Weekly => true,
-            Recurrence::Once(_) => false,
+            Recurrence::Once { .. } => false,
             Recurrence::WeeklyUntil { from, until } => until > from,
         }
     }
@@ -237,9 +250,12 @@ pub fn at(day: NaiveDate, time: TimeOfDay) -> NaiveDateTime {
 }
 
 /// One row of the open log: what became of `lesson_id` on `date`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct Occurrence {
+    #[ts(type = "number")]
     pub id: i64,
+    #[ts(type = "number")]
     pub lesson_id: i64,
     pub date: NaiveDate,
     pub status: OccurrenceStatus,
@@ -247,9 +263,12 @@ pub struct Occurrence {
 }
 
 /// The typed view of the `settings` table, with the Python app's defaults (PORT_SPEC §D).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct Settings {
+    #[ts(type = "number | null")]
     pub selected_course_id: Option<i64>,
+    #[ts(type = "number | null")]
     pub selected_group_id: Option<i64>,
     pub lead_minutes: u32,
     pub class_duration_minutes: u32,
@@ -351,7 +370,12 @@ mod tests {
 
     #[test]
     fn a_one_off_does_not_repeat() {
-        let once = lesson(Recurrence::Once(date("2026-10-07")), Weekday::Wednesday);
+        let once = lesson(
+            Recurrence::Once {
+                date: date("2026-10-07"),
+            },
+            Weekday::Wednesday,
+        );
         assert!(once.occurs_on(date("2026-10-07")));
         assert!(!once.occurs_on(date("2026-10-14")));
         assert!(!once.repeats());

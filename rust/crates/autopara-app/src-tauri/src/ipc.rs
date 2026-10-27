@@ -6,7 +6,7 @@ use ts_rs::TS;
 
 /// The answer to `ping`: proof that the round trip works, and which build answered.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
-#[ts(export, export_to = "../../ui/src/bindings/")]
+#[ts(export)]
 pub struct Pong {
     pub message: String,
     pub version: String,

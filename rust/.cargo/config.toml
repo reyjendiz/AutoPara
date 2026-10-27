@@ -1,2 +1,6 @@
 [alias]
 xtask = "run --quiet --package xtask --"
+
+# Where `cargo test` writes the TypeScript twins of the IPC types.
+[env]
+TS_RS_EXPORT_DIR = { value = "crates/autopara-app/ui/src/bindings", relative = true }

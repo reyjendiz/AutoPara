@@ -646,7 +646,7 @@ impl Storage {
             end,
             is_manual: true,
             source_key: String::new(),
-            recurrence: Recurrence::Once(to),
+            recurrence: Recurrence::Once { date: to },
             skip_dates: BTreeSet::new(),
             group_names: Vec::new(),
             ..original
@@ -892,7 +892,9 @@ mod tests {
         let before = storage.lessons_for_group(group.id).unwrap();
         let mut manual = before[0].clone();
         manual.subject = "Своя пара".into();
-        manual.recurrence = Recurrence::Once(date("2026-10-07"));
+        manual.recurrence = Recurrence::Once {
+            date: date("2026-10-07"),
+        };
         let manual_id = storage.add_lesson(&manual, &[group.id]).unwrap();
         storage
             .claim_occurrence(

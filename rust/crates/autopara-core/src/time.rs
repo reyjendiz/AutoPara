@@ -12,7 +12,8 @@ use crate::text::normalize;
 const MINUTES_PER_DAY: u16 = 24 * 60;
 
 /// A wall-clock time with minute precision, `00:00`..=`23:59`. Ordered chronologically.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, ts_rs::TS)]
+#[ts(export, type = "string")]
 pub struct TimeOfDay(u16);
 
 impl TimeOfDay {

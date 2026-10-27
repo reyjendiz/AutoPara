@@ -405,7 +405,9 @@ fn http_and_other_schemes_are_never_opened() {
     ] {
         let lesson = Lesson {
             url: Some(url.into()),
-            recurrence: Recurrence::Once(date("2026-10-07")),
+            recurrence: Recurrence::Once {
+                date: date("2026-10-07"),
+            },
             ..group.clone()
         };
         ids.push(storage.add_lesson(&lesson, &[1]).unwrap());

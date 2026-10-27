@@ -134,17 +134,34 @@ pub fn is_openable(url: Option<&str>) -> bool {
 }
 
 /// What the scheduler tells the rest of the app.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, ts_rs::TS)]
 #[serde(tag = "kind", rename_all = "snake_case")]
+#[ts(export)]
 pub enum SchedulerEvent {
     /// The link was handed to the browser.
-    Opened { lesson_id: i64, date: NaiveDate },
+    Opened {
+        #[ts(type = "number")]
+        lesson_id: i64,
+        date: NaiveDate,
+    },
     /// The class ended without being opened, or the browser refused it.
-    Missed { lesson_id: i64, date: NaiveDate },
+    Missed {
+        #[ts(type = "number")]
+        lesson_id: i64,
+        date: NaiveDate,
+    },
     /// The class is running and was never opened: ask the user (the missed-class banner).
-    CatchupAvailable { lesson_id: i64, date: NaiveDate },
+    CatchupAvailable {
+        #[ts(type = "number")]
+        lesson_id: i64,
+        date: NaiveDate,
+    },
     /// The advance reminder.
-    Reminder { lesson_id: i64, date: NaiveDate },
+    Reminder {
+        #[ts(type = "number")]
+        lesson_id: i64,
+        date: NaiveDate,
+    },
 }
 
 /// The scheduler's memory between ticks. Everything that must survive a restart is in the
