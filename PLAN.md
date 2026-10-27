@@ -37,7 +37,7 @@ Run the worker from the repository root:
     characters anywhere; ignore comments, empty lines and `[DONE]`). Tests for split input.
   - verify: `cargo test -p lecture-assist llm::sse`
 
-- [ ] **T03** Requests-per-minute guard (worker)
+- [x] **T03** Requests-per-minute guard (worker)
   - edit: `rust/crates/lecture-assist/src/llm/rate.rs`
   - result: `pub struct RateGuard { limit, sent: VecDeque<Instant> }`, `new(limit: u32)`,
     `try_acquire(&mut self, now: Instant) -> bool` allowing at most `limit` calls in any
