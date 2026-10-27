@@ -43,7 +43,7 @@ Run the worker from the repository root:
     60-second window. Tests with fixed instants.
   - verify: `cargo test -p lecture-assist llm::rate`
 
-- [ ] **T04** `ChatProvider` trait and message types (lead)
+- [x] **T04** `ChatProvider` trait and message types (lead)
   - edit: `rust/crates/lecture-assist/src/llm/mod.rs`
   - result: `Message`, `Role`, `ChatRequest`, `ChatProvider` (streaming, boxed), error mapping
     (timeout, network, HTTP 429/5xx → `ChatUnavailable`, so the chain falls back).
