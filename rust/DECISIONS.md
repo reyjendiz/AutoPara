@@ -291,3 +291,26 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
 - **Alternative:** the bindings bundled with the crate (`WHISPER_DONT_GENERATE_BINDINGS`).
 - **Why:** they are generated on Linux, where `long` is 8 bytes, and fail the layout checks on
   Windows.
+
+## Lecture Assist: engine timing
+
+- **Decision:** the notes timer and the partial-text interval count audio time (samples heard),
+  not wall time; partials re-read the open utterance every `partial_every_ms` (1 s by default,
+  0 turns them off).
+- **Why:** the pipeline is then deterministic under test, and a slow recogniser delays notes
+  instead of piling up requests.
+
+## Lecture Assist: language detection
+
+- **Decision:** with "auto", the language is detected once, on the first utterance of at least
+  three seconds, choosing only among Ukrainian, Russian and English, and kept for the session.
+- **Alternative:** whisper's own detection on every window, among all languages.
+- **Why:** a class keeps its language; per-window detection doubles the encoder work and flips
+  between close languages on short phrases.
+
+## Lecture Assist: GPU builds on Windows (open)
+
+- **Status:** the `cuda` feature builds whisper.cpp against the CUDA toolkit for local use and
+  `bench-stt`. Shipping it would mean redistributing `cudart`/`cublas`, which are under NVIDIA's
+  licence, not a permissive one (R11). Until the owner decides, release builds use the CPU
+  backend on Windows and Metal on macOS. A Vulkan build is the permissive alternative to test.

@@ -29,6 +29,14 @@ check` (`deny.toml`); exceptions are explained in `DECISIONS.md`.
 | tauri-plugin-updater (no `zip` feature) | 2.14.0 | Apache-2.0 OR MIT | signed updates from GitHub Releases |
 | tracing / tracing-subscriber / tracing-appender | 0.1.44 / 0.3.23 / 0.2.5 | MIT | the log file |
 | windows-registry (Windows only) | 0.100.0 | MIT OR Apache-2.0 | the autostart entry |
+| cpal | 0.18.2 | Apache-2.0 | Lecture Assist: WASAPI loopback and input capture |
+| rubato | 5.0.1 | MIT | Lecture Assist: resampling to 16 kHz |
+| whisper-rs / whisper-rs-sys | 0.16.0 / 0.15.0 | Unlicense (bundled whisper.cpp and ggml: MIT) | Lecture Assist: speech recognition and Silero VAD |
+| reqwest (rustls, no default features) | 0.13.5 | MIT OR Apache-2.0 | Lecture Assist: chat providers |
+| rustls (ring) | 0.23.46 | Apache-2.0 OR ISC OR MIT | TLS for chat providers |
+| futures-util | 0.3.34 | MIT OR Apache-2.0 | streamed chat replies |
+| hound | 3.5.1 | Apache-2.0 | reading wav fixtures for tests and `bench-stt` (never writes audio) |
+| sha2 | 0.10.9 | MIT OR Apache-2.0 | checking downloaded model files |
 
 Tauri pulls in five MPL-2.0 crates (`cssparser`, `cssparser-macros`, `selectors`, `dtoa-short`,
 `option-ext`), used unmodified; their source is on crates.io.
@@ -40,6 +48,7 @@ Tauri pulls in five MPL-2.0 crates (`cssparser`, `cssparser-macros`, `selectors`
 | chrono-tz | 0.10.4 | MIT OR Apache-2.0 |
 | proptest | 1.12.0 | MIT OR Apache-2.0 |
 | tempfile | 3.27.0 | MIT OR Apache-2.0 |
+| wiremock | 0.6.5 | MIT OR Apache-2.0 |
 
 ## Frontend (shipped)
 
@@ -61,6 +70,20 @@ Tauri pulls in five MPL-2.0 crates (`cssparser`, `cssparser-macros`, `selectors`
 
 Their transitive packages are MIT, Apache-2.0, BSD-2/3-Clause, ISC and BlueOak-1.0.0, except
 `lightningcss` (MPL-2.0, Vite's CSS processor, build time only).
+
+## Developer tool `tools/localdev` (not shipped)
+
+| Crate | Version | Licence |
+|---|---|---|
+| ureq | 3.5.0 | MIT OR Apache-2.0 |
+| toml | 1.1.8 | MIT OR Apache-2.0 |
+
+## Models (downloaded on demand, never bundled)
+
+| Model | Licence |
+|---|---|
+| whisper ggml models (`ggerganov/whisper.cpp` on Hugging Face) | MIT |
+| Silero VAD v5, ggml conversion | MIT |
 
 ## Assets
 
