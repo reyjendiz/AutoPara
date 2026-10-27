@@ -116,7 +116,7 @@ Run the worker from the repository root:
     input device elsewhere; device list; reconnect on device change; pause stops the stream.
   - verify: `cargo test -p lecture-assist audio`
 
-- [ ] **T13** Fake audio source for tests (worker)
+- [x] **T13** Fake audio source for tests (worker)
   - edit: `rust/crates/lecture-assist/src/audio/fake.rs`
   - read: `rust/crates/lecture-assist/src/audio/mod.rs`
   - result: `FakeSource::new(samples: Vec<f32>, chunk: usize)` implementing `AudioSource`;
