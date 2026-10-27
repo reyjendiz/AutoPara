@@ -18,6 +18,7 @@ check` (`deny.toml`); exceptions are explained in `DECISIONS.md`.
 | regex | 1.13.1 | MIT OR Apache-2.0 | times and URLs in cell text |
 | rusqlite (bundled SQLite) | 0.41.0 | MIT (SQLite: public domain) | the database |
 | thiserror | 2.0.21 | MIT OR Apache-2.0 | error types |
+| tokio | 1.54.1 | MIT | the scheduler's background task |
 | unicode-normalization | 0.1.26 | (MIT OR Apache-2.0) AND Unicode-3.0 | NFC normalisation |
 | zip (deflate only) | 9.1.2 | MIT | reading the `.docx` archive |
 
@@ -28,6 +29,7 @@ Tauri pulls in five MPL-2.0 crates (`cssparser`, `cssparser-macros`, `selectors`
 
 | Crate | Version | Licence |
 |---|---|---|
+| chrono-tz | 0.10.4 | MIT OR Apache-2.0 |
 | proptest | 1.12.0 | MIT OR Apache-2.0 |
 | tempfile | 3.27.0 | MIT OR Apache-2.0 |
 

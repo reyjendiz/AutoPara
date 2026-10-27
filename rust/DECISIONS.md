@@ -93,3 +93,41 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
 
 - **Decision:** `autopara-core` never reads the clock; `import_courses`, `claim_occurrence` and
   friends take `now`. Phase 3's `Clock` supplies it.
+
+## Catch-up only from continuous watching
+
+- **Decision:** a class that is already running is opened without asking (catch-up mode "open")
+  only when the scheduler was running, awake and on an unbroken clock when the class's trigger
+  passed: its previous tick was before the trigger, at most 45 s earlier, and the wall clock moved
+  in step with the monotonic clock (within 30 s). After an app start, a wake from sleep or a clock
+  change, a running class is always offered (the missed-class banner) and never opened.
+- **Python:** the first tick after start asks; the second tick, 15 s later, opens the class in
+  "open" mode, and a wake from sleep opens it on the first tick (PORT_SPEC §I.12, §I.20; golden
+  scenarios `late_start_open` and `sleep_across_start_open`).
+- **Why:** plan step 3.4 — nothing opens until the user picks, even in "open immediately" mode,
+  which applies only to a class that starts while the app is running. The golden comparison checks
+  that these are the only differences: every other event of all 72 Python simulations matches.
+
+## Only https links are opened
+
+- **Decision:** `scheduler::is_openable` accepts `https://` only (trimmed, case-insensitive).
+- **Python:** `http://` too (PORT_SPEC §C.5, §I.13).
+- **Why:** plan step 3.5. A lesson with an `http://` link is treated like one with no link: never
+  opened automatically, missed when its time passes.
+
+## The engine wakes at the next due moment
+
+- **Decision:** after each tick the engine sleeps until the earliest reminder, trigger, start or end
+  still ahead today (or midnight), never longer than 15 s, and wakes early when told something
+  changed.
+- **Python:** a plain 15 s poll.
+- **Why:** an open at exactly `start - lead` instead of up to 15 s later; the 15 s cap keeps the
+  Python app's resilience to settings edits, sleep and clock changes.
+
+## Local wall time, and daylight saving
+
+- **Decision:** the timetable stays in naive local time, as in Python. Across a DST change:
+  an hour that happens twice opens its class once (the open log is keyed by date); a class in the
+  hour that does not exist is offered, not opened, because the wall clock jumps past its trigger.
+- **Why:** classes are written as local wall times; the Europe/Kyiv tests in `tests/scheduler.rs`
+  pin both cases.

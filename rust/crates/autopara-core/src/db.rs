@@ -205,15 +205,19 @@ impl Storage {
 
     /// The typed settings, read the way the Python app reads them (PORT_SPEC §D).
     pub fn settings(&self) -> Result<Settings, DbError> {
-        let get = |key: &str| -> Result<String, DbError> {
-            Ok(self.get_setting(key)?.unwrap_or_default())
-        };
+        // One query for the whole table: the scheduler reads the settings on every tick.
+        let all: std::collections::HashMap<String, Option<String>> = self
+            .conn
+            .prepare_cached("SELECT key, value FROM settings")?
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect::<Result<_, _>>()?;
+        let raw = |key: &str| all.get(key).cloned().flatten();
+        let get = |key: &str| -> Result<String, DbError> { Ok(raw(key).unwrap_or_default()) };
         let number = |key: &str, fallback: u32| -> Result<u32, DbError> {
             Ok(get(key)?.trim().parse().unwrap_or(fallback))
         };
-        let flag = |key: &str| -> Result<bool, DbError> {
-            Ok(self.get_setting(key)?.is_none_or(|value| value == "1"))
-        };
+        let flag =
+            |key: &str| -> Result<bool, DbError> { Ok(raw(key).is_none_or(|value| value == "1")) };
         let id = |key: &str| -> Result<Option<i64>, DbError> { Ok(get(key)?.parse().ok()) };
         Ok(Settings {
             selected_course_id: id("selected_course_id")?,

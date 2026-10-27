@@ -28,13 +28,13 @@ Ticked only when the step's quality gate is green.
 - [x] 2.8 Parity tests
 
 ## Phase 3 — Scheduler and joining
-- [ ] 3.1 `Clock` trait
-- [ ] 3.2 Occurrence generation
-- [ ] 3.3 Open-once engine
-- [ ] 3.4 Missed-class handling
-- [ ] 3.5 Link opening
-- [ ] 3.6 Reminders
-- [ ] 3.7 Fake-clock tests
+- [x] 3.1 `Clock` trait
+- [x] 3.2 Occurrence generation
+- [x] 3.3 Open-once engine
+- [x] 3.4 Missed-class handling
+- [x] 3.5 Link opening
+- [x] 3.6 Reminders
+- [x] 3.7 Fake-clock tests
 
 ## Phase 4 — Application shell
 - [ ] 4.1 Command and event API
