@@ -37,6 +37,7 @@ check` (`deny.toml`); exceptions are explained in `DECISIONS.md`.
 | futures-util | 0.3.34 | MIT OR Apache-2.0 | streamed chat replies |
 | hound | 3.5.1 | Apache-2.0 | reading wav fixtures for tests and `bench-stt` (never writes audio) |
 | sha2 | 0.10.9 | MIT OR Apache-2.0 | checking downloaded model files |
+| keyring (Windows and macOS stores only) | 3.6.3 | MIT OR Apache-2.0 | chat provider API keys in the OS keychain |
 
 Tauri pulls in five MPL-2.0 crates (`cssparser`, `cssparser-macros`, `selectors`, `dtoa-short`,
 `option-ext`), used unmodified; their source is on crates.io.

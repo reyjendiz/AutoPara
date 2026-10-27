@@ -6,6 +6,8 @@ mod commands;
 mod ipc;
 mod logging;
 mod opener;
+#[allow(dead_code)] // used by the assistant commands that follow
+mod secrets;
 mod tray;
 mod updates;
 
