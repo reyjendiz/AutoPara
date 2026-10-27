@@ -14,6 +14,8 @@ pub mod stt;
 pub mod text;
 pub mod vad;
 
+pub use engine::{AssistEngine, Handle, Parts};
+
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -98,6 +100,8 @@ pub struct AssistConfig {
     /// How much recent transcript the notes and helpers see, beside the running summary.
     pub window_minutes: u32,
     pub requests_per_minute: u32,
+    /// How often the open utterance is re-read for live text; 0 turns partials off.
+    pub partial_every_ms: u32,
 }
 
 impl Default for AssistConfig {
@@ -108,6 +112,7 @@ impl Default for AssistConfig {
             notes_every_secs: 75,
             window_minutes: 5,
             requests_per_minute: 6,
+            partial_every_ms: 1000,
         }
     }
 }

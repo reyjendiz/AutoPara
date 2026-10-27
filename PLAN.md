@@ -147,7 +147,7 @@ Run the worker from the repository root:
 
 ## Engine (7.1)
 
-- [ ] **T17** `AssistEngine` and `Handle` (lead)
+- [x] **T17** `AssistEngine` and `Handle` (lead)
   - edit: `rust/crates/lecture-assist/src/engine.rs`
   - result: worker thread with panic isolation; state machine; partial decode about once a
     second, final on silence; flags; notes timer; helpers; end-of-class summary; event stream.
