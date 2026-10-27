@@ -59,7 +59,7 @@ Run the worker from the repository root:
     429 → `ChatUnavailable`, 401 → `Chat`.
   - verify: `cargo test -p lecture-assist llm::openai`
 
-- [ ] **T06** Provider chain with fallback (worker)
+- [x] **T06** Provider chain with fallback (worker)
   - edit: `rust/crates/lecture-assist/src/llm/chain.rs`
   - read: `rust/crates/lecture-assist/src/llm/mod.rs`
   - result: `ProviderChain(Vec<Arc<dyn ChatProvider>>)` implementing `ChatProvider`: tries
