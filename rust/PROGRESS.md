@@ -6,7 +6,7 @@ Ticked only when the step's quality gate is green.
 - [x] 0.1 Environment check
 - [x] 0.2 Read everything
 - [x] 0.3 `PORT_SPEC.md`
-- [ ] 0.4 Python baseline
+- [x] 0.4 Python baseline
 - [ ] 0.5 Golden fixtures
 - [ ] 0.6 Visual baseline
 

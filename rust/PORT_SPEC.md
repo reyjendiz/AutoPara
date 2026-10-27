@@ -935,3 +935,24 @@ Found while reading the code for this spec:
 19. Window size and position are not persisted (the plan adds this in 4.3).
 </content>
 </invoke>
+
+---
+
+## J. Baseline (step 0.4)
+
+Python suite at `8e73aff`, run on the development machine (Windows 11, Python 3.12.10, PySide6
+6.12.0, pytest 9.1.1) with `QT_QPA_PLATFORM=offscreen` and `USERPROFILE`, `HOME`, `APPDATA`,
+`LOCALAPPDATA` pointed at an empty temporary profile, so no real timetable was found (§I.16) and the
+user's profile was not touched.
+
+| Result | Count |
+|---|---|
+| passed | 674 |
+| failed | 1 |
+| skipped | 20 (the real-timetable variants of the `document_*` checks) |
+| runtime | 145 s |
+
+The one failure is
+`tests/test_installer.py::TestUpdateAssetNaming::test_the_repository_the_updater_asks_is_the_one_this_is_cloned_from`:
+`updater.GITHUB_REPO` (`sevcenkoa864-oss/AutoPara`) is not the repository the checkout is cloned
+from (`reyjendiz/AutoPara`). The suite itself catches §I.7; the bug is in the shipped 1.10.0.
