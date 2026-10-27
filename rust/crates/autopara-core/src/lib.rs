@@ -3,6 +3,7 @@
 //! The behaviour it ports is described in `rust/PORT_SPEC.md`.
 
 pub mod days;
+pub mod db;
 pub mod docx;
 pub mod i18n;
 pub mod model;
