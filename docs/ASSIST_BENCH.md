@@ -28,20 +28,29 @@ late the grey line in the overlay runs behind the teacher.
 | Date | Machine | Build | Model | Audio | RTF finals | RTF with partials | Partial p95 | Final p95 | Peak memory |
 |------|---------|-------|-------|-------|-----------|-------------------|-------------|-----------|-------------|
 | 2026-10-28 | i5-14600KF, 32 GB | CPU, release, AVX2 | small | 60 s, Windows voice (en) | 4.17 | 16.9 | 30.5 s | 28.9 s | 793 MB |
+| 2026-10-28 | i5-14600KF, 32 GB | CPU, release, AVX2, `/O2`, audio-sized window | small | 60 s, Windows voice (en) | 0.21 | 0.66 | 1.85 s | 2.13 s | 792 MB |
+| 2026-10-28 | i5-14600KF, 32 GB | CPU, release, AVX2, `/O2`, audio-sized window | small | 5.6 min, Windows voice (en) | 0.19 | 0.70 | 1.99 s | 2.20 s | 828 MB |
 
-Median latency was 16 s for both partials and finals (43 partials, 14 finals). The 5.6-minute
-version of the same recording was stopped after 32 minutes without finishing.
+The first row (median 16 s per call) was an unoptimised whisper.cpp: with the Visual Studio
+generator, cmake-rs replaces CMake's MSVC release flags with its own and drops `/O2`, so ggml
+was compiled without optimisation. `rust/.cargo/config.toml` now sets `CMAKE_C_FLAGS_RELEASE`
+and `CMAKE_CXX_FLAGS_RELEASE` (whisper-rs-sys forwards them to CMake). That alone gave RTF 0.55
+for finals and 2.3 with partials, median 2 s per call.
 
-**This misses the budget by a wide margin:** at these speeds the engine falls further behind
-every second, because it asks for a partial per second of *audio* and capture keeps queueing
-while a partial runs. Before release:
+The rest was whisper's fixed 30 s window: a 3 s partial still encoded 27 s of silence. The
+recogniser now sizes the encoder window to the audio (`audio_ctx`, 50 frames a second plus a
+margin): a 3 s call went from 1.7 s to 0.3 s with the same or more text; a 28 s call is unchanged
+(~4 s). Threads (6 P-cores vs 8) and the temperature fallback made no measurable difference.
+Language detection runs once per class (cached), not per call.
 
-1. Find why one call takes ~16 s. The build is Release with AVX2/FMA/F16C, 8 threads, greedy
-   decoding, so this is slower than whisper.cpp `small` usually is on this CPU. Suspects: the
-   8 threads landing on E-cores (try 6, the P-core count), and temperature fallback re-decoding.
-2. Make partials skip when the recogniser is behind (by wall time, not audio time), so the
-   lag cannot grow.
-3. Repeat with a real lecture recording, and with the `cuda` build on the RTX 4080 SUPER.
+The bench times every partial, so "with partials" is a worst case: the engine now skips a partial
+while more than a second of captured audio is waiting (wall time against audio heard), so a slow
+stretch cannot make the lag grow; finals always run.
+
+To do:
+
+1. Repeat with a real lecture recording (accuracy and timing), Ukrainian and Russian included.
+2. Repeat with the `cuda` build on the RTX 4080 SUPER.
 
 The recording is synthetic (the Windows English voice, monotone, regular pauses). Use it for
 timing only, not for accuracy.
