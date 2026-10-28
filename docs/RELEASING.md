@@ -1,125 +1,99 @@
 # Releasing AutoPara
 
-How a release is cut, and how to pick the version number.
+How a release is cut, and how to pick the version number. The hands-on checks before and after are
+`docs/RELEASE_CHECKLIST.md`.
 
 ## How a release actually happens here
 
-`.github/workflows/installer.yml` runs `build.cmd` on **every** push to `main`. What it does with
-the result depends on one number:
+`.github/workflows/rust-release.yml` runs on every push to `main` that touches `rust/` (and on
+manual dispatch). What it does depends on one number:
 
-- It reads `APP_VERSION` from `installer/AutoPara.nsi` with the regex
-  `^!define\s+APP_VERSION\s+"([^"]+)"`.
-- It probes `gh release view v<version>`. If that release **already exists**, the job stops after
-  the build and the `.exe` is only a workflow artifact.
-- If the release does not exist, it creates `v<version>` and attaches
-  `AutoPara-<version>-Setup.exe`.
+- It reads the version with `cargo metadata` — `[workspace.package] version` in `rust/Cargo.toml`,
+  which every crate inherits and Tauri takes for the installer, the executable's version info and
+  Add/Remove Programs.
+- If `v<version>` already has a release, it stops: nothing is built or published.
+- Otherwise it builds Windows, Apple Silicon and Intel in parallel, signs the updater files with
+  `TAURI_SIGNING_PRIVATE_KEY`, and **only when all three succeeded** creates `v<version>` with
+  `AutoPara-<version>-Setup.exe`, `AutoPara-<version>.dmg`, `AutoPara-Intel-<version>.dmg`, the two
+  `.app.tar.gz` update archives, their `.sig` files and `latest.json`.
 
-So the number is the whole switch. Leave it alone and the push builds but publishes nothing; move it
-and the push publishes. Two consequences worth holding onto:
+So the number is the whole switch. Two consequences worth holding onto:
 
-- **A version whose release exists is spent.** You cannot re-cut `v1.4.0` — you can only go forward.
-  That is why the number gets confirmed with the user before it is written.
-- **The bump belongs in the commit being released**, which is what `CONTRIBUTING.md`, `README.md` and
-  `docs/ARCHITECTURE.md` all say. If the change is already pushed, a follow-up bump commit still
-  cuts the release (CI reads the head of `main`, not the commit that touched the file) — it just
-  reads worse in the log.
+- **A version whose release exists is spent.** You cannot re-cut `v2.0.0`; you can only go forward.
+  That is why the number gets confirmed with the owner before it is written.
+- **Publishing a release is shipping an update.** Every 2.x copy reads
+  `releases/latest/download/latest.json` and offers the new version. A version with a pre-release
+  part (`2.1.0-beta.1`) is published as a GitHub pre-release, which `latest` — and so the updater —
+  skips: that is the way to publish a build for testing.
 
-`installer/AutoPara.nsi` is the *single source* of the version: it names the `OutFile`,
-`VIProductVersion`, and the Add/Remove Programs `DisplayVersion`. The one exception is
-`autopara/__init__.py`'s `__version__`, which the running program reports to its in-app update check
-(a frozen build cannot read the `.nsi`); the bump script rewrites both and
-`tests/test_installer.py::TestVersion` fails if they differ. Nothing else should track a version of
-its own — anything that did would drift from the file the build reads.
+1.x copies cannot install 2.x by themselves (docs/UPGRADING.md); the first line of the release
+notes tells them where to download it.
 
-**Android.** The Android app is not versioned separately. `android/app/build.gradle.kts` reads
-`__version__` from `autopara/__init__.py`, so `bump_version.py` moves it too, and the `build-android`
-job of the same workflow builds `AutoPara-<version>.apk` and attaches it to `v<version>` next to the
-`.exe` and the disk images (only when that release has no APK yet, exactly like the `.dmg` jobs).
-Its `versionCode` is `major*10000 + minor*100 + patch`, so it always grows with the version.
-Repository secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and
-`ANDROID_KEY_PASSWORD` make the APK signed with a stable key (so updates install over each other);
-without them it is signed with the build machine's debug key.
-
-The update check also reads **the release you publish**: it compares the tag (`v<version>`) with
-`__version__` and downloads `AutoPara-<version>-Setup.exe`, the file CI attaches. Cutting a release
-therefore *is* shipping an update to everyone running an older copy.
+**Python 1.x and Android.** `.github/workflows/installer.yml` still runs on pushes to `main` and
+builds the Python app under `APP_VERSION` in `installer/AutoPara.nsi` (1.10.0, already released, so
+it publishes nothing), and its `build-android` job attaches `AutoPara-<version>.apk` to the release
+of the *Python* version. Until that workflow is retired and the Android build moves under the
+workspace version, a 2.x release has no APK. Both are cutover decisions for the owner
+(docs/HANDOFF.md).
 
 ## Step 1 — Does this change warrant a release?
 
-Not every commit should publish an installer. Judge the change.
-
 **Release it** when a user running the installed app would notice a difference: importer or parser
-rules, scheduler behaviour, the window or tray, the installer or autostart, a bug fix in any of
-those.
+rules, scheduler behaviour, the window or tray, Lecture Assist, the installer or autostart, a bug fix
+in any of those.
 
 **Don't release** doc-only edits, test-only changes, workflow/CI edits, or refactors with no
-behavioural change. Those still get committed and pushed; they just leave the number alone and CI
-builds an artifact nobody has to download.
+behavioural change. Those leave the number alone.
 
 If the working tree already holds an **unpushed** bump, that number covers this change too. Don't
-bump twice for one push — the intermediate version would never exist as a release and the history
-implies a build that was never published.
+bump twice for one push.
 
 ## Step 2 — Read the current state
 
 ```bash
-python tools/bump_version.py --show
+cd rust
+cargo metadata --no-deps --format-version 1 | grep -o '"version":"[^"]*"' | head -1
+gh release list --repo reyjendiz/AutoPara --limit 5
+git grep -n "<current version>" -- . ':!*.lock'
 ```
 
-This prints the current `APP_VERSION`, whether `v<version>` is already tagged **and** already
-released, the three candidate next numbers with the same check applied to each, and every other line
-in the repo that still names the current version. Read that last list — it is how you find the
-derived mentions without keeping a stale checklist in this file.
+The last line finds the docs that name the current version; rewrite the ones that describe the
+artifact being shipped now and leave records of past releases alone.
 
 ## Step 3 — Propose the number, then wait
 
-Decide which part you are moving and why, and agree it with whoever owns the release. This is the one step that is
-awkward to undo, so it is worth the round trip.
+Decide which part you are moving and why, and agree it with the owner. For this project — a
+single-user desktop app — semver reads as:
 
-For this project — a single-user desktop app — semver reads as:
-
-- **patch** (`1.4.0` → `1.4.1`): a fix. Behaviour the user already expected now works.
-- **minor** (`1.4.0` → `1.5.0`): new or changed behaviour the user will notice. Most releases here.
-- **major** (`1.4.0` → `2.0.0`): something that invalidates the user's existing database or forces
-  them to re-import or reinstall by hand. Rare — don't reach for it just because a change felt big.
+- **patch** (`2.0.0` → `2.0.1`): a fix. Behaviour the user already expected now works.
+- **minor** (`2.0.0` → `2.1.0`): new or changed behaviour the user will notice. Most releases here.
+- **major**: something that invalidates the user's data or forces a reinstall by hand. 2.0.0 is
+  one: a new stack, and 1.x cannot update to it by itself.
 
 ## Step 4 — Apply it
 
-```bash
-python tools/bump_version.py --set 1.5.0
-```
-
-The script rewrites the define and then re-reads the file with the workflow's own regex, so a
-rewrite that CI could not parse fails here instead of late in the build. It then lists every line
-still naming the old version and leaves those to you, because they need judgement:
-
-- Rewrite the ones that **describe the artifact being shipped now** — the README's build-output
-  table names `dist\AutoPara-<version>-Setup.exe`, the file the build actually writes.
-- Leave anything that is a **record of a past release**. A note about what 1.3.0 changed is still
-  about 1.3.0.
+Edit `version` under `[workspace.package]` in `rust/Cargo.toml`, then run any cargo command (for
+example `cargo check`) so `Cargo.lock` follows. Nothing else holds a version: `tauri.conf.json` has
+none and takes the crate's.
 
 ## Step 5 — Verify
 
 ```bash
-python -m pytest tests/test_installer.py
+cd rust
+cargo xtask check
+cd crates/autopara-app
+cargo tauri build      # with TAURI_SIGNING_PRIVATE_KEY set; see RELEASE_CHECKLIST.md
 ```
 
-`tests/test_installer.py` parses the `.nsi` and checks it has not drifted from the app — the
-autostart string, the window title, the `IfSilent` guards, the HKCU-only rule. It is fast and it is
-the cheapest proof the file is still well-formed.
+The installer's file name and its version info must show the new number.
 
 ## Step 6 — Commit
 
-Fold the bump into the commit carrying the change wherever that is still possible. When the change
-is already pushed, make it its own commit and say plainly in the message that it exists to cut the
-release, and for what.
-
-After pushing, the release is not instant — the job builds the whole PyInstaller bundle first.
-Confirm rather than assume:
+Fold the bump into the commit carrying the change wherever that is still possible; otherwise make
+it its own commit that says it cuts the release. After pushing, confirm rather than assume:
 
 ```bash
-gh run list --limit 3
+gh run list --workflow rust-release.yml --limit 3
 ```
 
-If a release did not appear, the near-certain cause is that `v<version>` was already released. Run
-`--show` again; it reports exactly that.
+If a release did not appear, the near-certain cause is that `v<version>` was already released.

@@ -66,10 +66,20 @@ fails blocks the release.
    - [ ] Silent: `AutoPara_<version>_x64-setup.exe /S` installs with both shortcuts and autostart
          and no window; `"%LOCALAPPDATA%\Programs\AutoPara\uninstall.exe" /S` removes it and keeps
          `%APPDATA%\AutoPara`.
-8. **Over the Python app** (a VM with AutoPara 1.x installed and a timetable imported)
-   - [ ] The Setup.exe offers to remove the older version; after it, there is one AutoPara in
-         Settings → Apps, one Start Menu folder, no `_internal` folder, and the imported timetable
-         shows up in the new app.
+8. **Upgrade from 1.x** (a VM with AutoPara 1.10.0 installed, a timetable imported, a class
+   marked skipped, and the theme and lead time changed; see docs/UPGRADING.md)
+   - [ ] With 2.0 released, 1.10.0's update strip names the new version and its detail line is the
+         release notes' first line (where to download); it offers no download.
+   - [ ] Run the 2.0 Setup.exe while 1.x is running: it asks to close AutoPara, then offers to
+         remove the older version.
+   - [ ] Afterwards there is one AutoPara in Settings → Apps (2.0.0), one Start Menu folder, no
+         `_internal` folder, and the `Run` value `AutoPara` is unchanged.
+   - [ ] The new app shows the same course and group, the same classes, the skipped mark, the
+         theme and the lead time, without a new import. Its log says `imported the previous
+         version's data`.
+   - [ ] `%APPDATA%\AutoPara\autopara.db` and `schedules\` are unchanged (compare hashes taken
+         before); `autopara2.db` and `timetables\` are new.
+   - [ ] Sign out and in: only 2.0 starts, and a class opens once.
 
 ## macOS (each of Apple Silicon and Intel)
 
