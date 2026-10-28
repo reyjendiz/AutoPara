@@ -83,11 +83,11 @@ Ticked only when the step's quality gate is green.
 - [x] 7.14 Docs (docs/ASSIST.md, docs/ASSIST_BENCH.md)
 
 ## Phase 8 — Cutover and documentation
-- [ ] 8.1 Docs for the new stack
-- [ ] 8.2 Upgrade path
-- [ ] 8.3 `python-final` tag
-- [ ] 8.4 Version 2.0.0 dry run
-- [ ] 8.5 Parity report
+- [x] 8.1 Docs for the new stack (README, CONTRIBUTING, ARCHITECTURE, BACKEND, FRONTEND, HANDOFF, RELEASING, RELEASE_CHECKLIST, new UPGRADING)
+- [ ] 8.2 Upgrade path (docs/UPGRADING.md; data import checked on a copy of real 1.10.0 data; the installer over a real 1.x install not yet run: needs a clean VM; 1.x cannot download 2.0 by itself, a 1.10.1 bridge release is the owner's call)
+- [ ] 8.3 `python-final` tag (waiting on the owner: tag `8e73aff` before the merge; the Python tree stays in place, see DECISIONS.md)
+- [ ] 8.4 Version 2.0.0 dry run (version set; Windows installer built and signed locally; the release workflow, `latest.json` and the macOS images need CI and the pushed branch)
+- [x] 8.5 Parity report (`rust/PARITY_REPORT.md`; the ⚠️ rows wait for the owner's approval)
 
 ## Phase 9 — Final QA
 - [ ] 9.1 Clean checkout gate
