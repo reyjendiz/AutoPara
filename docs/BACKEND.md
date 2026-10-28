@@ -1,7 +1,9 @@
 # BACKEND — data model, import pipeline, scheduler, storage
 
 > Read `ARCHITECTURE.md` first. Update this file whenever the data model, the parsing rules, or the
-> scheduler behavior changes.
+> scheduler behavior changes. The code is `rust/crates/autopara-core/src/`: `docx.rs` (reading
+> the package), `text.rs`, `days.rs` and `time.rs` (normalisation), `parser.rs` (the rules below),
+> `db.rs`, `import.rs`, `legacy.rs`, `scheduler.rs` and `engine.rs`.
 
 ## 1. The source document
 
@@ -42,7 +44,9 @@ Its structure, **verified by parsing the actual file** rather than assumed:
 > * `test_parser_finds_exactly_the_links_the_document_contains` -- the set of parsed URLs equals
 >   the set of relationship targets. Catches mangled or invented URLs.
 >
-> Both oracles read the `.docx` zip directly and share no code with the importer. The structural
+> Both oracles are in the Python suite (`tests/`) and read the `.docx` zip directly. The Rust parser
+> is held to the Python parser's output instead: `rust/crates/autopara-core/tests/golden.rs`
+> compares every field with the JSON exported from 1.10.0 (`rust/fixtures/golden/`). The structural
 > numbers above (61 lessons, per-course counts) *are* asserted: they describe merge handling and
 > hold across every revision seen so far.
 
@@ -69,7 +73,7 @@ calendar card, and a single browser open.
 The original spec proposed detecting shared classes by finding identical text repeated in adjacent
 columns. That is the wrong primary strategy for this document: Word stores the shared class as one
 merged cell, so there is no repeated text to find. Duplicate-text detection remains only as a
-defensive fallback (`_dedupe_adjacent_duplicates`) for documents produced by other tooling.
+defensive fallback (`dedupe_duplicates`) for documents produced by other tooling.
 
 This is a statement about **columns only**. Down the *rows* the document really does repeat text --
 see R12 -- and comparing it there is the primary strategy, not a fallback.
@@ -92,7 +96,7 @@ merged empty space and is ignored.
 **R12 — A class repeated in the next slot is still one class.**
 The author writes a double class two ways: as the vMerge block of R5, or by simply retyping the cell
 in the next row. Both mean the same thing — the class does not stop and nobody leaves it — so
-`_merge_consecutive_slots` folds the second slot into the first, which keeps the first slot's `pair`
+`merge_consecutive_slots` folds the second slot into the first, which keeps the first slot's `pair`
 and `start_time` and takes the last slot's `end_time`. Without it the scheduler opens a second
 browser tab an hour and a half into a meeting the user is already sitting in, and the grid draws two
 cards with a gap between them. 12 blocks in the reference document merge this way, 77 rows → 61
@@ -155,8 +159,7 @@ abbreviations, matched longest-first after NFC + apostrophe folding so a cell li
 Everything the parser *emits* is Ukrainian regardless of the input: `DAY_NAMES` is the Ukrainian
 list, and a course is always stored as `course_label(ordinal)` — `I курс`, `II курс`, … The
 heading text is not used for the name at all, which also disposes of the Cyrillic/Latin numeral
-mixing in R8. `is_course_heading` survives only to answer "does this document look like a
-timetable"; courses are still matched to tables by document order.
+mixing in R8. Courses are matched to tables by document order.
 
 Subject and teacher text is copied verbatim. Translating it would be inventing content: the class
 name in the document is the class name.
@@ -167,7 +170,12 @@ The reference document writes a bare start (`8.00`); timetables from other tooli
 duration. A start time outside the six standard slots no longer drops the row: `pair_slot` puts it
 in the grid row that had already begun (the grid has six rows; a lesson is not obliged to fit one).
 
-## 3. Data model (SQLite, `%APPDATA%\AutoPara\autopara.db`)
+## 3. Data model (SQLite, `%APPDATA%\AutoPara\autopara2.db`)
+
+`rust/crates/autopara-core/src/db.rs`. The schema is the Python app's as of 1.10.0, so the 1.x
+import (`legacy.rs`) can copy rows with their ids unchanged. Migrations are a list (`MIGRATIONS`);
+`PRAGMA user_version` records how many have run, and a new column or table is a new entry at the
+end, never an edit of an old one.
 
 ```sql
 settings(key TEXT PRIMARY KEY, value TEXT)
@@ -175,7 +183,7 @@ settings(key TEXT PRIMARY KEY, value TEXT)
 courses(id INTEGER PK, ordinal INTEGER UNIQUE, name TEXT)
 
 groups(id INTEGER PK, course_id -> courses.id, name TEXT,
-       specialty TEXT, col_lo INTEGER, col_hi INTEGER)
+       specialty TEXT, col_lo INTEGER, col_hi INTEGER, UNIQUE(course_id, name))
 
 lessons(id INTEGER PK, course_id -> courses.id,
         day_index INTEGER,        -- 0=Mon … 6=Sun
@@ -191,12 +199,19 @@ lessons(id INTEGER PK, course_id -> courses.id,
 
 lesson_groups(lesson_id -> lessons.id, group_id -> groups.id)   -- shared classes
 
+lesson_skips(lesson_id -> lessons.id, skip_date TEXT)           -- a date moved out of a series
+
 occurrences(id INTEGER PK, lesson_id -> lessons.id,
             occur_date TEXT,      -- 'YYYY-MM-DD'
             status TEXT,          -- opened | missed | manual | skipped
             fired_at TEXT,
             UNIQUE(lesson_id, occur_date))
+
+assist_sessions, assist_segments, assist_notes                  -- Lecture Assist text, docs/ASSIST.md
 ```
+
+`autopara-core` never reads the clock: every function that stamps a time takes `now` from the
+caller (`clock.rs`), which is what lets the scheduler tests run on a fake clock.
 
 ### Lessons that belong to a date
 
@@ -204,39 +219,38 @@ occurrences(id INTEGER PK, lesson_id -> lessons.id,
 |---|---|---|
 | NULL | — | Weekly template. Every imported class, and every manual class made before dates existed. |
 | date | NULL | One-off: that date only. |
-| date | date | Weekly series: that weekday, from `on_date` to `repeat_until` inclusive. |
+| date | date | Weekly series: that weekday, from `on_date` to `repeat_until` inclusive, minus its `lesson_skips`. |
 
-`Lesson.occurs_on(day)` is the one place that decides whether a lesson happens on a date; the
-scheduler's pure functions and the calendar views both call it, so they cannot disagree about what
-a day contains. `day_index` stays and always equals `on_date.weekday()` for a dated lesson
-(`add_lesson`/`update_lesson` enforce it). Dated lessons are always manual (`is_manual = 1`,
-`source_key = ''`), which is what lets a re-import leave them alone. The column was added after
-databases already existed, so `Storage._migrate` adds it with `ALTER TABLE`; it checks the table
-itself, so it is safe on every launch. It is the first migration the project has -- a column added
-later needs both `SCHEMA` and `_migrate`.
+`Lesson::occurs_on(day)` (`model.rs`) is the one place that decides whether a lesson happens on a
+date; the scheduler and the calendar views both go through it, so they cannot disagree about what a
+day contains. `day_index` always equals the weekday of `on_date` for a dated lesson. Dated lessons
+are always manual (`is_manual = 1`, `source_key = ''`), which is what lets a re-import leave them
+alone.
 
-`move_lesson(..., on_date=)` moves a dated lesson to a date; a series carries `repeat_until` along
-by the same number of days.
+`move_lesson` moves a lesson (a series carries `repeat_until` along by the same number of days);
+`move_occurrence` moves one date of a series: a `lesson_skips` row plus a one-off copy.
 
-`settings` keys:
+`settings` keys (`DEFAULTS` in `db.rs`, read through `Storage::settings`):
 
 | Key | Default | Meaning |
 |---|---|---|
-| `selected_course_id`, `selected_group_id` | — | The chosen timetable. Also what the import dialog reads back to preselect the same course and group when a new document is imported. |
+| `selected_course_id`, `selected_group_id` | — | The chosen timetable. Also what the import screen reads back to preselect the same course and group when a new document is imported. |
 | `lead_minutes` | `1` | How early a class opens. |
-| `class_duration_minutes` | `80` | Assumed length when the document gives no end time (R11). |
+| `class_duration_minutes` | `80` | Assumed length when the document gives no end time (R11). The import uses it; 1.x did not (PORT_SPEC §I.8). |
 | `autostart_enabled` | `1` | See ARCHITECTURE.md "Autostart is on out of the box". |
 | `catchup_mode` | `notify` | `notify` \| `open` \| `missed` — what to do about a class whose start has passed. |
-| `notifications_enabled` | `1` | Tray reminders and open/catch-up notices. |
+| `notifications_enabled` | `1` | Reminders and open/catch-up notices. |
 | `notify_minutes` | `10` | How long before a class the reminder appears. |
 | `update_mode` | `ask` | `ask` \| `auto` \| `off` — see section 7. Anything else reads as `ask`. |
 | `skipped_update_version` | `""` | A release the user answered "Пропустити версію" to; automatic checks stay quiet about exactly it. |
 | `last_update_check` | `""` | ISO time of the last answer from GitHub. |
-| `view_mode` | `week` | `day` \| `week` \| `month` — what the calendar shows. Anything else reads as `week`. The date being looked at is *not* stored: the app opens on today. |
-| `theme` | `system` | `system` \| `light` \| `dark`. `system` reads the Windows app theme, so a fresh install matches the desktop. |
+| `view_mode` | `week` | `day` \| `week` \| `month`. The date being looked at is *not* stored: the app opens on today. |
+| `theme` | `system` | `system` \| `light` \| `dark`. |
 | `schedule_active_from` | `""` | ISO datetime stamped on every import. See "The schedule starts when it is imported". |
 | `schedule_copy_path` | `""` | AutoPara's own copy of the imported `.docx`. See "The imported document is copied". |
-| `last_import_path` | `""` | Where the document came from. Kept for reference; the copy is what the dialog reopens. |
+| `last_import_path` | `""` | Where the document came from. Kept for reference; the copy is what the import screen reopens. |
+| `legacy_imported_at` | `""` | Set once the 1.x data has been imported (or there was none), so that import never runs twice. |
+| `assist_*` | — | Lecture Assist: consent, devices, models, language, retention. See docs/ASSIST.md. |
 
 ### Re-import behavior
 
@@ -248,40 +262,58 @@ It **discards the `occurrences` log entirely** (`clear_occurrences`). A new docu
 week: carrying yesterday's verdicts onto today's classes would show a freshly imported grid
 already marked opened and missed, against lessons that may not even be the same ones.
 
+Courses or groups that disappeared from the document are not deleted, as in 1.x (PORT_SPEC §I.11).
+
 ### The imported document is copied
 
-`archive_schedule` copies the `.docx` into `%APPDATA%\AutoPara\schedules\` and records
+`import::keep_copy` copies the `.docx` into `%APPDATA%\AutoPara\timetables\` and records
 `schedule_copy_path`. The file the user picks is usually a download or an email attachment that
-gets tidied away, and losing it should not cost them the ability to re-import; the import dialog
-reopens the copy in preference to the original path.
+gets tidied away, and losing it should not cost them the ability to re-import.
 
 Exactly one copy is kept — a new import replaces the old document as completely as it replaces the
-old records. Because the copy lives with the database, uninstalling clears it along with
-everything else, while a reinstall deliberately spares it (see `ARCHITECTURE.md`, "Reinstalling
-replaces").
+old records. Because the copy lives with the database, the uninstaller's "delete my data too"
+answer removes it, and a reinstall keeps it.
 
 `source_key` (course ordinal + day + pair + subject) lets a re-imported lesson keep its identity, and
 therefore its occurrence history, when the document is updated.
 
+### Data from 1.x
+
+On the first start with an empty `autopara2.db`, `legacy::import_legacy` copies the Python app's
+`autopara.db` (opened read-only) row for row, ids unchanged, with every setting except
+`schedule_copy_path`, and copies the archived document from `schedules/` into `timetables/`.
+Nothing of the Python app's is changed, so reinstalling 1.10.0 still finds its data. See
+`docs/UPGRADING.md`.
+
 ## 4. Scheduler
 
-`core/scheduler.py` runs a `QTimer` every **15 s**. Polling rather than one-shot timers means
-suspend/resume, clock changes, and settings edits need no re-arming.
+`scheduler.rs` holds the decisions as pure functions; `engine.rs` runs them on a task. After each
+tick the engine sleeps until the next reminder, trigger, start or end still ahead today (or
+midnight), **never longer than 15 s**, and wakes early when a command changes something. The 15 s
+cap keeps the Python app's resilience: suspend/resume, clock changes and settings edits need no
+re-arming.
 
-Per tick, for each lesson that `occurs_on(today)` and has a URL (a weekly template, a one-off
-dated today, or a series with today inside its range -- each is opened once, because the key is
-`(lesson, date)`):
+Per tick, for each lesson that `occurs_on(today)` and has an openable link (a weekly template, a
+one-off dated today, or a series with today inside its range -- each is opened once, because the
+key is `(lesson, date)`):
 
 | Condition | Action | Status |
 |---|---|---|
-| `start - notify <= now < start` | tray reminder (`reminder_due`, notifications on) | — |
+| `start - notify <= now < start` | reminder (`reminder_due`, notifications on) | — |
 | `start - lead <= now < start` | open browser | `opened` |
 | `start <= now < end`, not yet fired | in-app banner: "Підключитися зараз" / "Закрити" | `manual` on connect, `missed` on close |
 | `now >= end`, not yet fired | record only | `missed` |
 
-The row is **inserted before** the browser call; an `IntegrityError` on
+The row is **inserted before** the browser call (`Storage::claim_occurrence`); a conflict on
 `UNIQUE(lesson_id, occur_date)` means it already fired and the call is skipped. See
 `ARCHITECTURE.md` -> "fire exactly once".
+
+Only `https://` links are opened (`scheduler::is_openable`); a lesson with any other link is treated
+as one without a link. 1.x also accepted `http://`.
+
+Times are naive local wall time, as in 1.x. Across a DST change an hour that happens twice opens its
+class once (the log is keyed by date), and a class in the hour that does not exist is offered, not
+opened. `tests/scheduler.rs` pins both in `Europe/Kyiv`.
 
 ### The schedule starts when it is imported
 
@@ -290,26 +322,26 @@ whose start on that date is earlier (`predates_schedule`). Skipped means *entire
 not offered, not recorded as missed.
 
 A timetable describes what happens from the moment you set it up. Importing on a Saturday
-afternoon to prepare for the week ahead used to stamp that Saturday's classes "missed" on the very
-first tick, so a schedule set up at the weekend opened to a grid full of failures it had never had
-a chance to act on. The same rule quietly fixes the ordinary mid-week case: importing at 15:00 no
-longer retro-marks the morning.
+afternoon to prepare for the week ahead must not stamp that Saturday's classes "missed". It keys on
+the **start** time rather than the end, so a class that was already under way when the import
+finished is left alone too.
 
-It keys on the **start** time rather than the end, so a class that was already under way when the
-import finished is left alone too — catching up on a call you were not yet set up for is not
-something to do unasked.
+### A running class is opened only if the app saw it start
 
-### The cold-start rule
+Catch-up mode `open` opens a class that is already running only when the scheduler was running,
+awake and on an unbroken clock when the class's trigger passed: its previous tick was before the
+trigger and at most 45 s earlier, and the wall clock moved in step with the monotonic clock (within
+30 s). After an app start, a wake from sleep or a clock change, a running class is always offered
+(the missed-class banner) and never opened.
 
-`Scheduler._cold_start` makes the **first** tick after start treat catch-up as `notify` whatever
-`catchup_mode` says. Without it, launching the app after a missed morning opened a browser tab per
-class that was still running. `open` mode applies from the second tick onward. Do not "simplify"
-this into reading the setting directly — `tests/test_scheduler.py::TestColdStartNeverAmbushes` and
-`tests/test_end_to_end.py::TestLaunchingIntoAMissedDay` exist to keep it.
+1.x had a one-tick cold-start guard: the class opened 15 s after start anyway, and a wake from sleep
+opened it on the first tick (PORT_SPEC §I.12, §I.20). The golden comparison
+(`tests/golden_scheduler.rs`) checks that these are the only differences from the 72 Python
+simulations.
 
 ### User marks
 
-`storage.mark_occurrence` writes or overwrites an occurrence row directly, bypassing the
+`Storage::mark_occurrence` writes or overwrites an occurrence row directly, bypassing the
 claim-before-open protocol. That is correct here and only here: the row records a decision the user
 already made from the card menu ("позначити як відкриту" / "як пропущену"), and it is the same row
 that makes `evaluate` answer "already fired", so a class marked skipped is never opened.
@@ -318,72 +350,57 @@ that makes `evaluate` answer "already fired", so a class marked skipped is never
 Statuses are per `(lesson, date)`, so a mark belongs to one week and the same class is untouched
 on the next one.
 
-`open_now(lesson_id, day, claim=True)` is the click path. With `claim=False` it opens the link and
-leaves the log alone; the window uses that for a date that has not come yet, so peeking at next
-week's class does not consume it.
+`Scheduler::open_now` is the click path. For a date that has not come yet it opens the link and
+leaves the log alone, so peeking at next week's class does not consume it.
 
 ### Advance reminders
 
-`reminder_due(lesson, now, notify_minutes, already_fired)` is a second pure function, deliberately
-not folded into `evaluate`. Folding it in would mean a reminder and a trigger were both outcomes of
-one decision, one keystroke away from a reminder opening a browser. Reminders are also not recorded
-in `occurrences` — a message is not an occurrence, and writing one would suppress the real open.
+`reminder_due` is a second pure function, deliberately not folded into `evaluate`. Folding it in
+would mean a reminder and a trigger were both outcomes of one decision, one keystroke away from a
+reminder opening a browser. Reminders are not recorded in `occurrences` — a message is not an
+occurrence, and writing one would suppress the real open.
 
 ## 5. Autostart
 
-`core/autostart.py` writes `HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run`,
-value name `AutoPara`, data `"<exe path>" --hidden`. When running from source the command is
-`"<pythonw>" "<abs path>\autopara_launch.pyw" --hidden`. `--hidden` starts the app to the tray
-with no visible window.
+`src-tauri/src/autostart.rs`, without a plugin. Windows: the `HKCU` key
+`Software\Microsoft\Windows\CurrentVersion\Run`, value `AutoPara`, data `"<exe path>" --hidden`.
+macOS: `~/Library/LaunchAgents/com.autopara.app.plist`, label `com.autopara.app`. Both are the
+names 1.x used, so an upgrade replaces the old entry instead of adding a second one. `--hidden`
+starts the app in the tray with no window.
 
-It is enabled by default (`autostart_enabled` defaults to `1`) and `app.run()` syncs the registry
-to the setting on every launch. Both installers write byte-identical strings; if they ever diverge,
-`sync()` silently rewrites the entry on the next launch.
+It is enabled by default (`autostart_enabled = 1`) and synced to the setting on every launch. The
+installer writes the byte-identical command (a test compares the template with
+`autostart::startup_command`); if they ever diverge, the app silently rewrites the entry on its next
+launch. A debug build never touches the entry, so a run from a checkout cannot point the user's
+autostart into `target/`.
 
 ## 6. Theming
 
-`core/theme.py` renders `ui/styles.qss` — a `string.Template` whose colours are `$tokens` — against
-one of two palettes. `resolve()` turns the stored `system` setting into `light` or `dark` by
-reading `HKCU\...\Themes\Personalize\AppsUseLightTheme`, which is how a fresh install comes up
-matching the desktop it was installed on. The sidebar toggle pins the opposite of whatever is
-showing.
-
-QSS is not CSS: it has no variables and no cascade worth the name, so a second stylesheet file is
-the obvious-looking design and the wrong one — a rule added to one file and forgotten in the other
-stays invisible until someone switches theme. One template plus two dicts makes that impossible,
-and `tests/test_ui.py::TestTheme::test_both_palettes_resolve_every_token` fails if a token is
-missing from either palette.
+The tokens are CSS custom properties in `ui/src/styles/tokens.css`, one block per theme; `system`
+follows the webview's `prefers-color-scheme`, so a fresh install matches the desktop. The rail
+toggle pins the opposite of whatever is showing. The values are PORT_SPEC §F.
 
 ## 7. Updates
 
-`core/updater.py` (no Qt, its network passed in) and `core/update_service.py` (the schedule and the
-decisions). Because this is a program that downloads and then runs an executable, the rules are the
-point:
+`src-tauri/src/updates.rs` on top of `tauri-plugin-updater`. Because this is a program that
+downloads and then runs an installer, the rules are the point:
 
-- **GitHub over HTTPS, nothing else.** The release comes from `api.github.com/repos/<GITHUB_REPO>/
-  releases/latest`. The file to fetch must be an asset whose URL starts with
-  `https://github.com/<GITHUB_REPO>/releases/download/` and whose name is a plain
-  `AutoPara-<version>-Setup.exe` (Windows) or `AutoPara*.dmg` (macOS) — no path in it. Every redirect
-  on the way (GitHub serves files from `githubusercontent.com`) must itself land on a GitHub host,
-  or `UpdateError`. A release page URL outside the repository is dropped. Drafts and pre-releases
-  are never offered.
-- **Verify before keeping.** The size the release states, and the SHA-256 digest when GitHub
-  publishes one, must match. The download goes to `<name>.part` and is renamed only after both
-  pass; a failure deletes it. A verified file already on disk is reused without touching the
-  network.
-- **Download may be automatic; installing never is.** `auto` mode fetches the file and stops; the
-  install is always the user's click, and `updater.apply` runs only a file inside the app's own
-  `updates/` folder (beside the database, so a reinstall clears it).
-- **Where it cannot install, it says so.** A copy run from source, or a release with no file for
-  this platform, produces "a version is out" with a link — never a download it cannot use.
-- **Versions** are three integers; `is_newer` compares them as numbers (1.10.0 is after 1.9.0).
-  Anything that does not parse is never an update.
-- **A failed automatic check is silent; a failed manual one says so.** Offline is not an error
-  worth interrupting anyone for.
+- **One source.** The plugin reads `latest.json` from the newest GitHub release of
+  `reyjendiz/AutoPara` over HTTPS (the endpoint is in `tauri.conf.json`). Pre-releases are not
+  "latest" and so are never offered.
+- **Signed files only.** Every downloaded file is checked against the minisign public key in
+  `tauri.conf.json`. The private key never enters the repository (docs/RELEASE_CHECKLIST.md).
+- **Download may be automatic; installing never is.** `update_mode = auto` fetches the file and
+  stops; installing is always the user's click.
+- **Where it cannot install, it says so.** A debug build only says a version is out, with the
+  release page.
+- **A failed automatic check is silent; a failed manual one says so.**
+- Schedule: first check 15 s after start, then every 6 h; the manual checks in Settings and the
+  tray always run.
 
-Windows applies an update with `cmd /S /C "ping … & "<installer>" /S & start "" "<app>""`: a short
-pause so this process has exited (the installer's silent mode skips its own "is it running?"
-check), the same per-user NSIS installer silently — which replaces the install directory — and the
-new copy. macOS opens the `.dmg`; the running copy stays up until the user has dragged the new one
-over it. Only the pieces around that launch are tested on the development machine; the Windows chain
-is a command-line string whose structure the tests pin, and has not been run on Windows hardware.
+Windows runs the downloaded `Setup.exe` silently with `/S /UPDATE /R`; the installer closes the app,
+replaces it and starts it again. macOS replaces `AutoPara.app` from a signed `.app.tar.gz` and
+restarts (1.x only opened the `.dmg`). Neither has run end to end yet: that needs two published
+releases.
+
+1.x copies cannot update themselves to 2.0: see `docs/UPGRADING.md`.
