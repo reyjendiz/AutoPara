@@ -212,6 +212,8 @@ impl Worker {
         let mut segmenter = Segmenter::new(SegmenterConfig::default());
         let mut pending: Vec<f32> = Vec::new();
         let mut paused = false;
+        // Wall time and audio position when listening (re)started, to see how far behind we run.
+        let mut clock = (Instant::now(), 0);
         let mut last_partial = 0;
         let mut last_level = 0;
         let mut last_notes = 0;
@@ -242,6 +244,7 @@ impl Worker {
                 Ok(Command::Resume) if paused => {
                     paused = false;
                     source.set_paused(false);
+                    clock = (Instant::now(), segmenter.position());
                     self.state(State::Listening);
                 }
                 Ok(Command::Ask(kind, text)) => self.ask(kind, text),
@@ -277,8 +280,10 @@ impl Worker {
             for utterance in segmenter.push(&block, &probabilities) {
                 self.finalize(recognizer.as_mut(), utterance);
             }
+            // A partial while capture is queueing would only add to the lag; finals still run.
             if partial_every > 0
                 && position - last_partial >= partial_every
+                && !behind(clock.0.elapsed(), position - clock.1)
                 && let Some(open) = segmenter.open()
                 && open.len() >= SAMPLE_RATE as usize / 2
             {
@@ -494,6 +499,12 @@ fn join<'a>(texts: impl Iterator<Item = &'a str>) -> String {
     texts.collect::<Vec<_>>().join(" ")
 }
 
+/// True when more than a second of captured audio is still waiting to be processed.
+fn behind(elapsed: Duration, heard_samples: u64) -> bool {
+    let heard = Duration::from_millis(heard_samples * 1000 / u64::from(SAMPLE_RATE));
+    elapsed > heard + Duration::from_secs(1)
+}
+
 /// whisper ignores audio under a second; pad short phrases with silence.
 fn padded(audio: &[f32]) -> Vec<f32> {
     let mut out = audio.to_vec();
@@ -575,6 +586,15 @@ mod tests {
                 State::Error("assist_error_crash".into())
             ]
         );
+    }
+
+    #[test]
+    fn partials_wait_while_audio_queues_up() {
+        let second = u64::from(SAMPLE_RATE);
+        assert!(!behind(Duration::from_millis(1500), second));
+        assert!(behind(Duration::from_millis(2500), second));
+        // A recording read faster than real time is never behind.
+        assert!(!behind(Duration::ZERO, 60 * second));
     }
 
     #[test]
