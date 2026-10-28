@@ -38,6 +38,8 @@ check` (`deny.toml`); exceptions are explained in `DECISIONS.md`.
 | hound | 3.5.1 | Apache-2.0 | reading wav fixtures for tests and `bench-stt` (never writes audio) |
 | sha2 | 0.10.9 | MIT OR Apache-2.0 | checking downloaded model files |
 | keyring (Windows and macOS stores only) | 3.6.3 | MIT OR Apache-2.0 | chat provider API keys in the OS keychain |
+| tauri-plugin-global-shortcut (global-hotkey 0.8.0) | 2.4.1 | Apache-2.0 OR MIT | Lecture Assist: the `Ctrl+Alt+L` shortcut |
+| screencapturekit (macOS only; apple-cf 0.11.7, apple-metal 0.10.4) | 11.1.1 | MIT OR Apache-2.0 | Lecture Assist: system audio on macOS |
 
 Tauri pulls in five MPL-2.0 crates (`cssparser`, `cssparser-macros`, `selectors`, `dtoa-short`,
 `option-ext`), used unmodified; their source is on crates.io.
