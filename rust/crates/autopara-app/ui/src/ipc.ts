@@ -88,6 +88,8 @@ export const saveAssistSettings = (input: AssistSettings, apiKey: string | null)
 export const setAssistConsent = (accepted: boolean): Promise<void> => invoke("set_assist_consent", { accepted });
 export const setAssistHotkey = (hotkey: string): Promise<void> => invoke("set_assist_hotkey", { hotkey });
 export const assistHotkeyActive = (): Promise<boolean> => invoke<boolean>("assist_hotkey_active");
+/** Errors are string keys, `assist_error_*`. */
+export const assistTestConnection = (): Promise<void> => invoke("assist_test_connection");
 export const assistDevices = (): Promise<AudioDevice[]> => invoke<AudioDevice[]>("assist_devices");
 export const assistModels = (): Promise<ModelStatus[]> => invoke<ModelStatus[]>("assist_models");
 export const assistDownloadModel = (id: string): Promise<void> => invoke("assist_download_model", { id });

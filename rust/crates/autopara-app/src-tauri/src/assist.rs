@@ -13,10 +13,10 @@ use autopara_core::time::TimeOfDay;
 use chrono::{NaiveDateTime, Timelike};
 use lecture_assist::audio::AudioSource;
 use lecture_assist::audio::capture::{self, Capture, Device};
-use lecture_assist::llm::ChatProvider;
 use lecture_assist::llm::chain::ProviderChain;
 use lecture_assist::llm::openai::OpenAiCompatible;
 use lecture_assist::llm::presets::preset;
+use lecture_assist::llm::{ChatProvider, Message, complete};
 use lecture_assist::models::{self, Model, ModelStore};
 use lecture_assist::stt::{Recognizer, Whisper};
 use lecture_assist::vad::{EnergyVad, SileroVad, Vad};
@@ -368,6 +368,21 @@ pub fn start(app: &AppHandle, lesson_id: Option<i64>) -> CommandResult<()> {
         tauri::async_runtime::spawn(class_over(app.clone(), end, keep));
     }
     Ok(())
+}
+
+/// One short request to the saved provider, without the fallback, so the answer is about it.
+#[tauri::command]
+pub async fn assist_test_connection(app: AppHandle) -> CommandResult<()> {
+    let settings = AssistSettings {
+        fallback: false,
+        ..load_settings(&app.state::<AppState>())
+    };
+    let provider = chat(&settings).ok_or("assist_error_chat")?;
+    let messages = vec![Message::user("Reply with the single word: ok")];
+    complete(provider.as_ref(), messages)
+        .await
+        .map(|_| ())
+        .map_err(|e| e.code().to_string())
 }
 
 /// The user's provider, then a local one when asked to fall back.

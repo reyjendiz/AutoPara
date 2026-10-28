@@ -1,6 +1,7 @@
 // Everything the interface asks of the outside world, behind one interface: the real app talks to
 // Rust over IPC; the demo (`?demo`) answers from the sample timetable with a pinned clock, so the
 // interface can be developed, tested and photographed in an ordinary browser.
+import type { AssistSettings } from "./bindings/AssistSettings";
 import type { CoursePreview } from "./bindings/CoursePreview";
 import type { CourseSummary } from "./bindings/CourseSummary";
 import type { Lesson } from "./bindings/Lesson";
@@ -16,6 +17,26 @@ import type { UpdateStatus } from "./bindings/UpdateStatus";
 import type { ViewMode } from "./bindings/ViewMode";
 import * as ipc from "./ipc";
 import { type IsoDate, addDays, addMinutes, toMinutes, weekday } from "./lib/calendar";
+
+/** Lecture Assist, straight from IPC in the app; a stand-in in the demo. */
+export type AssistBackend = Pick<
+  typeof ipc,
+  | "assistSettings"
+  | "saveAssistSettings"
+  | "setAssistConsent"
+  | "setAssistHotkey"
+  | "assistHotkeyActive"
+  | "assistTestConnection"
+  | "assistDevices"
+  | "assistModels"
+  | "assistDownloadModel"
+  | "assistDeleteModel"
+  | "assistDeleteAll"
+  | "assistStart"
+  | "assistStop"
+  | "onAssist"
+  | "onAssistDownload"
+>;
 
 export interface Backend {
   /** The current local time. The demo pins it. */
@@ -51,6 +72,7 @@ export interface Backend {
   onTrayAction(handler: (action: string) => void): void;
   /** A file dropped anywhere on the window: its path, while dragging (`hover`) and on drop. */
   onFileDrop(handler: (kind: "hover" | "leave" | "drop", paths: string[]) => void): void;
+  assist: AssistBackend;
 }
 
 // ------------------------------------------------------------------- the real app
@@ -96,6 +118,7 @@ export function tauriBackend(): Backend {
     onSchedulerEvent: (handler) => void ipc.onSchedulerEvent(handler),
     onTrayAction: (handler) => void ipc.onTrayAction(handler),
     onFileDrop: (handler) => void tauriFileDrop(handler),
+    assist: ipc,
   };
 }
 
@@ -221,5 +244,37 @@ export async function demoBackend(params: URLSearchParams): Promise<Backend> {
     onSchedulerEvent: () => undefined,
     onTrayAction: () => undefined,
     onFileDrop: () => undefined,
+    assist: demoAssist(),
+  };
+}
+
+/** Consent given, one model installed, no chat provider: enough to show the screens. */
+function demoAssist(): AssistBackend {
+  let settings: AssistSettings = {
+    consent: true, device: "", model: "small", language: "auto", glossary: "", provider: "", base_url: "",
+    chat_model: "", fallback: true, retention_days: 30, has_key: false, hotkey: "Ctrl+Alt+L",
+  };
+  const model = (id: string, size: number, vad = false) => ({ id, file: `${id}.bin`, url: "", size, sha256: "", vad });
+  const unlisten = async () => () => undefined;
+  return {
+    assistSettings: async () => settings,
+    saveAssistSettings: async (input) => (settings = { ...input }),
+    setAssistConsent: async (accepted) => void (settings.consent = accepted),
+    setAssistHotkey: async (hotkey) => void (settings.hotkey = hotkey),
+    assistHotkeyActive: async () => true,
+    assistTestConnection: async () => undefined,
+    assistDevices: async () => [{ id: "speakers", name: "Динаміки", loopback: true }],
+    assistModels: async () => [
+      { model: model("small", 487_601_967), installed: true },
+      { model: model("large-v3-turbo", 1_624_555_275), installed: false },
+      { model: model("silero", 885_098, true), installed: true },
+    ],
+    assistDownloadModel: async () => undefined,
+    assistDeleteModel: async () => undefined,
+    assistDeleteAll: async () => undefined,
+    assistStart: async () => undefined,
+    assistStop: async () => undefined,
+    onAssist: unlisten,
+    onAssistDownload: unlisten,
   };
 }

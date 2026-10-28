@@ -261,6 +261,7 @@ pub fn run() {
             assist::assist_ask,
             assist::assist_keep_listening,
             assist::assist_subject,
+            assist::assist_test_connection,
         ])
         .build(tauri::generate_context!())
         .expect("the Tauri runtime failed to start")

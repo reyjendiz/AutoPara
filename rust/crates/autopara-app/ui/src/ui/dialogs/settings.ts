@@ -1,5 +1,5 @@
-// Settings (Python `ui/settings_dialog.py`), plus the diagnostics button and the place reserved for
-// the lecture assistant.
+// Settings (Python `ui/settings_dialog.py`), plus the diagnostics button and the way into the
+// lecture assistant's own settings.
 import type { App } from "../../app";
 import type { CatchupMode } from "../../bindings/CatchupMode";
 import type { Theme } from "../../bindings/Theme";
@@ -7,6 +7,7 @@ import type { UpdateMode } from "../../bindings/UpdateMode";
 import { h } from "../../dom";
 import { t, type MessageKey } from "../../i18n";
 import { inform, modal } from "../popups";
+import { openAssistSettings } from "./assist";
 
 export function openSettings(app: App): Promise<boolean | null> {
   const s = app.settings;
@@ -83,7 +84,7 @@ export function openSettings(app: App): Promise<boolean | null> {
       h("p", { class: "hint" }, t("settings_updates_hint")),
       h("p", { class: "hint" }, t("settings_duration_hint")),
       h("div", { class: "section" }, t("settings_assist")),
-      h("p", { class: "hint" }, t("settings_assist_soon")),
+      h("div", { class: "row" }, h("button", { class: "btn", type: "button", onclick: () => void openAssistSettings(app) }, t("assist_open_settings"))),
       h("div", { class: "row" }, copy),
       h("div", { class: "footer" },
         h("button", { class: "btn plain", type: "button", onclick: () => finish(false) }, t("cancel")),
