@@ -3,6 +3,11 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { AppInfo } from "./bindings/AppInfo";
+import type { AskKind } from "./bindings/AskKind";
+import type { AssistEvent } from "./bindings/AssistEvent";
+import type { AssistSettings } from "./bindings/AssistSettings";
+import type { AudioDevice } from "./bindings/AudioDevice";
+import type { ModelStatus } from "./bindings/ModelStatus";
 import type { CoursePreview } from "./bindings/CoursePreview";
 import type { CourseSummary } from "./bindings/CourseSummary";
 import type { Lesson } from "./bindings/Lesson";
@@ -73,3 +78,34 @@ export const onSchedulerEvent = (handler: (event: SchedulerEvent) => void): Prom
 /** The tray asked for a screen: `import` or `settings`. */
 export const onTrayAction = (handler: (action: string) => void): Promise<UnlistenFn> =>
   listen<string>("tray-action", (event) => handler(event.payload));
+
+// ------------------------------------------------------------------ Lecture Assist
+
+export const assistSettings = (): Promise<AssistSettings> => invoke<AssistSettings>("assist_settings");
+/** `apiKey`: `null` keeps the saved key, `""` forgets it. */
+export const saveAssistSettings = (input: AssistSettings, apiKey: string | null): Promise<AssistSettings> =>
+  invoke<AssistSettings>("save_assist_settings", { input, apiKey });
+export const setAssistConsent = (accepted: boolean): Promise<void> => invoke("set_assist_consent", { accepted });
+export const setAssistHotkey = (hotkey: string): Promise<void> => invoke("set_assist_hotkey", { hotkey });
+export const assistHotkeyActive = (): Promise<boolean> => invoke<boolean>("assist_hotkey_active");
+export const assistDevices = (): Promise<AudioDevice[]> => invoke<AudioDevice[]>("assist_devices");
+export const assistModels = (): Promise<ModelStatus[]> => invoke<ModelStatus[]>("assist_models");
+export const assistDownloadModel = (id: string): Promise<void> => invoke("assist_download_model", { id });
+export const assistDeleteModel = (id: string): Promise<void> => invoke("assist_delete_model", { id });
+export const assistDeleteAll = (): Promise<void> => invoke("assist_delete_all");
+/** Errors: `consent_required`, `model_missing`. */
+export const assistStart = (lessonId: number | null): Promise<void> => invoke("assist_start", { lessonId });
+export const assistStop = (): Promise<void> => invoke("assist_stop");
+export const assistPause = (): Promise<void> => invoke("assist_pause");
+export const assistResume = (): Promise<void> => invoke("assist_resume");
+export const assistAsk = (kind: AskKind, text: string): Promise<void> => invoke("assist_ask", { kind, text });
+export const assistKeepListening = (): Promise<void> => invoke("assist_keep_listening");
+export const assistSubject = (): Promise<string | null> => invoke<string | null>("assist_subject");
+
+export const onAssist = (handler: (event: AssistEvent) => void): Promise<UnlistenFn> =>
+  listen<AssistEvent>("assist", (event) => handler(event.payload));
+/** Model download progress. */
+export const onAssistDownload = (handler: (id: string, done: number, total: number) => void): Promise<UnlistenFn> =>
+  listen<[string, number, number]>("assist-download", ({ payload: [id, done, total] }) => handler(id, done, total));
+export const onAssistClassOver = (handler: () => void): Promise<UnlistenFn> =>
+  listen("assist-class-over", () => handler());

@@ -260,6 +260,7 @@ pub fn run() {
             assist::assist_resume,
             assist::assist_ask,
             assist::assist_keep_listening,
+            assist::assist_subject,
         ])
         .build(tauri::generate_context!())
         .expect("the Tauri runtime failed to start")

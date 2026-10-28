@@ -49,6 +49,7 @@ const ANSWER_SECONDS: u64 = 120;
 
 struct Running {
     handle: Handle,
+    subject: String,
     keep: Arc<AtomicBool>,
 }
 
@@ -348,11 +349,12 @@ pub fn start(app: &AppHandle, lesson_id: Option<i64>) -> CommandResult<()> {
             .collect(),
         ..AssistConfig::default()
     };
-    let (handle, events) = AssistEngine::start(config, context, parts);
+    let (handle, events) = AssistEngine::start(config, context.clone(), parts);
     let keep = Arc::new(AtomicBool::new(false));
     assist.with(|r| {
         *r = Some(Running {
             handle,
+            subject: context.subject.clone(),
             keep: keep.clone(),
         })
     });
@@ -492,6 +494,13 @@ async fn class_over(app: AppHandle, end: NaiveDateTime, keep: Arc<AtomicBool>) {
     if !keep.load(Ordering::Relaxed) {
         stop(&app);
     }
+}
+
+/// The subject being listened to, for the overlay's title; `None` when not listening.
+#[tauri::command]
+pub fn assist_subject(app: AppHandle) -> Option<String> {
+    app.state::<Assist>()
+        .with(|r| r.as_ref().map(|r| r.subject.clone()))
 }
 
 #[tauri::command]
