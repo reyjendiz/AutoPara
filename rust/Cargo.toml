@@ -10,7 +10,7 @@ members = [
 # The one place the version lives. Every crate inherits it, and the Tauri app reads it from its
 # own crate, so the installer, the updater and the window all report the same number.
 [workspace.package]
-version = "2.0.0-alpha.1"
+version = "2.0.0"
 edition = "2024"
 rust-version = "1.90"
 publish = false
