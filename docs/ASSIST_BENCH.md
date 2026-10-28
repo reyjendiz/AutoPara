@@ -27,10 +27,21 @@ late the grey line in the overlay runs behind the teacher.
 
 | Date | Machine | Build | Model | Audio | RTF finals | RTF with partials | Partial p95 | Final p95 | Peak memory |
 |------|---------|-------|-------|-------|-----------|-------------------|-------------|-----------|-------------|
-| — | i5-14600KF, 32 GB, RTX 4080 SUPER | CPU | small | — | not run yet | | | | |
+| 2026-10-28 | i5-14600KF, 32 GB | CPU, release, AVX2 | small | 60 s, Windows voice (en) | 4.17 | 16.9 | 30.5 s | 28.9 s | 793 MB |
 
-Not run yet: this machine has no speech model downloaded (the smallest in the catalogue,
-`small`, is 488 MB), and fetching one waits for the owner's go-ahead. The command was checked
-end to end up to loading the model, with a 17-second recording made by the Windows voice.
-Fill the table from a real lecture recording of at least 10 minutes, once on CPU and once with
-`cuda`.
+Median latency was 16 s for both partials and finals (43 partials, 14 finals). The 5.6-minute
+version of the same recording was stopped after 32 minutes without finishing.
+
+**This misses the budget by a wide margin:** at these speeds the engine falls further behind
+every second, because it asks for a partial per second of *audio* and capture keeps queueing
+while a partial runs. Before release:
+
+1. Find why one call takes ~16 s. The build is Release with AVX2/FMA/F16C, 8 threads, greedy
+   decoding, so this is slower than whisper.cpp `small` usually is on this CPU. Suspects: the
+   8 threads landing on E-cores (try 6, the P-core count), and temperature fallback re-decoding.
+2. Make partials skip when the recogniser is behind (by wall time, not audio time), so the
+   lag cannot grow.
+3. Repeat with a real lecture recording, and with the `cuda` build on the RTX 4080 SUPER.
+
+The recording is synthetic (the Windows English voice, monotone, regular pauses). Use it for
+timing only, not for accuracy.
