@@ -1,104 +1,103 @@
 # HANDOFF — state of the project for whoever picks it up next
 
-Written at the end of a long working session. It says what exists, how to run and verify it, what is
-deliberately unfinished, and the traps already found. The design record proper is
-`ARCHITECTURE.md`, `BACKEND.md` and `FRONTEND.md`; `CONTRIBUTING.md` lists the invariants. Read those
-first — this file does not repeat them.
+What exists, how to run and verify it, what is deliberately unfinished, and the traps already found.
+The design record proper is `ARCHITECTURE.md`, `BACKEND.md` and `FRONTEND.md`; `CONTRIBUTING.md`
+lists the invariants. Read those first — this file does not repeat them.
 
 ## Where things stand
 
-- **Repository:** https://github.com/sevcenkoa864-oss/AutoPara (public, `main`). It was deleted and
-  recreated once, so history starts at the 1.6.0 commit. No tooling-specific files are in it.
-- **Latest release is v1.7.x**, published with both installers: `AutoPara-<version>-Setup.exe`
-  (Windows), `AutoPara-<version>.dmg` (macOS, Apple Silicon) and `AutoPara-Intel-<version>.dmg`
-  (macOS, Intel; from 1.8.0). CI (`.github/workflows/installer.yml`) builds all of them
-  on every push to `main`; a release is cut only when `APP_VERSION` names a version without a tag.
-- **What 1.6.0 added** over 1.5.0: dated classes (one-off and "weekly until a date"), day / week /
-  month views with navigation, the "Education Hub" redesign (Inter, black-pill accent, pastel
-  subjects), course/group switcher, animations, in-app updates from GitHub, a new app logo.
-- **What 1.7.x added** over 1.6.0: a system clock under the rail pill at 50 % opacity
-  (`ui/clock_bar.py`); an eased hover fill on the round "+" buttons (`transitions.FadeButton`); the
-  interface font is Inter bundled in `ui/fonts`, except on Windows where it is Segoe UI (Inter is its
-  fallback, see `theme.font_stack`); and text is drawn unhinted (`app._smooth_text`) because Qt's
-  default hinting on Windows reads as a jagged pixel font.
+- **Repository:** https://github.com/reyjendiz/AutoPara (the old name `sevcenkoa864-oss/AutoPara`
+  redirects). The latest published release is **v1.10.0**, the Python app.
+- **2.0.0 is the Rust + Tauri 2 rewrite** on the local branch `rust-rewrite`, not pushed yet. It
+  reproduces the 1.x desktop app (`rust/PARITY_REPORT.md`) and adds Lecture Assist
+  (`docs/ASSIST.md`). The step-by-step status is `rust/PROGRESS.md`.
+- **Merging `rust-rewrite` into `main` publishes 2.0.0** (`rust-release.yml`): the version is
+  already 2.0.0, not a pre-release. Push the branch first and let `rust-ci.yml` run on it; merge
+  only after the release checklist has passed.
+- The Python app (`autopara/`, `tests/`, `installer/`, `build.cmd`, `installer.yml`) is unchanged
+  and stays until the parity report is accepted. `android/` is untouched.
+
+## Waiting on the owner
+
+1. **Push `rust-rewrite`** so CI runs for the first time on all three runners (plan 1.4, 6.5, 9.1).
+   The macOS code (ScreenCaptureKit capture, the `.app`/`.dmg`) has never been compiled.
+2. **Repository secrets** `TAURI_SIGNING_PRIVATE_KEY` (contents of
+   `%USERPROFILE%\.tauri\autopara-updater.key`) and, if set, its password; back the key up
+   (docs/RELEASE_CHECKLIST.md).
+3. **Tag `python-final`** on the last Python commit (`8e73aff`, 1.10.0) before the merge. Not done
+   from here: a tag is meant to be pushed.
+4. **The Python tree:** stays where it is for now (`rust/DECISIONS.md`, "The Python tree stays in
+   place"). Moving it to `legacy/python/` is a separate change once the parity report is accepted.
+5. **`installer.yml` and Android.** That workflow still builds the Python app on every push to
+   `main` and attaches the APK only to the Python version's release, so 2.x releases have no APK.
+   Retire its Windows and Mac jobs, and move the Android build under the workspace version, in one
+   change at the cutover.
+6. **A 1.10.1 bridge release (optional).** 1.x cannot download 2.0 because its updater asks the old
+   repository name (docs/UPGRADING.md). Fixing `GITHUB_REPO` in a last Python release would let 1.x
+   users get 2.0 in one click; without it they download it by hand, guided by the release notes'
+   first line.
+7. **Hardware:** a clean Windows VM for the release checklist (install, autostart, upgrade over
+   1.10.0, uninstall); a Mac of each kind; a real lecture recording for Lecture Assist accuracy.
 
 ## Run and verify
 
 ```bash
-python -m venv .venv && . .venv/bin/activate && pip install -r requirements.txt pytest
-python -m pytest                       # whole suite, offscreen Qt
-python -m autopara --no-rebuild        # run from source (skips the installed-copy refresh)
-python tools/bump_version.py --show    # version + release state; --set X.Y.Z to bump
+cd rust
+cargo xtask check                          # the whole gate
+cd crates/autopara-app
+AUTOPARA_DATA_DIR=/tmp/ap cargo tauri dev  # PowerShell: $env:AUTOPARA_DATA_DIR = "..."
 ```
 
-- **Test baseline.** The whole suite passes with no timetable file at all: it runs on a synthetic
-  `.docx` built from code (`tests/sample_timetable.py`) that has the real one's structure -- merged
-  cells, a spanning header, an empty course, links -- and none of its content. Tests that say exactly
-  what the importer does pin numbers on that fixed document. The user's real timetable (not in git;
-  it holds live meeting links) is optional: point `AUTOPARA_TEST_DOCX` at it and the `document_*`
-  checks also run against it, asserting only what holds for any revision and reading the expected
-  numbers from the file, so a new revision cannot break them. Without it those variants skip, and
-  pytest's header prints which file it used or `NOT FOUND`.
-- **README pictures.** `python tools/screenshots.py` renders `docs/week-grid.png`,
-  `docs/week-grid-dark.png` and `docs/month-view.png` headless from the synthetic sample timetable,
-  with the clock pinned to a Monday morning (so today's date, the "now" line and the pill beside the
-  title all show). Re-run it after any visual change; nothing personal is in the pictures.
-- **Isolated manual run** (does not touch the real profile or the login item):
-  `HOME=<tmp> APPDATA=<tmp> python -m autopara --no-rebuild`. A source run with the default `HOME`
-  rewrites `~/Library/LaunchAgents/com.autopara.app.plist`.
-- **Screenshots without a display:** `QT_QPA_PLATFORM=offscreen`, build a `MainWindow`, `grab()` it.
-  This is how every visual change was checked.
+Windows needs `LIBCLANG_PATH` and CMake on `PATH` by its 8.3 short path (CONTRIBUTING.md). The
+release build is `cargo tauri build` with `TAURI_SIGNING_PRIVATE_KEY` set to the key file; the
+2.0.0 dry run produced a signed 8.5 MB `AutoPara_2.0.0_x64-setup.exe`.
 
 ## Things that cost time — do not rediscover
 
-1. **Qt draws a corner square when `border-radius` exceeds half the height.** Every round-ended
-   control has an exact height (`min-height` and `max-height` together) and a radius of half.
-   `TestRoundEnds` in `tests/test_visual.py` looks at the corner pixel. A QSS `min-height` also
-   *overrides* `setFixedSize`.
-2. **A scroll area sizes its widget on resize, not when the layout grows.** `WeekGrid._pin_canvas_size`
-   states the size outright. A `QGridLayout` also remembers column stretch after its widgets are gone
-   (week → day left five phantom columns); `render_days` resets them.
-3. **Qt counts a point as 1 px on macOS, 4/3 px on Windows.** The stylesheet's `pt` sizes are scaled
-   by `theme.MAC_POINT_SCALE` (1.15) on a Mac.
-4. **Hiding a widget only schedules a layout** — `ClassCard._fit_chips` re-lays out at once.
-5. **Popups are square unless the window is translucent.** `ui/popups.py` swaps in a rounded tooltip
-   and makes menus translucent. Written and unit-tested, but **only seen on a real Mac by the owner**;
-   Windows behaviour is unverified.
-6. **Tests that open a message box hang the suite.** Patch `QMessageBox`; see
-   `tests/test_update_service.py`. The suite also forbids the network (`conftest._no_network`) and
-   turns animations off (`conftest._no_motion`).
-7. **The release switch is the version.** Bump with `tools/bump_version.py` (it writes the `.nsi` and
-   `autopara/__init__.py`; a test fails if they differ). **Publishing a release ships an update** to
-   every older install through the in-app check.
+- **Never run a checkout without `AUTOPARA_DATA_DIR`.** The default data folder is the real one,
+  shared with an installed 1.x or 2.x. A debug build already refuses to write the autostart entry.
+- **whisper.cpp built unoptimised** under CMake's Visual Studio generator until
+  `rust/.cargo/config.toml` forced `-O2`; speech recognition was several times slower.
+- **CMake's long path with spaces breaks `npm.cmd`** inside `cargo xtask check`; put it on `PATH`
+  by its 8.3 short name.
+- **The npm Tauri CLI cannot find the Rust toolchain** on the development machine; use
+  `cargo tauri` (`tauri-cli` from crates.io).
+- **HTML drag and drop does not work in the Windows webview** once Tauri's file drop is on (which
+  is how a `.docx` arrives with its real path); classes are dragged with pointer events.
+- **MPL-2.0 crates under Tauri** (`cssparser`, `selectors`, …) are allowed one by one in
+  `deny.toml`; any new MPL crate still fails `cargo deny`.
+- **The 1.x updater can see but not fetch 2.0** (PORT_SPEC §I.7). Nothing on the 2.x side can fix
+  that; see "Waiting on the owner".
+- **`latest.json` is written by CI** (`jq` on Ubuntu); a local build produces the installer and its
+  `.sig` but no `latest.json`.
 
-## Known gaps / candidate next work
+## Known gaps
 
-- **Updater is untested end to end.** There are now several releases, so install an older one (1.6.0)
-  and let it find the newest to exercise download → verify → install. The Windows
-  apply step (`updater.windows_command`) has never run on Windows hardware.
-- **macOS:** the images are unsigned and un-notarised (first launch: right-click → Open). The update
-  path opens the `.dmg`; it does not replace the app itself. The Intel image is built on the
-  `macos-15-intel` runner and has not been run on Intel hardware; if GitHub retires that runner label
-  the `build-mac-intel` job will sit queued -- change `runs-on` (or drop the job).
-- **Windows:** the Windows installer's UI strings and the redesigned look have not been seen on a
-  Windows machine.
+From `rust/PROGRESS.md` and `rust/PARITY_REPORT.md`:
 
-## Map of what was added in this line of work
+- The updater has never run end to end (needs two published releases); the macOS self-update has
+  never run at all.
+- The installer has not been run on a clean VM, nor over a real 1.x install (the data import has
+  been checked on a copy of real data: docs/UPGRADING.md).
+- Lecture Assist: Windows loopback capture works on synthetic audio; not yet on a real meeting.
+  macOS capture is written but uncompiled. GPU (CUDA) builds are not in CI.
+- macOS images are unsigned and not notarised.
 
-| Area | Files |
+## Map
+
+| Where | What |
 |---|---|
-| Dated lessons | `core/models.py` (`Lesson.occurs_on`), `core/storage.py` (`_migrate`, `on_date`, `repeat_until`), `core/scheduler.py` |
-| Views | `ui/week_grid.py` (`render_days`), `ui/month_view.py`, `ui/nav_bar.py`, `ui/main_window.py` (`anchor`, `_animated`) |
-| Dialogs | `ui/edit_dialog.py` (repeat modes), `ui/group_dialog.py`, `ui/settings_dialog.py` (updates), `ui/metrics.py` |
-| Look | `ui/styles.qss`, `core/theme.py` (`PALETTES`, `scaled_points`), `ui/fonts/` (Inter), `ui/assets/logo.png` |
-| Motion / popups | `ui/transitions.py`, `ui/popups.py` |
-| Updates | `core/updater.py` (Qt-free), `core/update_service.py`, `ui/update_banner.py` |
-| Release tooling | `tools/bump_version.py`, `docs/RELEASING.md`, `.github/workflows/installer.yml`, `build_mac.py` |
-| New test files | `test_dated_lessons`, `test_navigation`, `test_views`, `test_edit_dialog`, `test_group_dialog`, `test_visual`, `test_motion`, `test_popups`, `test_updater`, `test_update_service`, `test_logo` |
+| `rust/crates/autopara-core` | Model, `.docx` reader and parser, SQLite, 1.x import, scheduler and engine, the string table. |
+| `rust/crates/lecture-assist` | Audio capture, VAD, whisper, the LLM client, notes. |
+| `rust/crates/autopara-app/src-tauri` | Commands, tray, autostart, updates, the assistant's wiring, the NSIS template. |
+| `rust/crates/autopara-app/ui/src` | The interface and the overlay. |
+| `rust/xtask` | The developer commands. |
+| `rust/PORT_SPEC.md`, `DECISIONS.md`, `PARITY_UI.md`, `PARITY_REPORT.md`, `PROGRESS.md` | The 1.x behaviour, the choices, the comparison, the plan's checklist. |
+| `.github/workflows/rust-ci.yml`, `rust-release.yml` | The gate on three runners; the release. |
 
 ## Conventions worth keeping
 
-- Every visible string is Ukrainian (a test walks the widget tree); comments and docs are English.
-- Docs are updated in the same commit as the code they describe; stale docs are a bug.
-- A regression test is only trusted after it has been seen to fail without the fix (several bugs above
-  were first "covered" by tests that passed either way).
+- One string table (`uk.json`); no literal user-visible text in code.
+- `autopara-core` never reads the clock.
+- Every difference from 1.x is a `DECISIONS.md` entry with a reason.
+- Commits are small, one change each, written plainly.
