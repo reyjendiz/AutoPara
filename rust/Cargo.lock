@@ -6525,6 +6525,7 @@ name = "xtask"
 version = "2.0.0-alpha.1"
 dependencies = [
  "autopara-core",
+ "lecture-assist",
  "serde_json",
 ]
 
