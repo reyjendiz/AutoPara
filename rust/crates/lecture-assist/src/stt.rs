@@ -84,7 +84,9 @@ impl Recognizer for Whisper {
         };
         let mut params =
             whisper_rs::FullParams::new(whisper_rs::SamplingStrategy::Greedy { best_of: 1 });
-        params.set_language(Some(language.unwrap_or("auto")));
+        // Until a long enough utterance settles the class language, assume the usual one:
+        // whisper's own guess on a short phrase was often wrong (Russian for English speech).
+        params.set_language(Some(language.unwrap_or("uk")));
         params.set_initial_prompt(prompt);
         params.set_n_threads(self.threads);
         params.set_audio_ctx(audio_context(audio.len()));
