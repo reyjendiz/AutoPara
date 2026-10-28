@@ -17,4 +17,8 @@ glossary: string,
 /**
  * A preset id, `custom`, or empty for transcript only.
  */
-provider: string, base_url: string, chat_model: string, fallback: boolean, retention_days: number, has_key: boolean, };
+provider: string, base_url: string, chat_model: string, fallback: boolean, retention_days: number, has_key: boolean, 
+/**
+ * Changed only through `set_assist_hotkey`, which checks for a conflict first.
+ */
+hotkey: string, };

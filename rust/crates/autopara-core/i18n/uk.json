@@ -357,6 +357,7 @@
   "assist_fallback": "Якщо сервер недоступний, переходити на локальну модель",
   "assist_hotkey": "Гаряча клавіша",
   "assist_hotkey_conflict": "Це поєднання вже зайняте іншою програмою",
+  "assist_hotkey_invalid": "Не вдалося розпізнати поєднання клавіш",
   "assist_offer": "Пропонувати слухати цю дисципліну",
   "assist_retention": "Зберігати текст",
   "assist_retention_suffix": "днів",

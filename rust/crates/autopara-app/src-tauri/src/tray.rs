@@ -54,16 +54,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<TrayIcon> {
                 crate::show_main_window(app);
                 tauri::async_runtime::spawn(crate::updates::check(app.clone(), true));
             }
-            "listen" if app.state::<crate::assist::Assist>().is_running() => {
-                crate::assist::stop(app)
-            }
-            "listen" => {
-                if let Err(code) = crate::assist::start(app, None) {
-                    // Consent or a model is missing: the window explains.
-                    crate::show_main_window(app);
-                    let _ = app.emit(TRAY_ACTION_EVENT, format!("assist:{code}"));
-                }
-            }
+            "listen" => crate::assist::toggle(app),
             "quit" => app.exit(0),
             _ => {}
         })

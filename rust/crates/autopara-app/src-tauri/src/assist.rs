@@ -88,6 +88,8 @@ pub struct AssistSettings {
     pub fallback: bool,
     pub retention_days: u32,
     pub has_key: bool,
+    /// Changed only through `set_assist_hotkey`, which checks for a conflict first.
+    pub hotkey: String,
 }
 
 fn setting(state: &AppState, key: &str) -> String {
@@ -118,6 +120,7 @@ pub fn load_settings(state: &AppState) -> AssistSettings {
         chat_model: get("assist_chat_model"),
         fallback: get("assist_fallback") != "0",
         retention_days: get("assist_retention_days").parse().unwrap_or(30),
+        hotkey: crate::hotkey::saved(state),
     }
 }
 
@@ -180,6 +183,12 @@ pub fn set_assist_consent(app: AppHandle, accepted: bool) -> CommandResult<()> {
         stop(&app);
     }
     Ok(())
+}
+
+/// False when another program holds the saved shortcut.
+#[tauri::command]
+pub fn assist_hotkey_active(app: AppHandle) -> bool {
+    crate::hotkey::active(&app)
 }
 
 #[tauri::command]
@@ -487,6 +496,18 @@ pub fn assist_keep_listening(app: AppHandle) {
     });
 }
 
+/// The tray item and the shortcut: stop if listening, otherwise start on the class happening now.
+pub fn toggle(app: &AppHandle) {
+    if app.state::<Assist>().is_running() {
+        return stop(app);
+    }
+    if let Err(code) = start(app, None) {
+        // Consent or a model is missing: the window explains.
+        crate::show_main_window(app);
+        let _ = app.emit(crate::tray::TRAY_ACTION_EVENT, format!("assist:{code}"));
+    }
+}
+
 pub fn stop(app: &AppHandle) {
     app.state::<Assist>().with(|r| {
         if let Some(r) = r {
@@ -567,6 +588,7 @@ mod tests {
             fallback: true,
             retention_days: 30,
             has_key: false,
+            hotkey: String::new(),
         };
         assert!(chat(&settings).is_none());
         let ollama = AssistSettings {

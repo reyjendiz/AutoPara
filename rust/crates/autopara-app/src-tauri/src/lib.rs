@@ -4,6 +4,7 @@
 mod assist;
 mod autostart;
 mod commands;
+mod hotkey;
 mod ipc;
 mod logging;
 mod opener;
@@ -126,6 +127,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(hotkey::plugin())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(move |app| {
             let handle = app.handle().clone();
@@ -194,6 +196,10 @@ pub fn run() {
             }
             app.manage(assist::Assist::default());
             tray::create(&handle)?;
+            let shortcut = hotkey::saved(&handle.state::<AppState>());
+            if let Err(code) = hotkey::register(&handle, &shortcut) {
+                tracing::warn!(code, "listening shortcut not registered");
+            }
             app.manage(updates::Updates::default());
             updates::schedule(handle.clone());
             Ok(())
@@ -237,6 +243,8 @@ pub fn run() {
             assist::save_assist_settings,
             assist::set_assist_consent,
             assist::assist_devices,
+            assist::assist_hotkey_active,
+            hotkey::set_assist_hotkey,
             assist::assist_models,
             assist::assist_download_model,
             assist::assist_delete_model,
