@@ -16,6 +16,8 @@ export class NavBar {
   private readonly title = h("h1", { class: "nav-title" });
   private readonly sub = h("span", { class: "nav-sub" });
   private readonly nextUp = h("div", { class: "nextup", role: "status" });
+  private readonly listen: HTMLButtonElement;
+  private listening = false;
   private readonly thumb = h("div", { class: "thumb", "aria-hidden": "true" });
   private readonly segments: Map<ViewMode, HTMLButtonElement>;
   private readonly previous: HTMLButtonElement;
@@ -28,6 +30,8 @@ export class NavBar {
         h("button", { role: "radio", "aria-checked": "false", onclick: () => app.setView(view) }, t(key)),
       ]),
     );
+    this.listen = h("button", { class: "btn listen", onclick: () => void (this.listening ? app.backend.assist.assistStop() : app.listenTo(null)) });
+    this.setListening(false);
     this.previous = h("button", { class: "icon-btn", onclick: () => app.step(-1) }, icon("chevron_left", 18));
     this.next = h("button", { class: "icon-btn", onclick: () => app.step(1) }, icon("chevron_right", 18));
     this.element = h(
@@ -36,6 +40,7 @@ export class NavBar {
       this.title,
       this.sub,
       this.nextUp,
+      this.listen,
       h("div", { class: "grow" }),
       h("div", { class: "segmented", role: "radiogroup" }, this.thumb, ...this.segments.values()),
       h("button", { class: "btn", "data-tip": t("nav_today_tip"), onclick: () => app.goToday() }, t("nav_today")),
@@ -87,5 +92,12 @@ export class NavBar {
     this.nextUp.textContent = text;
     this.nextUp.dataset.tip = tooltip;
     this.nextUp.hidden = !text || this.element.offsetWidth < NEXT_UP_MIN_WIDTH;
+  }
+
+  /** The listen button beside the pill: a red dot and "stop" while the assistant runs. */
+  setListening(on: boolean): void {
+    this.listening = on;
+    this.listen.classList.toggle("on", on);
+    this.listen.textContent = t(on ? "tray_stop_listening" : "tray_listen");
   }
 }

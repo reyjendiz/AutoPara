@@ -27,6 +27,7 @@ import { openEditor } from "./ui/dialogs/edit";
 import { openGroupDialog } from "./ui/dialogs/group";
 import { openImport } from "./ui/dialogs/import";
 import { openSettings } from "./ui/dialogs/settings";
+import { askConsent, openAssistSettings } from "./ui/dialogs/assist";
 
 /** How a class looks on a date: what became of it, and whether it is the one to watch. */
 export type Status = OccurrenceStatus | undefined;
@@ -149,7 +150,13 @@ export class App {
       }
     });
     this.backend.onUpdate((status) => void this.updates.show(status));
-    this.backend.onTrayAction((action) => void (action === "import" ? this.openImport() : this.openSettings()));
+    this.backend.onTrayAction((action) => {
+      if (action.startsWith("assist:")) void this.assistRefused(action.slice("assist:".length), null);
+      else void (action === "import" ? this.openImport() : this.openSettings());
+    });
+    void this.backend.assist.onAssist((event) => {
+      if (event.type === "stateChanged") this.nav.setListening(!["off", "error"].includes(event.state.state));
+    });
     this.backend.onFileDrop((kind, paths) => {
       const docx = paths.find((path) => path.toLowerCase().endsWith(".docx"));
       if (document.querySelector("dialog")) return; // the import dialog handles its own drops
@@ -344,6 +351,7 @@ export class App {
         { id: "skipped", label: t("menu_mark_skipped") },
         ...(marked ? [{ id: "clear", label: t("menu_clear_mark") }] : []),
         "separator",
+        ...(date === this.today() ? [{ id: "listen", label: t("assist_listen_this") }] : []),
         { id: "delete", label: t("menu_delete") },
       ],
       x,
@@ -354,7 +362,29 @@ export class App {
     if (choice === "opened" || choice === "skipped") await this.backend.markLesson(lesson.id, date, choice);
     if (choice === "clear") await this.backend.clearMark(lesson.id, date);
     if (choice === "delete") await this.deleteClass(lesson);
+    if (choice === "listen") await this.listenTo(lesson.id);
     await this.reload();
+  }
+
+  /** Start the assistant on a class (`null`: the one happening now), asking for what is missing. */
+  async listenTo(lessonId: number | null): Promise<void> {
+    try {
+      await this.backend.assist.assistStart(lessonId);
+    } catch (error) {
+      await this.assistRefused(String(error), lessonId);
+    }
+  }
+
+  /** `consent_required`: ask, then try again. `model_missing`: say so and open the settings. */
+  private async assistRefused(code: string, lessonId: number | null): Promise<void> {
+    if (code === "consent_required") {
+      if (await askConsent(this)) await this.listenTo(lessonId);
+    } else if (code === "model_missing") {
+      await inform(t("assist_title"), t("assist_error_model"));
+      await openAssistSettings(this);
+    } else {
+      await inform(t("assist_title"), t("assist_state_error"));
+    }
   }
 
   private async deleteClass(lesson: Lesson): Promise<void> {
