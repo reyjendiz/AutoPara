@@ -87,6 +87,7 @@ impl Recognizer for Whisper {
         params.set_language(Some(language.unwrap_or("auto")));
         params.set_initial_prompt(prompt);
         params.set_n_threads(self.threads);
+        params.set_audio_ctx(audio_context(audio.len()));
         params.set_no_speech_thold(self.no_speech_threshold);
         params.set_suppress_blank(true);
         params.set_suppress_nst(true);
@@ -121,6 +122,14 @@ impl Recognizer for Whisper {
     }
 }
 
+/// Encoder frames for the audio (50 a second, plus a margin) instead of whisper's fixed 30 s:
+/// encoding the silent padding made a 3 s partial cost as much as a full window.
+#[cfg(feature = "whisper")]
+fn audio_context(samples: usize) -> i32 {
+    let frames = samples * 50 / crate::SAMPLE_RATE as usize + 64;
+    frames.min(1500) as i32
+}
+
 /// Plays back fixed text, for tests: each call returns the next entry.
 pub struct Scripted(pub std::collections::VecDeque<String>);
 
@@ -151,5 +160,12 @@ mod tests {
         let pieces = recognizer.transcribe(&[0.0; 8000], "").unwrap();
         assert_eq!(pieces[0].end_ms, 500);
         assert!(recognizer.transcribe(&[0.0; 10], "").unwrap().is_empty());
+    }
+
+    #[cfg(feature = "whisper")]
+    #[test]
+    fn short_audio_encodes_a_short_window() {
+        assert_eq!(audio_context(3 * 16_000), 214);
+        assert_eq!(audio_context(40 * 16_000), 1500);
     }
 }
