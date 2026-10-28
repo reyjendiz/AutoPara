@@ -19,8 +19,25 @@
         "minWidth": 900,
         "minHeight": 600,
         "visible": false
+      },
+      {
+        "label": "overlay",
+        "url": "overlay.html",
+        "title": "AutoPara",
+        "width": 380,
+        "height": 520,
+        "minWidth": 220,
+        "minHeight": 48,
+        "transparent": true,
+        "decorations": false,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": true,
+        "visible": false
       }
     ],
+    "macOSPrivateApi": true,
     "security": {
       "csp": {
         "default-src": "'self'",

@@ -39,6 +39,10 @@ pub const DOWNLOAD_EVENT: &str = "assist-download";
 /// The class has ended (plus grace); the interface asks whether to keep listening.
 pub const CLASS_OVER_EVENT: &str = "assist-class-over";
 
+pub const OVERLAY: &str = "overlay";
+/// Sent to the overlay when click-through is turned off from outside it.
+pub const OVERLAY_SOLID_EVENT: &str = "overlay-solid";
+
 const GRACE_MINUTES: i64 = 10;
 /// Without an answer to "keep listening?", listening stops.
 const ANSWER_SECONDS: u64 = 120;
@@ -353,6 +357,9 @@ pub fn start(app: &AppHandle, lesson_id: Option<i64>) -> CommandResult<()> {
         })
     });
     tauri::async_runtime::spawn(forward(app.clone(), session, events));
+    if let Some(overlay) = app.get_webview_window(OVERLAY) {
+        let _ = overlay.show();
+    }
     let end_time =
         |l: Lesson| chrono::NaiveTime::from_hms_opt(l.end.hour().into(), l.end.minute().into(), 0);
     if let Some(end) = lesson.and_then(end_time).map(|time| date.and_time(time)) {
