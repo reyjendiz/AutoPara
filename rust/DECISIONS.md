@@ -351,6 +351,33 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
   reports timings only. It is the `bench_stt` example of `lecture-assist`, which xtask runs:
   linking whisper into xtask made `cargo run` add its native search paths to PATH, and
   `npm.cmd` in `cargo xtask check` then failed to find `tsc` on Windows.
-- **Status:** results are not in `docs/ASSIST_BENCH.md` yet: no model is downloaded on the
-  development machine, and fetching one waits for the owner.
+- **Status:** results are in `docs/ASSIST_BENCH.md`.
 
+
+## Upgrade from 1.x
+
+- **Decision:** 2.0 installs over 1.x in place and keeps its identity: the same install folder
+  (`%LOCALAPPDATA%\Programs\AutoPara`, found through 1.x's `Software\AutoPara\InstallDir`), the
+  same `AutoPara.exe`, `Run` value, shortcuts and Add/Remove key; on macOS the same `AutoPara.app`,
+  bundle identifier `com.autopara.app` and LaunchAgent. The old program is replaced, so there is no
+  second copy to offer for removal. 1.x's data files (`autopara.db`, `schedules/`) are imported once
+  and kept, not offered for deletion. Details: `docs/UPGRADING.md`.
+- **Alternatives:** a new identity (`com.autopara.app` folder, a second Start Menu entry) with an
+  uninstall of 1.x; deleting 1.x's data after the import.
+- **Why:** one identity means one autostart entry and one app in Add/Remove, which also stops both
+  apps opening the same class (PORT_SPEC §I.21). The old files are small and are the way back to
+  1.10.0; the uninstaller's "delete my data" removes them with everything else.
+- **1.x updater:** cannot download 2.0 (its repository name is the old one, PORT_SPEC §I.7). The
+  release notes' first line, which 1.x shows in its update strip, says where to download it. A
+  1.10.1 bridge release would need a change to the Python app and is left to the owner.
+
+## The Python tree stays in place
+
+- **Decision (plan 8.3):** `autopara/`, `tests/`, `installer/` and the build scripts stay where they
+  are; nothing moves to `legacy/python/` yet. The `python-final` tag (on `8e73aff`, 1.10.0) is left
+  to the owner, since a tag is meant to be pushed.
+- **Alternatives:** move the tree to `legacy/python/` now.
+- **Why:** the plan keeps the Python tests until the parity report is accepted, and
+  `installer.yml`, the Android build (which reads `autopara/__init__.py`) and the docs' references
+  all point at the current paths; moving them is one change for the cutover, together with retiring
+  `installer.yml`.
