@@ -68,19 +68,19 @@ Ticked only when the step's quality gate is green.
 
 ## Phase 7 — Lecture Assist
 - [x] 7.1 Engine API
-- [ ] 7.2 Audio capture — Windows (loopback, device list, reconnect, resampling done; device picker UI and a hardware run pending)
-- [ ] 7.3 Audio capture — macOS
+- [ ] 7.2 Audio capture — Windows (loopback, device list, reconnect, resampling, device picker done; a run on real meeting audio pending)
+- [ ] 7.3 Audio capture — macOS (ScreenCaptureKit source written and wired, BlackHole fallback; untested on hardware and not yet compiled: only the macOS CI job builds it, and the branch has not been pushed)
 - [x] 7.4 VAD and segmentation (Silero through whisper.cpp, loudness fallback; see DECISIONS.md)
-- [ ] 7.5 Speech recognition (whisper backend, prompt, filters, streaming, model manager done; not yet run on a real model)
-- [ ] 7.6 LLM provider layer (client, SSE, fallback chain, presets, rate guard, keychain done; settings screen pending)
-- [ ] 7.7 Assist features (engine side done; overlay display pending)
-- [ ] 7.8 Overlay window
-- [ ] 7.9 Integration (commands, consent gate, tray item and recording icon, saved text, end-of-class stop done; hotkey and the button by the "now" pill pending)
-- [ ] 7.10 Storage (done in core and app; the wipe button arrives with the settings screen)
-- [ ] 7.11 Settings UI
-- [ ] 7.12 Performance budgets
+- [ ] 7.5 Speech recognition (whisper backend, prompt, filters, streaming, model manager done; not yet run on a real model: none downloaded, waiting for the owner)
+- [x] 7.6 LLM provider layer (client, SSE, fallback chain, presets, rate guard, keychain, settings and connection test)
+- [x] 7.7 Assist features (engine and overlay)
+- [x] 7.8 Overlay window (checked in a browser with a stubbed Tauri bridge; not yet seen in the running app)
+- [x] 7.9 Integration (commands, consent, tray, recording icon, saved text, end-of-class stop, `Ctrl+Alt+L`, listen button and class menu; not run in the real app with a model yet)
+- [x] 7.10 Storage (tables, retention, wipe button)
+- [x] 7.11 Settings UI (consent, devices, models, language, chat model, key, fallback, shortcut, retention, wipe, revoke)
+- [ ] 7.12 Performance budgets (`cargo xtask bench-stt` written; no numbers in docs/ASSIST_BENCH.md until a model is downloaded)
 - [ ] 7.13 Tests (unit and synthetic end-to-end done; real speech fixtures pending)
-- [ ] 7.14 Docs
+- [x] 7.14 Docs (docs/ASSIST.md, docs/ASSIST_BENCH.md)
 
 ## Phase 8 — Cutover and documentation
 - [ ] 8.1 Docs for the new stack
