@@ -4,3 +4,8 @@ xtask = "run --quiet --package xtask --"
 # Where `cargo test` writes the TypeScript twins of the IPC types.
 [env]
 TS_RS_EXPORT_DIR = { value = "crates/autopara-app/ui/src/bindings", relative = true }
+# whisper-rs-sys forwards these to CMake. Without them cmake-rs replaces the MSVC release flags
+# (Visual Studio generator) with ones that drop /O2, so whisper.cpp builds unoptimised.
+# The dash forms work for both MSVC and clang.
+CMAKE_C_FLAGS_RELEASE = "-O2 -DNDEBUG"
+CMAKE_CXX_FLAGS_RELEASE = "-O2 -DNDEBUG"
