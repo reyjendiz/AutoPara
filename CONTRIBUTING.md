@@ -1,69 +1,83 @@
 # Contributing
 
-Guidance for working on this repository: the commands, the test environment and the invariants
-that must not be broken.
+Guidance for working on this repository: the commands, the build environment and the invariants
+that must not be broken. The desktop app is the Rust + Tauri 2 workspace in `rust/`; the Python
+1.x app (`autopara/`, `tests/`, `installer/`) stays in the tree for reference and its tests, and
+`android/` is the Android app.
 
 ## Living documentation — read before coding
 
 `docs/ARCHITECTURE.md`, `docs/BACKEND.md` and `docs/FRONTEND.md` are the canonical design record and
 must be **read before starting any coding task** and **updated in the same commit** as any change to
-architecture, data model, UI structure or behavior. Stale docs are treated as a bug in this project.
-Keep them concise and current rather than appending changelogs.
+architecture, data model, UI structure or behavior. A choice with alternatives, and every difference
+from the 1.x behaviour (`rust/PORT_SPEC.md`), goes into `rust/DECISIONS.md`. Stale docs are treated
+as a bug in this project. Keep them concise and current rather than appending changelogs.
 
 ## Commands
 
+From `rust/`:
+
 ```bash
-python -m pytest                       # the whole suite
-python -m pytest tests/test_parser.py  # one file
-python -m pytest -k shared             # by keyword
-python -m pytest "tests/test_parser.py::TestMergeHandling::test_shared_class_is_one_lesson_with_many_groups"
-
-python -m autopara                     # run from source
-python -m autopara --hidden            # start to tray with no window (the autostart path)
-
-.\build.cmd                            # PyInstaller bundle + NSIS installer -> dist\
-.\build.cmd -SkipApp                   # installer only, reusing dist\AutoPara\
-# build.cmd wraps build.ps1: Windows blocks .ps1 outright under its default execution policy.
-
+cargo xtask check          # the whole gate: fmt, clippy -D warnings, tests, typecheck, lint, vitest, deny
+cargo test --workspace     # Rust tests only
+cargo test -p autopara-core --test scheduler   # one test target
+cargo xtask golden         # parity with the 1.10.0 parser and scheduler (rust/fixtures/golden)
+cargo xtask demo-data      # regenerate ui/src/demo/sample.json from the core
+cargo xtask screenshots    # photograph the demo scenes into target/screenshots (rust/PARITY_UI.md)
+cargo xtask bench-stt <wav> [model.bin]   # speech benchmark (docs/ASSIST_BENCH.md)
 ```
 
-No linter or formatter is configured; match the surrounding style.
+From `rust/crates/autopara-app`:
 
-`.github/workflows/installer.yml` runs `build.cmd` on `windows-latest` for every push to `main` and
-attaches the installer to a GitHub release — but only when `APP_VERSION` in `installer/AutoPara.nsi`
-names a version with no `v<version>` tag yet. **Bump that number in the commit you want released**;
-otherwise the build still runs and the .exe is only a workflow artifact. See `docs/ARCHITECTURE.md`.
+```bash
+npm ci                                  # once
+cargo tauri dev                         # run the app with the Vite dev server
+cargo tauri build --debug --no-bundle   # a debug executable, no installer
+cargo tauri build                       # the release installer (needs the updater key, see below)
+npm run dev                             # the interface alone; open http://localhost:5173/?demo
+```
+
+**Set `AUTOPARA_DATA_DIR` to a scratch folder whenever you run a checkout.** The default data folder
+is the real one (`%APPDATA%\AutoPara`), which an installed AutoPara — 1.x or 2.x — is using.
+
+### Build environment (Windows)
+
+- Rust stable with the MSVC toolchain, Node.js LTS, the Visual Studio Build Tools (C++), NSIS for
+  installers.
+- whisper.cpp is compiled by `whisper-rs`: set `LIBCLANG_PATH` to a folder with `libclang.dll` and
+  put CMake on `PATH`. CMake from the Build Tools works; add it by its 8.3 short path
+  (`C:\PROGRA~2\MICROS~2\2022\BUILDT~1\Common7\IDE\COMMON~1\MICROS~1\CMake\CMake\bin`), because the
+  long path with spaces breaks `npm.cmd` inside `cargo xtask check`.
+- `rust/.cargo/config.toml` forces `-O2` for whisper.cpp's C/C++ code: CMake's Visual Studio
+  generator otherwise builds it unoptimised and speech recognition falls behind the audio.
+- `cargo tauri build` signs the updater files and stops without `TAURI_SIGNING_PRIVATE_KEY` (the key
+  file's path or contents); `--no-bundle` skips that.
 
 ### Test environment
 
-- Tests need the **real schedule `.docx`, which is not in the repo** (it holds live meeting links).
-  `tests/conftest.py` searches the Desktop, Downloads (one level deep, so the messaging app's folder
-  counts) and `%APPDATA%\AutoPara\schedules`, or takes `AUTOPARA_TEST_DOCX`. If it is missing,
-  100+ tests **skip** and the run still reads green — so pytest's header prints which document was
-  used, or `NOT FOUND`. Read that line before trusting a pass.
-- **Never assert an exact link count.** The university fills links in over time (60 → 63 between two
-  revisions with identical structure). Link tests compare against oracles read from the `.docx`
-  itself; see `docs/BACKEND.md` section 1.
-- The browser is always stubbed and the scheduler's clock is injected; tests never open a URL and
-  never wait on real time.
-- Qt allows **one application object per process**, so every Qt-dependent test must use the shared
-  session-scoped `qapp` fixture. Creating a second one crashes the whole run at teardown (exit 9).
-- `conftest.py` selects Qt's `offscreen` platform before any Qt import; don't add a second mechanism.
-- Animations are switched off for the whole suite by an autouse fixture in `conftest.py`; a test
-  about motion turns `transitions.ENABLED` back on and shortens the durations itself.
+- Tests never touch the network, never open a browser and never wait on real time: the scheduler
+  takes a `Clock`, the opener is a recorder, and `autopara-core` never reads the clock itself.
+- Nothing from the real timetable is committed (it holds live meeting links). The golden fixtures
+  are built from invented timetables.
+- Lecture Assist tests use synthetic audio and need no speech model; real speech is measured by
+  `cargo xtask bench-stt` (docs/ASSIST_BENCH.md), not by the test suite.
+- The Python suite (`python -m pytest` from the repository root) still runs against the 1.x code;
+  keep it until the parity report (`rust/PARITY_REPORT.md`) is accepted.
+
+## Code rules
+
+`RULES.md` is short and binding: no `unsafe`, no `unwrap`/`expect` outside tests, `tracing` instead
+of `println!`, no new dependency without a reason, and never log API keys, audio or transcript text.
+Every dependency's licence is listed in `rust/THIRD_PARTY.md` and checked by `cargo deny`.
 
 ## Architecture
 
-Single-process PySide6 app. Qt's event loop serves both roles an Electron design would split:
-the scheduler is a `QTimer` on the main thread, and the UI is an ordinary window that can be closed
-without exiting. Chosen because Node.js is not installed on the target machine.
-
 ```
-.docx -> importer/docx_reader.py     zip + XML -> cell grid with merge metadata + link targets
-      -> importer/schedule_parser.py grid -> Course/Group/Lesson (the domain rules)
-      -> core/storage.py             SQLite in %APPDATA%\AutoPara\autopara.db
-      -> ui/week_grid.py             renders the selected group's week
-      -> core/scheduler.py           15 s tick -> core/launcher.py -> default browser
+.docx -> autopara-core/docx.rs      zip + XML -> cell grid with merges and link targets
+      -> autopara-core/parser.rs    grid -> courses, groups, lessons (the domain rules)
+      -> autopara-core/db.rs        SQLite in %APPDATA%\AutoPara\autopara2.db
+      -> autopara-app (commands)    typed IPC -> ui/src renders the selected group's period
+      -> autopara-core/engine.rs    wakes at the next due moment (<= 15 s) -> scheduler.rs -> browser
 ```
 
 **The database is the single source of truth.** The UI caches no lesson state; every mutation is
@@ -71,18 +85,14 @@ followed by a reload from storage.
 
 ### Invariant: the interface is Ukrainian
 
-Every user-visible string in `autopara/ui/` and in `installer/AutoPara.nsi` is Ukrainian. There is
-no translation layer and no second locale — one locale needs no machinery.
-`tests/test_ui.py::test_interface_is_ukrainian` walks the live widget tree and fails on Latin words
-other than `AutoPara`, `Zoom`, `Meet`, `docx`; a second walk covers the import dialog. Docstrings,
-comments and the design docs stay English.
+Every user-visible string — the interface, the tray, notifications and the installer — is a key in
+`rust/crates/autopara-core/i18n/uk.json`. Rust reads it through `i18n::t`, the interface through
+`ui/src/i18n.ts` (keys type-checked), the installer through strings `build.rs` generates. Code,
+comments and docs stay English.
 
-**Nothing on the left-hand rail is written.** All five buttons are icons, the app mark stands in
-for the word "AutoPara", and the course and group live in that mark's tooltip. Each button's
-meaning is a Ukrainian tooltip; giving one a label puts a word back on screen that then has to be
-translated, and widens a rail whose width is one button plus air.
-`TestIconOnlyToolbar` fails if a button gains text or loses its tooltip, and
-`test_the_sidebar_carries_no_words_at_all` walks the rail for any text at all.
+**Nothing on the left-hand rail is written.** Every rail button is an icon with a Ukrainian tooltip;
+the app mark stands in for the word "AutoPara". A label would put a word back on screen and widen a
+rail whose width is one button plus air.
 
 The importer reads documents in other languages and converts what it finds (days, course labels)
 into Ukrainian. Subject and teacher text is copied verbatim — it is data, not chrome.
@@ -90,67 +100,60 @@ into Ukrainian. Subject and teacher text is copied verbatim — it is data, not 
 ### Invariant: open each class exactly once
 
 Enforced by the database, not by in-memory bookkeeping. `occurrences` has
-`UNIQUE(lesson_id, occur_date)`, and `Scheduler._open` **claims the row before opening the browser** —
-an `IntegrityError` means it already fired, so the browser call is skipped. Keying on
-`(lesson, date)` is what lets the same weekly class recur while a restart, sleep/wake or clock change
-on the same day cannot double-open it. Preserve claim-before-open in any change to this path.
+`UNIQUE(lesson_id, occur_date)`, and the scheduler **claims the row before opening the browser**
+(`Storage::claim_occurrence`); a conflict means it already fired, so the browser call is skipped.
+Keying on `(lesson, date)` is what lets the same weekly class recur while a restart, sleep/wake or
+clock change on the same day cannot double-open it. `tests/scheduler.rs` pins restarts, clock jumps,
+shared classes, DST and two instances racing (`two_instances_racing_open_a_class_once`).
 
-`Scheduler.evaluate()` is a pure function of `(lesson, now, lead, already_fired)` so trigger
-boundaries are testable without a clock or event loop. Keep it pure; `tick(now)` must derive
-everything from the injected time, including the weekday. `reminder_due()` is a *second* pure
-function and must stay separate: a reminder is a message, and folding it into `evaluate` puts it
-one keystroke away from opening a browser.
+`scheduler::evaluate` is a pure function of the lesson, `now`, the lead time and what already fired,
+so trigger boundaries are testable without a clock. `reminder_due` is a *second* pure function and
+must stay separate: a reminder is a message, and folding it into `evaluate` puts it one keystroke
+away from opening a browser.
 
 ### Invariant: a class that is already running is never opened unasked
 
-`Scheduler._cold_start` makes the first tick after `start()` treat catch-up as "ask", **whatever
-`catchup_mode` says**. This fixes a real, reported bug — launching the app after a missed morning
-opened a browser tab per still-running class — and it is not redundant with the notify default.
-`open` mode applies from the second tick onward. `TestColdStartNeverAmbushes` and
-`TestLaunchingIntoAMissedDay` exist to stop this being "simplified" back.
+After an app start, a wake from sleep or a clock change, a running class is offered by the
+missed-class banner and opened only when the user presses `Підключитися зараз` — **whatever
+`catchup_mode` says**. Mode `open` applies only to a class whose trigger passed while the scheduler
+was watching on an unbroken clock (`BACKEND.md` §4). This fixes a real, reported bug — launching the
+app after a missed morning opened a browser tab per still-running class — and 1.x's one-tick guard
+still let it through 15 s later. `a_start_during_a_class_only_offers_it` and
+`after_a_sleep_a_running_class_is_offered_not_opened_even_in_open_mode` keep it.
 
-The same incident's other half: `launcher.open_url` calls `ShellExecuteW` and never falls back to
-`webbrowser` on Windows, which can launch the browser through a console-subsystem child and flash
-an empty black window per link.
+### Invariant: only https links are opened
 
-### Invariant: the grid rebuild never detaches a widget
+Link text comes from a document, so `file:`, `javascript:` and plain `http:` values never reach the
+system browser (`scheduler::is_openable`); the editor refuses them when typed.
 
-`WeekGrid._clear()` hides and deletes; `setParent(None)` on a live widget makes it a **top-level
-window** until `deleteLater` runs, and rebuilding a week that way flashed dozens of empty windows
-on screen. Opening a link triggers a rebuild, which is why this looked like a browser bug.
+### Invariant: installing replaces, never merges
 
-### Invariant: installing and refreshing replace, never merge
+The installer removes the previous program (including 1.x's `_internal` bundle) before copying.
+`%APPDATA%\AutoPara` is the one thing a reinstall spares; uninstalling asks whether to delete it, and
+No or `/S` keeps it.
 
-`Installation.purge_previous`, the NSIS install section and `core.refresh.refresh_installation` all
-delete a directory before writing it. A module dropped upstream stays importable otherwise, which
-is exactly why "reinstall and check" did not show new behaviour. `%APPDATA%\AutoPara\schedules`
-(the imported `.docx`) is the one thing a reinstall spares; an uninstall spares nothing.
+### Invariant: an update comes from this repository, is signed, and is installed only on request
 
-`python -m autopara` runs the refresh before starting, so a source run leaves the installed copy
-up to date. `--no-rebuild` skips it.
-
-### Invariant: an update is fetched from this repository, verified, and installed only on request
-
-`core/updater.py` fetches only from GitHub over HTTPS, only the release asset of `GITHUB_REPO`, with
-every redirect checked, verifies size and SHA-256 before keeping a file, and runs only a file inside
-its own `updates/` folder. Downloading may be automatic (`update_mode = auto`); **installing never
-is**. Do not loosen the URL checks to make a test or a mirror work -- `tests/test_updater.py` pins
-them. `autopara.__version__` must equal `APP_VERSION` in the `.nsi` (a test enforces it; the release
-`tools/bump_version.py` writes both), and **publishing a release is shipping an update** to every older
-copy. Tests never touch the network: `conftest._no_network` makes the real opener raise.
+The updater reads `latest.json` from this repository's newest release and checks every file against
+the minisign public key in `tauri.conf.json`. Downloading may be automatic (`update_mode = auto`);
+**installing never is**. **Publishing a release is shipping an update** to every 2.x copy, and the
+version lives in one place: `[workspace.package] version` in `rust/Cargo.toml`.
 
 ### Invariant: a timetable only applies from the moment it is imported
 
-`import_courses` stamps `schedule_active_from`; `Scheduler.predates_schedule` skips anything that
-had already started by then — not opened, not offered, not marked missed. Importing at the weekend
-to set up the coming week must not paint that weekend red.
+`import_courses` stamps `schedule_active_from`; `predates_schedule` skips anything that had already
+started by then — not opened, not offered, not marked missed. Importing at the weekend to set up the
+coming week must not paint that weekend red.
 
-`storage.mark_occurrence` is the one sanctioned way to write an occurrence row without claiming it
-first: it records a decision the user made in the UI, and the row it writes is what stops the
+`Storage::mark_occurrence` is the one sanctioned way to write an occurrence row without claiming it
+first: it records a decision the user made in the interface, and the row it writes is what stops the
 scheduler acting on that class.
 
-Polling every 15 s (rather than one-shot timers) is deliberate: it survives suspend/resume and
-settings changes with no re-arming logic.
+### Invariant: Lecture Assist only ever shows text, on this screen
+
+No text-to-speech, no virtual microphone or camera, nothing that speaks or acts in the meeting,
+nothing that hides the app or its recording indicator, and audio is never written to disk. See
+`docs/ASSIST.md`.
 
 ### The .docx parser — rules that look wrong but are not
 
@@ -158,12 +161,12 @@ settings changes with no re-arming logic.
 into bugs by someone who hasn't seen the source document:
 
 - **Shared classes are real `w:gridSpan` merges, not repeated text.** Word stores a session taught to
-  several groups as *one* `<w:tc>` spanning columns. Do not switch to comparing adjacent cell text —
-  that is only a fallback (`_dedupe_adjacent_duplicates`) for documents from other tooling. This is
-  about **columns**. Down the **rows** the opposite holds: a class retyped in the next time slot is
-  the same session, and comparing that text is the primary strategy (`_merge_consecutive_slots`, R12)
-  — a double class must be one lesson, or the browser opens again mid-meeting. Its adjacency test is
-  load-bearing: the same subject can legitimately run twice in one day with a gap.
+  several groups as *one* `<w:tc>` spanning columns. Comparing adjacent cell text is only a fallback
+  (`dedupe_duplicates`) for documents from other tooling. Down the **rows** the opposite holds: a
+  class retyped in the next time slot is the same session, and comparing that text is the primary
+  strategy (`merge_consecutive_slots`, R12) — a double class must be one lesson, or the browser
+  opens again mid-meeting. Its adjacency test is load-bearing: the same subject can legitimately run
+  twice in one day with a gap.
 - **Never index cells positionally.** Rows contain different numbers of `<w:tc>` (4, 5, 7) because of
   merges. A cell's column is the running sum of preceding `gridSpan` values.
 - **A group owns a column *range*.** A header cell can itself span (course IV: 7 grid columns, 2
@@ -174,42 +177,20 @@ into bugs by someone who hasn't seen the source document:
   for Friday, and course headings mix Cyrillic `І` (U+0406) with Latin `V`. Match courses by ordinal
   position, never by heading string.
 
-Verified totals used as regression fixtures: **6 courses, 61 lessons (77 table rows, joined into 61
-by R5/R12), 53 with links, 8 without, per course 24/10/8/10/0/9**. Course V having no classes is real
-data, not a parse failure — empty schedules must stay a valid state throughout the stack.
+Any change to the parser must keep `cargo xtask golden` green, or record the difference in
+`rust/DECISIONS.md` with a reason.
 
 ### Windows integration
 
-- **The app mark reaches Windows through two separate channels, and both have to be set.** The
-  executable's icon is compiled in from `build\AutoPara.ico`, which `build.ps1` renders from
-  `ui/tray.write_ico` before calling PyInstaller — every shortcut the installer creates inherits
-  it, so without that step the desktop shows PyInstaller's stock Python logo. The *taskbar button*
-  is separate: Windows attributes it to the host process unless the app calls
-  `SetCurrentProcessExplicitAppUserModelID` (`app._claim_taskbar_identity`, before the first
-  window), which is why a source run used to sit in the taskbar under Python's icon however
-  carefully `setWindowIcon` was called. `tests/test_installer.py::TestApplicationIcon` guards both.
-
-- **Autostart** is `HKCU\...\CurrentVersion\Run`, value `AutoPara`, via stdlib `winreg`. Both
-  installers write the *same* value in the *same* format `"<launcher>" --hidden` that
-  `autostart.startup_command()` produces. If those ever diverge, `autostart.sync()` silently
-  rewrites the entry on next launch — keep them identical.
-- **`autostart_enabled` defaults to `1`.** It used to default to `0` while the installer wrote the
-  Run key anyway, so `sync(False)` deleted the installer's entry on first launch. The default and
-  the installers have to agree.
-- `startup_command()` differs frozen vs. from source (source uses `pythonw.exe` plus the absolute
-  path to `autopara_launch.pyw`, because the Run key executes with an arbitrary working directory).
-- **Only http/https URLs are ever opened** (`launcher.is_openable`). Link text comes from a document,
-  so `file:` and `javascript:` values must never reach the shell.
-- Closing the window hides to tray; only the tray's Quit exits. A `QLocalServer` single-instance
-  guard makes a second launch surface the existing window.
-- The NSIS installer is per-user (`%LOCALAPPDATA%\Programs\AutoPara`, no admin/UAC). Both of its
-  prompts are guarded with `IfSilent`, or `/S` install and uninstall hang on an invisible message
-  box. Uninstall keeps `%APPDATA%\AutoPara` so a reinstall does not lose the imported timetable.
-- **One installer, on purpose.** `installer/AutoPara.nsi` ships the frozen PyInstaller bundle, so
-  the target PC needs no Python, no PySide6 and no network. An install-from-source variant used to
-  live beside it (`installer.exe` + `installer/install_app.py`); it was removed because for an end
-  user it traded a single double-click for "find or install Python, then download ~100 MB of
-  wheels", and a prebuilt 12 MB `installer.exe` committed to git went stale the moment the source
-  changed. Contributors run from source with `pip install -r requirements.txt`.
-  `tests/test_installer.py` parses the `.nsi` and fails if it drifts from the app: the autostart
-  string, the window title `FindWindow` looks for, the `IfSilent` guards and the HKCU-only rule.
+- **Autostart** is the `HKCU` `Run` value `AutoPara` = `"<exe>" --hidden`, written by the app
+  (`autostart.rs`) and by the installer in the identical format; `the_installer_writes_the_same_entry`
+  compares them. If they diverge, the app silently rewrites the installer's entry on next launch.
+  `autostart_enabled` defaults to `1` for the same reason: the default and the installer must agree.
+- A debug build never writes the autostart entry, so a run from a checkout cannot point it into
+  `target/`.
+- Closing the window hides to tray; only the tray's quit exits. A second launch surfaces the
+  running copy.
+- The installer is per-user (`%LOCALAPPDATA%\Programs\AutoPara`, no admin/UAC) and Ukrainian only; its
+  template is `src-tauri/installer/installer.nsi` and its strings come from `uk.json`.
+- WebView2 is present on Windows 11 and updated Windows 10; when it is missing, the installer runs the
+  embedded Evergreen bootstrapper, which needs the network once.
