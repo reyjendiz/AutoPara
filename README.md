@@ -38,8 +38,9 @@ into the new one.
 | --- | --- | --- |
 | ![A day](docs/day-view.png) | ![The class editor](docs/edit-dialog.png) | ![Settings](docs/settings.png) |
 
-*The desktop pictures are rendered from an invented sample timetable by `python tools/screenshots.py`;
-the clock in them is pinned to a Monday morning.*
+*The desktop pictures are rendered from an invented sample timetable, with the clock pinned to a
+Monday morning; `cargo xtask screenshots` renders the same scenes from the 2.0 interface (compared in
+[rust/PARITY_UI.md](rust/PARITY_UI.md)).*
 
 ### Android
 
@@ -64,67 +65,64 @@ On a tablet the week grid has room for all seven days and a details pane sits be
 
 Download **`AutoPara-<version>-Setup.exe`** from the latest release and run it. That is the whole
 procedure. On a Mac, take **`AutoPara-<version>.dmg`** (Apple Silicon) or
-**`AutoPara-Intel-<version>.dmg`** (Intel) from the same release. On Android, take
-**`AutoPara-<version>.apk`** from it too — every download in a release has the same version number.
+**`AutoPara-Intel-<version>.dmg`** (Intel) from the same release and drag AutoPara into
+Applications; the app is not signed, so open it the first time through the context menu → Відкрити.
+The Android app has its own releases (see [android/README.md](android/README.md)).
 
-The target PC needs **nothing preinstalled** — no Python, no Qt, no VC++ redistributable; they are
-all inside the installer. Windows 10/11 64-bit.
+The target PC needs **nothing preinstalled**. Windows 10/11 64-bit; the app uses the system's
+WebView2, which Windows 11 and an updated Windows 10 already have (the installer adds it otherwise).
 
 It installs per-user to `%LOCALAPPDATA%\Programs\AutoPara`, so there are **no admin rights and no
 UAC prompt**. You get Start Menu and (optionally) desktop shortcuts, an entry in Add or Remove
 Programs, and an optional "start with Windows" component that launches it hidden in the tray.
 
-Silent install and uninstall are supported with `/S`. Uninstalling keeps your imported timetable in
-`%APPDATA%\AutoPara` unless you choose to delete it, so reinstalling does not lose the schedule.
+Silent install and uninstall are supported with `/S`. Uninstalling asks whether to delete your
+timetable and settings in `%APPDATA%\AutoPara`; No (and `/S`) keeps them, so reinstalling does not
+lose the schedule.
+
+**Coming from 1.x?** Run the 2.0 installer over it: it replaces the old program, and the first start
+brings across your timetable, marks and settings. 1.x cannot download 2.0 by itself. Details in
+[docs/UPGRADING.md](docs/UPGRADING.md).
 
 ## Run from source
 
+The app is a Rust workspace in `rust/` with a Tauri 2 shell and a TypeScript interface. You need Rust
+(stable, MSVC on Windows), Node.js LTS, and on Windows the Visual Studio C++ Build Tools, CMake and
+libclang for the speech engine ([CONTRIBUTING.md](CONTRIBUTING.md) has the details).
+
 ```
-python -m pip install -r requirements.txt
-python -m autopara
+cargo install tauri-cli --version "2.12.4" --locked   # once
+cd rust/crates/autopara-app
+npm ci
+$env:AUTOPARA_DATA_DIR = "$env:TEMP\autopara-dev"  # keep a dev run away from your real data
+cargo tauri dev
 ```
 
 On first launch it opens on the import screen: **drag the `.docx` onto it** — anywhere on the
-screen, not just the dashed well — or press `Обрати файл…`. Then pick your course and group.
+window, not just the dashed well — or press `Обрати файл…`. Then pick your course and group.
 
-`python -m autopara` also **refreshes the installed copy** from the source it is running out of, so
-checking a change is one command rather than a reinstall. Add `--no-rebuild` to skip that.
+`npm run dev` and `http://localhost:5173/?demo` run the interface alone in a browser, on the sample
+timetable with a pinned clock.
 
 ## Build it yourself
 
 ```
-python -m pip install pyinstaller     # once
-winget install NSIS.NSIS              # once
-.\build.cmd
+cd rust/crates/autopara-app
+cargo tauri build --debug --no-bundle   # just the executable
+cargo tauri build                       # the installer (or .app and .dmg on a Mac)
 ```
 
-| File | Size | What it is |
-|---|---|---|
-| `dist\AutoPara-1.3.0-Setup.exe` | 35.0 MB | NSIS installer — hand this to someone who does not have the repository. |
-| `dist\AutoPara\` | 126 MB folder | The unpacked app, if you'd rather not install. |
+The installer lands in `rust/target/release/bundle/nsis/AutoPara_<version>_x64-setup.exe` (about
+9 MB). A full build signs the update files and needs the updater key in `TAURI_SIGNING_PRIVATE_KEY`;
+`--no-bundle` does not.
 
-`.\build.cmd -SkipApp` rebuilds only the installer from an existing `dist\AutoPara\`.
+You do not have to build it to publish it: pushing to `main` builds Windows and both Macs on CI and
+publishes the release ([`.github/workflows/rust-release.yml`](.github/workflows/rust-release.yml)),
+but only when the version in `rust/Cargo.toml` has no release yet — so **bump that number in the
+commit you want released.** See [docs/RELEASING.md](docs/RELEASING.md).
 
-You do not have to build it to publish it: pushing to `main` runs the same `build.cmd` on a Windows
-runner and attaches the installer to a GitHub release
-([`.github/workflows/installer.yml`](.github/workflows/installer.yml)). The release is cut from
-`APP_VERSION` in `installer/AutoPara.nsi`, and only when that version has no tag yet — so **bump
-that number in the commit you want released.** A push that leaves it alone still builds, and the
-installer is downloadable from the run's artifacts.
-
-**Run `build.cmd`, not `build.ps1` directly.** Windows refuses to run `.ps1` files at all under its
-default execution policy, so `.\build.ps1` fails with *UnauthorizedAccess* on any machine nobody
-has configured. `build.cmd` lifts that for the single process it starts — it changes no setting,
-for the machine or for you, and needs no administrator. (If you would rather allow scripts for your
-own account once and for all, that is
-`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` in an ordinary PowerShell window; it is a
-security setting, so it is yours to make, not the build's.)
-
-The build renders the app icon before it packages anything: `build\AutoPara.ico` is drawn from the
-same code as the tray glyph, compiled into the executable — which is what every shortcut inherits —
-and used for `Setup.exe` and the uninstaller too, so a downloaded installer is recognisable before
-it has installed anything. Skipping that step (running PyInstaller or makensis by hand) is allowed:
-both fall back to their stock icons.
+The Python 1.x app (`autopara/`, `build.cmd`, `installer/`) is still in the tree for reference and
+its tests; it is no longer what gets released.
 
 ## How it behaves
 
@@ -160,7 +158,7 @@ both fall back to their stock icons.
   card is told its height and drops whole lines in a fixed order — the time goes first, since its
   position on the grid already says it — and its tooltip carries the subject, the teacher, the
   exact times, every group and the link.
-- **Light and dark themes**, following the Windows app theme until you pin one.
+- **Light and dark themes**, following the system theme until you pin one.
 - **Shared classes.** One session taught to several groups is a single card tagged with the groups,
   and its link opens once.
 - **Re-importing** a new document keeps the course and group you had selected and your manually
@@ -168,42 +166,56 @@ both fall back to their stock icons.
   also only applies from the moment you import it, so setting one up at the weekend does not mark
   that weekend as missed.
 - **Your timetable is copied into the app**, so deleting the original `.docx` costs you nothing.
-  Reinstalling keeps that copy; uninstalling removes it along with everything else.
+  Reinstalling keeps that copy; uninstalling asks whether to delete it.
 
 Closing the window hides it to the tray; use the tray menu to quit.
 
+## Lecture Assist
+
+Off until you switch it on. During a class it transcribes the meeting's audio **on this computer**,
+keeps live notes and flags questions in a small overlay on your own screen, and at the end writes a
+summary. Audio is never saved, and nothing appears in the meeting. A chat model for the notes is
+optional (your own key, kept in the system keychain). See [docs/ASSIST.md](docs/ASSIST.md).
+
 ## Third-party
 
-The interface is set in **Inter** (Segoe UI on Windows), bundled in `autopara/ui/fonts` under the SIL Open Font
-License 1.1 — the licence ships beside the font files as `OFL.txt`. The app mark is one picture,
-`autopara/ui/assets/logo.png`, which the tray, the rail, the first screen, the `.ico` Windows reads
-for the executable and the macOS `.icns` are all made from. Every interface icon is drawn in code.
+The interface is set in **Inter** (Segoe UI on Windows), bundled under the SIL Open Font License
+1.1. The app mark is one picture, which the tray, the rail, the first screen and the installer icons
+are all made from. Every interface icon is drawn in code. Every Rust and npm dependency and its
+licence is listed in [rust/THIRD_PARTY.md](rust/THIRD_PARTY.md); `cargo deny` keeps them permissive.
 
 ## Updates
 
-A packaged AutoPara checks GitHub for a newer release shortly after it starts and every few hours,
-and tells you (or, if you choose so in Settings, downloads it in the background). Installing is
-always your click. On Windows it runs the same installer silently and restarts; on a Mac it opens the
-disk image for you to drag across. A copy run from source only says a version is out.
+AutoPara checks GitHub for a newer release shortly after it starts and every few hours, and tells
+you (or, if you choose so in Settings, downloads it in the background). Every file is checked
+against the release signing key. Installing is always your click: on Windows it runs the new
+installer silently and restarts; on a Mac it replaces the app and restarts.
 
 ## Documentation
 
 Read these before changing anything:
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — stack, process model, data flow, scheduling, build.
-- [docs/BACKEND.md](docs/BACKEND.md) — the `.docx` parsing rules, data model, scheduler.
-- [docs/FRONTEND.md](docs/FRONTEND.md) — screens, widgets, styling.
-- [CONTRIBUTING.md](CONTRIBUTING.md) — commands, test environment and the invariants not to break.
+- [docs/BACKEND.md](docs/BACKEND.md) — the `.docx` parsing rules, data model, scheduler, updates.
+- [docs/FRONTEND.md](docs/FRONTEND.md) — screens, components, styling.
+- [docs/ASSIST.md](docs/ASSIST.md) — Lecture Assist.
+- [CONTRIBUTING.md](CONTRIBUTING.md) — commands, build environment and the invariants not to break.
 - [docs/HANDOFF.md](docs/HANDOFF.md) — current state, known gaps and the traps already found.
-- [docs/RELEASING.md](docs/RELEASING.md) — how a version number becomes a published release.
+- [docs/UPGRADING.md](docs/UPGRADING.md) — moving from 1.x to 2.0.
+- [docs/RELEASING.md](docs/RELEASING.md) and [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md)
+  — how a version number becomes a published release.
+- [rust/PORT_SPEC.md](rust/PORT_SPEC.md), [rust/DECISIONS.md](rust/DECISIONS.md) and
+  [rust/PARITY_REPORT.md](rust/PARITY_REPORT.md) — the 1.x behaviour, every choice made in the
+  rewrite, and how the two compare.
 
 ## Tests
 
 ```
-python -m pytest
+cd rust
+cargo xtask check
 ```
 
-Around 670 tests, a few minutes. They run on a synthetic timetable built from code
-(`tests/sample_timetable.py`), so nothing needs to be installed or copied first. If you also have
-the real timetable (it is not committed: it holds live meeting links), put it on the Desktop or set
-`AUTOPARA_TEST_DOCX` to its path and the checks that hold for any timetable run against it as well.
+The whole gate: formatting, clippy, every Rust test, the TypeScript type check, lint and tests, and
+the licence check. The parser and the scheduler are also held to the 1.10.0 app's own output
+(`cargo xtask golden`, fixtures in `rust/fixtures/golden/`). Nothing needs the real timetable (it is
+never committed: it holds live meeting links).
