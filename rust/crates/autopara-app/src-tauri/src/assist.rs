@@ -326,7 +326,17 @@ pub fn start(app: &AppHandle, lesson_id: Option<i64>) -> CommandResult<()> {
     let language = settings.language;
     let device = Some(settings.device.clone()).filter(|d| !d.is_empty());
     let parts = Parts {
-        source: Box::new(move || Ok(Box::new(Capture::open(device)) as Box<dyn AudioSource>)),
+        source: Box::new(move || {
+            // On a Mac, the default is everything it plays; a chosen device (BlackHole) wins.
+            #[cfg(target_os = "macos")]
+            if device.is_none() {
+                match lecture_assist::audio::macos::ScreenAudio::open() {
+                    Ok(screen) => return Ok(Box::new(screen) as Box<dyn AudioSource>),
+                    Err(error) => tracing::warn!(%error, "falling back to an input device"),
+                }
+            }
+            Ok(Box::new(Capture::open(device)) as Box<dyn AudioSource>)
+        }),
         recognizer: Box::new(move || {
             let gpu = cfg!(any(feature = "cuda", feature = "metal"));
             Ok(Box::new(Whisper::load(&model_path, language, gpu)?) as Box<dyn Recognizer>)

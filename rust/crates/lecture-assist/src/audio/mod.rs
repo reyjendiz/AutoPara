@@ -4,6 +4,8 @@
 
 pub mod capture;
 pub mod fake;
+#[cfg(target_os = "macos")]
+pub mod macos;
 pub mod resample;
 
 use std::time::Duration;

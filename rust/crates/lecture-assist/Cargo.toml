@@ -28,6 +28,10 @@ tracing.workspace = true
 ts-rs.workspace = true
 whisper-rs = { version = "0.16.0", optional = true }
 
+# Audio-only ScreenCaptureKit stream (macOS 13+); see audio/macos.rs.
+[target.'cfg(target_os = "macos")'.dependencies]
+screencapturekit = { version = "11.1.1", features = ["macos_13_0"] }
+
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util", "rt-multi-thread"] }
 wiremock = "0.6.5"
