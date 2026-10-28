@@ -44,6 +44,12 @@ header {
   user-select: none;
 }
 
+.controls {
+  display: flex;
+  gap: 6px;
+  padding: 0 12px 4px;
+}
+
 .dot {
   flex: none;
   width: 10px;

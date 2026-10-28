@@ -97,17 +97,27 @@ function header(): HTMLElement {
   const listening = state.state === "listening";
   const dot = h("span", { class: `dot${listening ? " live" : ""}`, role: "img", "aria-label": t("assist_recording") });
   const title = h("span", { class: "title", "data-tauri-drag-region": true }, subject || t("assist_title"));
-  const actions: Child[] = [];
-  if (!look.collapsed) {
-    if (listening) actions.push(button("assist_pause", () => void ipc.assistPause()));
-    if (state.state === "paused") actions.push(button("assist_resume", () => void ipc.assistResume()));
-    if (listening || state.state === "paused") actions.push(button("assist_stop", () => void ipc.assistStop()));
-  }
-  actions.push(
+  return h(
+    "header",
+    { "data-tauri-drag-region": true },
+    dot,
+    clock,
+    title,
     button(look.collapsed ? "assist_expand" : "assist_collapse", () => void setCollapsed(!look.collapsed)),
     h("button", { class: "btn", type: "button", title: t("assist_hide"), "aria-label": t("assist_hide"), onclick: () => void win.hide() }, icon("close", 14)),
   );
-  return h("header", { "data-tauri-drag-region": true }, dot, clock, title, ...actions);
+}
+
+function controls(): Child {
+  const listening = state.state === "listening";
+  const paused = state.state === "paused";
+  if (!listening && !paused) return null;
+  return h(
+    "div",
+    { class: "controls" },
+    listening ? button("assist_pause", () => void ipc.assistPause()) : button("assist_resume", () => void ipc.assistResume()),
+    button("assist_stop", () => void ipc.assistStop()),
+  );
 }
 
 function ask(kind: AskKind, text = ""): void {
@@ -198,7 +208,7 @@ function footer(): HTMLElement {
 
 function render(): void {
   root.className = look.collapsed ? "pill" : "panel";
-  replace(root, header(), !look.collapsed && body(), !look.collapsed && footer());
+  replace(root, header(), !look.collapsed && controls(), !look.collapsed && body(), !look.collapsed && footer());
   tick();
 }
 
@@ -212,12 +222,16 @@ function reset(): void {
   startedAt = Date.now();
 }
 
-async function onEvent(event: AssistEvent): Promise<void> {
+function onEvent(event: AssistEvent): void {
   switch (event.type) {
     case "stateChanged":
       if (event.state.state === "starting") {
         reset();
-        subject = (await ipc.assistSubject()) ?? "";
+        // Not awaited: later events must not wait behind it, or the state would go backwards.
+        void ipc.assistSubject().then((title) => {
+          subject = title ?? "";
+          render();
+        });
       }
       state = event.state;
       break;
@@ -252,7 +266,7 @@ async function onEvent(event: AssistEvent): Promise<void> {
 applyLook();
 render();
 setInterval(tick, 1000);
-void ipc.onAssist((event) => void onEvent(event));
+void ipc.onAssist(onEvent);
 void ipc.onAssistClassOver(() => {
   classOver = true;
   render();
