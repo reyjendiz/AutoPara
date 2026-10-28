@@ -30,6 +30,7 @@ late the grey line in the overlay runs behind the teacher.
 | 2026-10-28 | i5-14600KF, 32 GB | CPU, release, AVX2 | small | 60 s, Windows voice (en) | 4.17 | 16.9 | 30.5 s | 28.9 s | 793 MB |
 | 2026-10-28 | i5-14600KF, 32 GB | CPU, release, AVX2, `/O2`, audio-sized window | small | 60 s, Windows voice (en) | 0.21 | 0.66 | 1.85 s | 2.13 s | 792 MB |
 | 2026-10-28 | i5-14600KF, 32 GB | CPU, release, AVX2, `/O2`, audio-sized window | small | 5.6 min, Windows voice (en) | 0.19 | 0.70 | 1.99 s | 2.20 s | 828 MB |
+| 2026-10-28 | i5-14600KF, RTX 4080 SUPER | CUDA 13.4, release, audio-sized window | small | 5.6 min, Windows voice (en) | 0.10 | 0.54 | 2.55 s | 2.55 s | 523 MB |
 
 The first row (median 16 s per call) was an unoptimised whisper.cpp: with the Visual Studio
 generator, cmake-rs replaces CMake's MSVC release flags with its own and drops `/O2`, so ggml
@@ -50,7 +51,8 @@ stretch cannot make the lag grow; finals always run.
 To do:
 
 1. Repeat with a real lecture recording (accuracy and timing), Ukrainian and Russian included.
-2. Repeat with the `cuda` build on the RTX 4080 SUPER.
+2. On CUDA the median call is 0.10 s but p95 is 2.5 s for both partials and finals; find what
+   makes the slow tail (likely decoding, not the encoder), and time `large-v3-turbo`, the GPU default.
 
 The recording is synthetic (the Windows English voice, monotone, regular pauses). Use it for
 timing only, not for accuracy.
