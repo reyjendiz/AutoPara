@@ -314,3 +314,41 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
   `bench-stt`. Shipping it would mean redistributing `cudart`/`cublas`, which are under NVIDIA's
   licence, not a permissive one (R11). Until the owner decides, release builds use the CPU
   backend on Windows and Metal on macOS. A Vulkan build is the permissive alternative to test.
+
+## Lecture Assist: the shortcut
+
+- **Decision:** `Ctrl+Alt+L` through `tauri-plugin-global-shortcut`, registered from Rust at
+  start; it toggles the same start/stop as the tray item. A new combination is saved only if it
+  registers, otherwise the old one is put back and the settings say it is taken.
+- **Why:** a combination another program holds fails silently on some systems; checking at
+  registration is the only reliable conflict test.
+
+## Lecture Assist: overlay window
+
+- **Decision:** a second window `overlay`, declared in `tauri.conf.json`, created hidden at
+  start and shown when listening starts. Transparent and frameless, always on top, not in the
+  taskbar; size and position come from the window-state plugin, like the main window. Its
+  look (opacity, font size, collapsed) is per-viewer and kept in the webview's `localStorage`.
+  macOS transparency needs `macOSPrivateApi`.
+- **Click-through:** the window ignores the mouse entirely, so it cannot turn itself back;
+  opening AutoPara from the tray (or a second launch) turns click-through off.
+- **Why:** created at start, the overlay sees every event from the first `starting`, and needs
+  no state replay command.
+
+## Lecture Assist: macOS audio
+
+- **Decision:** ScreenCaptureKit audio only (16 kHz mono straight from the system, picture
+  2×2 at 1 fps because a stream must have one) through the `screencapturekit` crate, used when
+  no device is chosen. Without the Screen Recording permission, or when the user picks a
+  device (BlackHole), the `cpal` input path is used.
+- **Status:** untested on hardware; compiled only by the macOS CI jobs.
+- **Why:** it needs no extra driver, and the system's own recording indicator stays on.
+
+## Lecture Assist: benchmark
+
+- **Decision:** `bench-stt` replays a wav through the energy detector, the engine's segmenter
+  and whisper as fast as possible (partials every second of audio, a final per utterance) and
+  reports timings only.
+- **Status:** results are not in `docs/ASSIST_BENCH.md` yet: no model is downloaded on the
+  development machine, and fetching one waits for the owner.
+
