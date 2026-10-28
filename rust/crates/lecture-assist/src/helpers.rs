@@ -5,8 +5,8 @@ use crate::notes::{Notes, Transcript};
 use crate::{AskKind, ClassContext};
 
 /// Explaining is the point; doing the student's work, or answering the teacher for them, is not.
-const SYSTEM: &str = "You help a student follow a lecture. Answer in the language of the \
-    lecture; if unsure, Ukrainian. Be brief and use plain text. Explain and summarise only: \
+const SYSTEM: &str = "You help a student follow a lecture. Answer in Ukrainian whatever the \
+    lecture's language. Be brief and use plain text. Explain and summarise only: \
     never write answers to questions the teacher asks the class, and never do tasks or homework \
     for the student.";
 

@@ -117,7 +117,7 @@ pub fn notes_messages(
     let system = "You take lecture notes for a student. Reply with one JSON object and nothing \
         else: {\"topic\": string, \"key_points\": [string], \"definitions\": [string], \
         \"deadlines\": [string], \"terms\": [{\"term\": string, \"explanation\": string}], \
-        \"summary\": string}. Write in the language of the lecture; if unsure, Ukrainian. \
+        \"summary\": string}. Write in Ukrainian whatever the lecture's language; keep terms and names as said.\
         key_points: at most 8 short bullets. definitions: \"term — definition\" as said in \
         class. deadlines: homework, tasks and dates mentioned. terms: at most 8 new terms or \
         names, each with a one-line explanation. summary: the whole lecture so far in at most \
