@@ -13,10 +13,11 @@ with partials), the median, p95 and maximum partial and final latency, and the p
 memory. It never prints the recognised text.
 
 Without a model path it uses the default model in the data folder's `models/` (honours
-`AUTOPARA_DATA_DIR`). For a GPU build, run xtask directly with `--features cuda` (or `metal`):
+`AUTOPARA_DATA_DIR`). xtask runs the `bench_stt` example of `lecture-assist` in release mode;
+for a GPU build, run the example directly with `--features cuda` (or `metal`):
 
 ```
-cargo run -p xtask --release --features cuda -- bench-stt lecture.wav
+cargo run --release -p lecture-assist --features cuda --example bench_stt -- lecture.wav model.bin
 ```
 
 A real-time factor under 1.0 with partials means the engine keeps up; the partial latency is how

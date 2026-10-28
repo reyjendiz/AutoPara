@@ -348,7 +348,9 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
 
 - **Decision:** `bench-stt` replays a wav through the energy detector, the engine's segmenter
   and whisper as fast as possible (partials every second of audio, a final per utterance) and
-  reports timings only.
+  reports timings only. It is the `bench_stt` example of `lecture-assist`, which xtask runs:
+  linking whisper into xtask made `cargo run` add its native search paths to PATH, and
+  `npm.cmd` in `cargo xtask check` then failed to find `tsc` on Windows.
 - **Status:** results are not in `docs/ASSIST_BENCH.md` yet: no model is downloaded on the
   development machine, and fetching one waits for the owner.
 
