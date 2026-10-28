@@ -155,7 +155,12 @@ jobs:
         run: |
           prerelease=()
           case "$VERSION" in *-*) prerelease=(--prerelease) ;; esac
+          # The first line is what a 1.x copy shows in its update strip: it cannot download 2.x
+          # itself (docs/UPGRADING.md), so the line says where to get it. Plain text, under 140
+          # characters.
           notes=$(cat <<EOF
+          AutoPara 1.x не оновиться сама: завантажте нову версію з github.com/reyjendiz/AutoPara/releases/latest
+
           **Windows:** завантажте **AutoPara-$VERSION-Setup.exe** нижче та запустіть його.
           Нічого більше встановлювати не треба.
 
@@ -165,7 +170,7 @@ jobs:
 
           **macOS (Intel):** те саме, але файл **AutoPara-Intel-$VERSION.dmg**.
 
-          Встановлені копії оновлюються самі: AutoPara повідомить про нову версію.
+          Копії 2.0 і новіші оновлюються самі: AutoPara повідомить про нову версію.
 
           Зібрано з $GITHUB_SHA.
           EOF
