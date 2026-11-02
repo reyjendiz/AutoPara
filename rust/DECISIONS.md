@@ -374,8 +374,9 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
 ## The Python tree stays in place
 
 - **Decision (plan 8.3):** `autopara/`, `tests/`, `installer/` and the build scripts stay where they
-  are; nothing moves to `legacy/python/` yet. The `python-final` tag (on `8e73aff`, 1.10.0) is left
-  to the owner, since a tag is meant to be pushed.
+  are; nothing moves to `legacy/python/` yet. The last Python state is tagged `python-final`
+  (`8e73aff`, 1.10.0). The Android app and its build stay exactly as they are, at the owner's
+  request.
 - **Alternatives:** move the tree to `legacy/python/` now.
 - **Why:** the plan keeps the Python tests until the parity report is accepted, and
   `installer.yml`, the Android build (which reads `autopara/__init__.py`) and the docs' references
