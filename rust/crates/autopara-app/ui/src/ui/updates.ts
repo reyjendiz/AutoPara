@@ -72,6 +72,6 @@ export class UpdateBanner {
         if (status.manual) await inform(t("update_failed_title"), t("update_failed_text"));
         return;
     }
-    if (this.element.hidden) void morph(() => (this.element.hidden = false));
+    if (this.element.hidden) void morph(() => void (this.element.hidden = false));
   }
 }
