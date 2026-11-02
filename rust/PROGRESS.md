@@ -90,7 +90,7 @@ Ticked only when the step's quality gate is green.
 - [x] 8.5 Parity report (`rust/PARITY_REPORT.md`; the ⚠️ rows wait for the owner's approval)
 
 ## Phase 9 — Final QA
-- [ ] 9.1 Clean checkout gate
-- [ ] 9.2 Manual smoke
-- [ ] 9.3 Security pass
-- [ ] 9.4 Final summary
+- [ ] 9.1 Clean checkout gate (a fresh clone passes `cargo xtask check` after pinning the bindings to LF; CI on the three runners waits for the pushed branch)
+- [ ] 9.2 Manual smoke (debug build on the development PC: first start, single instance, import, week and month, class menu, settings, assist consent, close to tray; found and fixed a blank first window. Installer, autostart, update, uninstall, Lecture Assist with a model and macOS wait for a clean VM and a Mac)
+- [ ] 9.3 Security pass (cargo deny, cargo audit, CSP, capabilities, URL checks, audio and key handling done, three leaks fixed; gitleaks not run here, history searched by hand instead; see docs/HANDOFF.md)
+- [x] 9.4 Final summary (docs/HANDOFF.md)
