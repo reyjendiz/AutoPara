@@ -367,6 +367,7 @@
   "assist_hotkey_conflict": "Це поєднання вже зайняте іншою програмою",
   "assist_hotkey_invalid": "Не вдалося розпізнати поєднання клавіш",
   "assist_offer": "Пропонувати слухати цю дисципліну",
+  "assist_auto_listen": "Слухати автоматично, коли AutoPara відкриває пару",
   "assist_retention": "Зберігати текст",
   "assist_retention_suffix": "днів",
   "assist_delete_all": "Видалити всі дані помічника",

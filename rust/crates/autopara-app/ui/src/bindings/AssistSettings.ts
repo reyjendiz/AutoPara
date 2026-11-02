@@ -17,7 +17,11 @@ glossary: string,
 /**
  * A preset id, `custom`, or empty for transcript only.
  */
-provider: string, base_url: string, chat_model: string, fallback: boolean, retention_days: number, has_key: boolean, 
+provider: string, base_url: string, chat_model: string, fallback: boolean, retention_days: number, 
+/**
+ * Start listening whenever AutoPara opens a class (off unless the user turns it on).
+ */
+auto_listen: boolean, has_key: boolean, 
 /**
  * Changed only through `set_assist_hotkey`, which checks for a conflict first.
  */

@@ -67,6 +67,7 @@ export async function openAssistSettings(app: App): Promise<void> {
       forget.hidden = true;
     });
     const fallback = h("input", { type: "checkbox", checked: s.fallback });
+    const autoListen = h("input", { type: "checkbox", checked: s.auto_listen });
     const retention = h("input", { class: "input", type: "number", min: "1", max: "3650", value: String(s.retention_days), "aria-label": t("assist_retention") });
     const hotkey = h("input", { class: "input", type: "text", value: s.hotkey, "aria-label": t("assist_hotkey") });
     const hotkeyNote = h("span", { class: "hint", role: "status" });
@@ -111,6 +112,7 @@ export async function openAssistSettings(app: App): Promise<void> {
       base_url: baseUrl.value.trim(),
       chat_model: chatModel.value.trim(),
       fallback: fallback.checked,
+      auto_listen: autoListen.checked,
       retention_days: Math.min(3650, Math.max(1, Math.round(Number(retention.value)) || 30)),
     });
     const persist = async () => {
@@ -167,6 +169,7 @@ export async function openAssistSettings(app: App): Promise<void> {
       h("div", { class: "form" },
         h("label", {}, t("assist_hotkey")), hotkey,
         h("label", {}, t("assist_retention")), h("div", { class: "suffix-input" }, retention, h("span", {}, t("assist_retention_suffix")))),
+      h("label", { class: "check" }, autoListen, t("assist_auto_listen")),
       h("div", { class: "row" }, hotkeyNote),
       h("div", { class: "row" },
         h("button", { class: "btn plain", type: "button", onclick: () => void wipe() }, t("assist_delete_all")),

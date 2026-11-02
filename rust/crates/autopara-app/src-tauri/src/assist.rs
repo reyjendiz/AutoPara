@@ -92,6 +92,8 @@ pub struct AssistSettings {
     pub chat_model: String,
     pub fallback: bool,
     pub retention_days: u32,
+    /// Start listening whenever AutoPara opens a class (off unless the user turns it on).
+    pub auto_listen: bool,
     pub has_key: bool,
     /// Changed only through `set_assist_hotkey`, which checks for a conflict first.
     pub hotkey: String,
@@ -125,6 +127,7 @@ pub fn load_settings(state: &AppState) -> AssistSettings {
         chat_model: get("assist_chat_model"),
         fallback: get("assist_fallback") != "0",
         retention_days: get("assist_retention_days").parse().unwrap_or(30),
+        auto_listen: get("assist_auto_listen") == "1",
         hotkey: crate::hotkey::saved(state),
     }
 }
@@ -159,6 +162,10 @@ pub fn save_assist_settings(
         (
             "assist_fallback",
             if input.fallback { "1" } else { "0" }.into(),
+        ),
+        (
+            "assist_auto_listen",
+            if input.auto_listen { "1" } else { "0" }.into(),
         ),
         (
             "assist_retention_days",
@@ -554,6 +561,18 @@ pub fn assist_keep_listening(app: AppHandle) {
     });
 }
 
+/// A class AutoPara has just opened: listen to it as well, when the user turned that on. Without
+/// consent nothing starts; a missing model is only logged, the class itself is already open.
+pub fn listen_on_open(app: &AppHandle, lesson_id: i64) {
+    let settings = load_settings(&app.state::<AppState>());
+    if !settings.auto_listen || !settings.consent {
+        return;
+    }
+    if let Err(code) = start(app, Some(lesson_id)) {
+        tracing::warn!(%code, "could not start listening to the opened class");
+    }
+}
+
 /// The tray item and the shortcut: stop if listening, otherwise start on the class happening now.
 pub fn toggle(app: &AppHandle) {
     if app.state::<Assist>().is_running() {
@@ -666,6 +685,7 @@ mod tests {
             chat_model: String::new(),
             fallback: true,
             retention_days: 30,
+            auto_listen: false,
             has_key: false,
             hotkey: String::new(),
         };

@@ -597,23 +597,31 @@ pub fn delete_lesson(state: State<'_, AppState>, lesson_id: i64) -> CommandResul
 /// claimed, so peeking at next week's class does not consume it.
 #[tauri::command]
 pub fn open_lesson(
+    app: tauri::AppHandle,
     state: State<'_, AppState>,
     lesson_id: i64,
     date: NaiveDate,
 ) -> CommandResult<bool> {
     let now = state.clock.now();
     let mut opener = state.opener.clone();
-    let (storage, mut scheduler) = state.both();
-    scheduler
-        .open_now(
-            &storage,
-            lesson_id,
-            date,
-            date <= now.date(),
-            now,
-            &mut opener,
-        )
-        .map_err(failed)
+    let opened = {
+        let (storage, mut scheduler) = state.both();
+        scheduler
+            .open_now(
+                &storage,
+                lesson_id,
+                date,
+                date <= now.date(),
+                now,
+                &mut opener,
+            )
+            .map_err(failed)?
+    };
+    // Joining today's class by hand counts as AutoPara opening it.
+    if opened && date == now.date() {
+        crate::assist::listen_on_open(&app, lesson_id);
+    }
+    Ok(opened)
 }
 
 #[tauri::command]

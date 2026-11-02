@@ -68,6 +68,9 @@ fn deliver(app: &AppHandle, message: EngineMessage) {
     };
     tracing::info!(?event, "scheduler");
     let _ = app.emit(SCHEDULER_EVENT, &event);
+    if let SchedulerEvent::Opened { lesson_id, .. } = &event {
+        assist::listen_on_open(app, *lesson_id);
+    }
 
     let state = app.state::<AppState>();
     let (lesson, notifications) = {
