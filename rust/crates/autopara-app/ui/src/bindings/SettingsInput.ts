@@ -6,4 +6,4 @@ import type { UpdateMode } from "./UpdateMode";
 /**
  * What the settings screen saves.
  */
-export type SettingsInput = { lead_minutes: number, class_duration_minutes: number, catchup_mode: CatchupMode, notifications_enabled: boolean, notify_minutes: number, theme: Theme, update_mode: UpdateMode, autostart_enabled: boolean, };
+export type SettingsInput = { lead_minutes: number, class_duration_minutes: number, catchup_mode: CatchupMode, notifications_enabled: boolean, notify_minutes: number, theme: Theme, update_mode: UpdateMode, autostart_enabled: boolean, auto_join: boolean, join_name: string, };

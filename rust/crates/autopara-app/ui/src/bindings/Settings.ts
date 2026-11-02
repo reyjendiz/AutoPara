@@ -7,4 +7,12 @@ import type { ViewMode } from "./ViewMode";
 /**
  * The typed view of the `settings` table, with the Python app's defaults (PORT_SPEC §D).
  */
-export type Settings = { selected_course_id: number | null, selected_group_id: number | null, lead_minutes: number, class_duration_minutes: number, autostart_enabled: boolean, catchup_mode: CatchupMode, notifications_enabled: boolean, notify_minutes: number, theme: Theme, view_mode: ViewMode, update_mode: UpdateMode, skipped_update_version: string, last_update_check: string | null, schedule_active_from: string | null, schedule_copy_path: string, last_import_path: string, };
+export type Settings = { selected_course_id: number | null, selected_group_id: number | null, lead_minutes: number, class_duration_minutes: number, autostart_enabled: boolean, catchup_mode: CatchupMode, notifications_enabled: boolean, notify_minutes: number, theme: Theme, view_mode: ViewMode, update_mode: UpdateMode, skipped_update_version: string, last_update_check: string | null, schedule_active_from: string | null, schedule_copy_path: string, last_import_path: string, 
+/**
+ * Join a class opened in AutoPara's tab by itself, with the camera and microphone off.
+ */
+auto_join: boolean, 
+/**
+ * The name a class page asks for when nobody is signed in.
+ */
+join_name: string, };

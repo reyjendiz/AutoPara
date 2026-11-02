@@ -409,8 +409,15 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
   adds one style rule to the page: a click-through `html::after` fixed to the viewport whose
   box-shadow paints the tab's border and background colours over the four corners. Rounding the
   site's `body` instead failed on pages that scroll the whole document (Zoom). The interface sends
-  its colours with every placement, so a theme change recolours the corners. Nothing else is
-  injected into the site.
+  its colours with every placement, so a theme change recolours the corners.
+- **Joining by itself (opt-in, owner's request):** with "Входити в пару одразу" on, `join.js` runs
+  after each class page loads. It turns Meet's or Zoom's camera and microphone off, types the
+  saved guest name if the page asks for one, and presses "Join"/"Ask to join". It presses Join only
+  once both devices are confirmed off or unavailable, clicks a toggle at most twice and gives up
+  after 60 s, leaving the page to the user. Its hooks (Meet's `jsname`/`data-is-muted`, Zoom's
+  `#preview-*` ids and icon class names) were read from the live join screens in November 2026
+  and break silently when the sites change them. The name reaches the script as a JSON string.
+  Lecture Assist's rule (never act in the meeting) is unchanged; this is the opener's job.
 - **Security:** the page is a remote origin with no capability. The `default` capability names the
   interface's webview (`webviews: ["main"]`), not the window, and Tauri refuses every command from
   a remote origin that no capability names, so the page cannot reach the app. Logs name only the

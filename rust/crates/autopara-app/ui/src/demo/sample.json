@@ -887,8 +887,10 @@
     "9": []
   },
   "settings": {
+    "auto_join": false,
     "autostart_enabled": true,
     "catchup_mode": "notify",
+    "join_name": "",
     "class_duration_minutes": 80,
     "last_import_path": "",
     "last_update_check": null,

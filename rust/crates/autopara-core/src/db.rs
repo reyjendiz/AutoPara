@@ -264,6 +264,9 @@ impl Storage {
             schedule_active_from: parse_datetime(&get("schedule_active_from")?),
             schedule_copy_path: get("schedule_copy_path")?,
             last_import_path: get("last_import_path")?,
+            // Off until the user turns it on (`flag` defaults to on).
+            auto_join: raw("auto_join").is_some_and(|value| value == "1"),
+            join_name: get("join_name")?,
         })
     }
 

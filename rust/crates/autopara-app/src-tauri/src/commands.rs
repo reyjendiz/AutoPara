@@ -113,6 +113,8 @@ pub struct SettingsInput {
     pub theme: Theme,
     pub update_mode: UpdateMode,
     pub autostart_enabled: bool,
+    pub auto_join: bool,
+    pub join_name: String,
 }
 
 #[tauri::command]
@@ -120,6 +122,8 @@ pub fn save_settings(state: State<'_, AppState>, input: SettingsInput) -> Comman
     if input.lead_minutes > 120
         || !(10..=240).contains(&input.class_duration_minutes)
         || !(1..=120).contains(&input.notify_minutes)
+        || input.join_name.chars().count() > 60
+        || input.join_name.chars().any(char::is_control)
     {
         return Err("out_of_range".into());
     }
@@ -141,6 +145,8 @@ pub fn save_settings(state: State<'_, AppState>, input: SettingsInput) -> Comman
         ("theme", input.theme.as_str().to_owned()),
         ("update_mode", input.update_mode.as_str().to_owned()),
         ("autostart_enabled", flag(autostart).to_owned()),
+        ("auto_join", flag(input.auto_join).to_owned()),
+        ("join_name", input.join_name.trim().to_owned()),
     ] {
         storage.set_setting(key, &value).map_err(failed)?;
     }

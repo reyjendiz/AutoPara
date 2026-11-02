@@ -284,6 +284,10 @@ pub struct Settings {
     pub schedule_active_from: Option<NaiveDateTime>,
     pub schedule_copy_path: String,
     pub last_import_path: String,
+    /// Join a class opened in AutoPara's tab by itself, with the camera and microphone off.
+    pub auto_join: bool,
+    /// The name a class page asks for when nobody is signed in.
+    pub join_name: String,
 }
 
 impl Default for Settings {
@@ -305,6 +309,8 @@ impl Default for Settings {
             schedule_active_from: None,
             schedule_copy_path: String::new(),
             last_import_path: String::new(),
+            auto_join: false,
+            join_name: String::new(),
         }
     }
 }

@@ -12,7 +12,7 @@ use tauri::{
 };
 use tauri_plugin_opener::OpenerExt;
 
-use crate::commands::{CommandResult, failed};
+use crate::commands::{AppState, CommandResult, failed};
 
 const LABEL: &str = "meeting";
 /// Tells the interface a class page opened (payload: its site), so it switches to the tab.
@@ -55,6 +55,13 @@ fn corners(border: &str, background: &str) -> String {
   else document.addEventListener("readystatechange", put, {{ once: true }});
 }})();"#
     )
+}
+
+/// "Входити в пару одразу": `join.js`, with the guest name as a JSON string, which is also a
+/// JavaScript string literal, so no name can break out of it.
+fn join_script(name: &str) -> String {
+    let literal = serde_json::to_string(name).unwrap_or_else(|_| "\"\"".to_owned());
+    include_str!("join.js").replace("__NAME__", &literal)
 }
 
 /// A colour as the interface's computed style gives it (`rgb(17, 17, 19)`): nothing that could
@@ -105,6 +112,12 @@ pub fn open(app: &AppHandle, page: Url) -> tauri::Result<()> {
                             let (border, background) =
                                 webview.state::<Meeting>().place().colours.clone();
                             let _ = webview.eval(corners(&border, &background));
+                            let settings = webview.state::<AppState>().storage().settings();
+                            if let Ok(settings) = settings
+                                && settings.auto_join
+                            {
+                                let _ = webview.eval(join_script(&settings.join_name));
+                            }
                         }
                     }),
                 LogicalPosition::new(x, y),
@@ -224,6 +237,13 @@ mod tests {
             page(link).map(String::from),
             Some("https://us04web.zoom.us/wc/join/78964062532?pwd=abc.1".to_owned())
         );
+    }
+
+    #[test]
+    fn the_guest_name_stays_a_string() {
+        let script = join_script("Іван\"; alert(1); \"");
+        assert!(script.contains(r#"const NAME = "Іван\"; alert(1); \"";"#));
+        assert!(!script.contains("__NAME__"));
     }
 
     #[test]
