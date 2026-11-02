@@ -108,7 +108,11 @@ fn emit(events: &UnboundedSender<AssistEvent>, event: AssistEvent) {
 }
 
 fn report(events: &UnboundedSender<AssistEvent>, error: &AssistError) {
-    tracing::warn!(%error, "assistant");
+    // A provider's error body can echo the request (class text, even a key); the log keeps the kind.
+    match error {
+        AssistError::Chat(_) => tracing::warn!(code = error.code(), "assistant"),
+        _ => tracing::warn!(%error, "assistant"),
+    }
     emit(
         events,
         AssistEvent::Error {
