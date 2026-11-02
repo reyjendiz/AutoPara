@@ -2,8 +2,8 @@
 # and release builds (and the instrumented-test APK, so a compile error there shows up here rather than
 # on the emulator). The debug APK is attached to the run as an artifact.
 #
-# Releases are not made here. The Android app shares the PC apps' version number and is published in
-# the same GitHub release by the `android` job of rust-release.yml.
+# Releases are not made here. The Android app shares the PC apps' version number and is attached to
+# the same GitHub release by the `build-android` job of installer.yml.
 #
 # The core module (parser, scheduling rules) needs no Android SDK, so it is also built on its own
 # first: a parser regression fails in seconds, before the slower app build starts.

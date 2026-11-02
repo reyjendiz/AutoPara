@@ -7,12 +7,12 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
-// One version number for every download: the Android app takes the desktop app's, the
-// [workspace.package] version in rust/Cargo.toml. Nothing here is edited by hand.
+// One version number for every download: the Android app takes the desktop app's, which
+// tools/bump_version.py already keeps in autopara/__init__.py. Nothing here is edited by hand.
 val appVersion: Triple<Int, Int, Int> = run {
-    val source = file("../../rust/Cargo.toml").readText()
-    val match = Regex("""(?m)^version\s*=\s*"(\d+)\.(\d+)\.(\d+)(-[^"]*)?"""").find(source)
-        ?: error("version not found in rust/Cargo.toml")
+    val source = file("../../autopara/__init__.py").readText()
+    val match = Regex("""__version__\s*=\s*"(\d+)\.(\d+)\.(\d+)"""").find(source)
+        ?: error("__version__ not found in autopara/__init__.py")
     Triple(match.groupValues[1].toInt(), match.groupValues[2].toInt(), match.groupValues[3].toInt())
 }
 
