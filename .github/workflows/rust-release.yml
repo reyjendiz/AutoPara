@@ -1,5 +1,5 @@
-# Builds the Rust app's installers on every push to main that touches rust/ and publishes them as a
-# GitHub release, together with the latest.json the in-app updater reads
+# Builds the Rust app's installers and the Android APK on every push to main that touches rust/ and
+# publishes them as a GitHub release, together with the latest.json the in-app updater reads
 # (https://github.com/<repo>/releases/latest/download/latest.json).
 #
 # The version lives in one place, [workspace.package] version in rust/Cargo.toml. A release is cut
@@ -123,8 +123,69 @@ jobs:
           path: rust/out/*
           if-no-files-found: error
 
+  # The Android app (android/), under the same version: build.gradle.kts reads rust/Cargo.toml.
+  # Signing: with the repository secrets ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
+  # ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD the APK carries that key and updates install over each
+  # other. Without them it carries the build machine's debug key: it installs, but a newer one needs
+  # the older uninstalled first.
+  android:
+    needs: plan
+    if: needs.plan.outputs.released == 'false'
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.plan.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Accept SDK licences
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+
+      - name: Decode the signing key (when the secrets exist)
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            {
+              echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/release.keystore"
+              echo "ANDROID_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+              echo "ANDROID_KEY_ALIAS=$KEY_ALIAS"
+              echo "ANDROID_KEY_PASSWORD=$KEY_PASSWORD"
+            } >> "$GITHUB_ENV"
+          fi
+
+      - name: Test the core and build the release APK
+        working-directory: android
+        run: ./gradlew :core:test :app:assembleRelease --console=plain
+
+      - name: Check the APK carries this version and is signed
+        run: |
+          mkdir -p out
+          apk="out/AutoPara-$VERSION.apk"
+          cp android/app/build/outputs/apk/release/*.apk "$apk"
+          tools=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -n1)
+          "$tools/apksigner" verify --verbose "$apk"
+          "$tools/aapt2" dump badging "$apk" | grep -E "^package:" | tee badging.txt
+          grep -q "versionName='${VERSION%%-*}'" badging.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-android
+          path: out/*
+          if-no-files-found: error
+
   publish:
-    needs: [plan, build]
+    needs: [plan, build, android]
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ github.token }}
@@ -169,6 +230,10 @@ jobs:
           контекстне меню → «Відкрити».
 
           **macOS (Intel):** те саме, але файл **AutoPara-Intel-$VERSION.dmg**.
+
+          **Android:** завантажте **AutoPara-$VERSION.apk** і відкрийте його на телефоні чи планшеті
+          (Android 8.0 і новіше). Android один раз попросить дозволити встановлення з браузера або
+          файлового менеджера.
 
           Копії 2.0 і новіші оновлюються самі: AutoPara повідомить про нову версію.
 
