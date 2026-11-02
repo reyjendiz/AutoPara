@@ -194,6 +194,14 @@ fn open(
     let failed = events.clone();
     let lost = lost.clone();
     let on_error = move |error: cpal::Error| {
+        // The stream keeps running after both: WASAPI flags an xrun on loopback whenever playback
+        // pauses or resumes, and reopening for it dropped audio every two seconds.
+        if matches!(
+            error.kind(),
+            cpal::ErrorKind::Xrun | cpal::ErrorKind::DeviceChanged
+        ) {
+            return;
+        }
         lost.store(true, Ordering::Relaxed);
         let _ = failed.send(Event::Failed(error.to_string()));
     };
