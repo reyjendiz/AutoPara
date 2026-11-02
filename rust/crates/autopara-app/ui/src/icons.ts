@@ -57,6 +57,9 @@ const GLYPHS = {
   warning: stroke(1.9, poly([12, 4], [21, 20], [3, 20], [12, 4]) + line(12, 10, 12, 14.5) + line(12, 17.4, 12, 17.4)),
   search: stroke(1.9, circle(10.6, 10.6, 5.6) + line(14.8, 14.8, 19.4, 19.4)),
   close: stroke(1.9, line(7, 7, 17, 17) + line(17, 7, 7, 17)),
+  minimize: stroke(1.7, line(6, 12, 18, 12)),
+  maximize: stroke(1.7, poly([6.5, 6.5], [17.5, 6.5], [17.5, 17.5], [6.5, 17.5], [6.5, 6.5])),
+  restore: stroke(1.7, poly([6, 9], [15, 9], [15, 18], [6, 18], [6, 9]) + poly([9, 9], [9, 6], [18, 6], [18, 15], [15, 15])),
 } as const;
 
 export type GlyphName = keyof typeof GLYPHS;

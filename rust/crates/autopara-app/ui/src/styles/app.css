@@ -106,6 +106,11 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); width
 
 /* ------------------------------------------------------------- navigation bar */
 
+/* Windows: the system title bar is off, and these stand at the end of the navigation row. */
+.window-controls { position: fixed; top: 22px; right: 24px; z-index: 50; display: flex; gap: 6px; }
+.window-controls .close:hover { background: #e5484d; border-color: #e5484d; color: #fff; }
+.own-titlebar .nav { padding-right: 126px; }
+
 .nav { display: flex; align-items: center; gap: 8px; }
 .nav-title { margin: 0; font-size: 21pt; font-weight: 700; white-space: nowrap; }
 .nav-sub { font-size: 21pt; font-weight: 400; color: var(--text-faint); }

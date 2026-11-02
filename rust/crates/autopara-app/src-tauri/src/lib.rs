@@ -205,6 +205,9 @@ pub fn run() {
             }
             if let Some(window) = app.get_webview_window("main") {
                 window.set_title(t("app_title"))?;
+                // The interface draws its own title bar buttons in the navigation row (ui/window.ts).
+                #[cfg(windows)]
+                window.set_decorations(false)?;
                 if !hidden {
                     window.show()?;
                 }

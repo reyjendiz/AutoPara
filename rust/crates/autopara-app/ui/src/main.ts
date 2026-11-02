@@ -5,6 +5,7 @@ import { demoBackend, tauriBackend } from "./backend";
 import { t } from "./i18n";
 import { occursOn } from "./lib/lessons";
 import { installTooltips } from "./ui/popups";
+import { windowControls } from "./ui/window";
 
 async function start(): Promise<void> {
   document.title = t("app_title");
@@ -19,6 +20,8 @@ async function start(): Promise<void> {
   installTooltips();
   const backend = demo ? await demoBackend(params) : tauriBackend();
   const app = new App(backend, document.querySelector("#app") as HTMLElement);
+  // Windows only: the Rust side turns the system title bar off there (macOS keeps its own).
+  if (!demo && navigator.userAgent.includes("Windows")) document.body.append(windowControls());
   await app.start();
   // The reference pictures of the two dialogs: the editor on today's first class, and settings.
   const dialog = params.get("dialog");

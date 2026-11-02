@@ -75,7 +75,7 @@ export class App {
     this.catchup = new CatchupBanner(this);
     this.updates = new UpdateBanner(this);
     this.landing = new Landing(this);
-    this.content = h("main", { class: "content" }, this.nav.element, this.filters.element, this.updates.element, this.catchup.element, this.surface);
+    this.content = h("main", { class: "content", "data-tauri-drag-region": "" }, this.nav.element, this.filters.element, this.updates.element, this.catchup.element, this.surface);
     replace(root, h("div", { class: "app" }, this.rail.element, this.content));
     this.surface.style.setProperty("display", "contents");
   }

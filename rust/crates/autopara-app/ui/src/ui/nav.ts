@@ -45,8 +45,10 @@ export class NavBar {
       h("button", { class: "btn", "data-tip": t("nav_today_tip"), onclick: () => app.goToday() }, t("nav_today")),
       this.previous,
       this.next,
-      h("div", { class: "grow" }),
+      // The empty end of the row is where the window is dragged by (no system title bar on Windows).
+      h("div", { class: "grow", "data-tauri-drag-region": "" }),
     );
+    this.element.setAttribute("data-tauri-drag-region", "");
     new ResizeObserver(() => this.placeThumb(false)).observe(this.element);
   }
 

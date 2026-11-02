@@ -53,7 +53,8 @@ export class Landing {
     this.well = new DropWell(() => void app.openImport());
     this.element = h(
       "section",
-      { class: "landing" },
+      // It fills the window, so its empty background is where the window is dragged by.
+      { class: "landing", "data-tauri-drag-region": "" },
       h("img", { class: "hero", src: "/logo.png", alt: "" }),
       this.title,
       this.text,
