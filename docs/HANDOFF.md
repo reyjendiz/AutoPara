@@ -39,6 +39,15 @@ lists the invariants. Read those first — this file does not repeat them.
 7. **Hardware:** a clean Windows VM for the release checklist (install, autostart, upgrade over
    1.10.0, uninstall); a Mac of each kind; a real lecture recording for Lecture Assist accuracy.
 
+## Next three improvements
+
+1. **A 1.10.1 bridge release** with the repository name fixed, so every 1.x copy installs 2.0 from
+   its own update strip instead of relying on users reading the release notes.
+2. **Signed builds:** an Authenticode certificate for the Windows installer (SmartScreen warns on
+   unsigned downloads) and a Developer ID with notarisation for macOS (the context-menu first start).
+3. **Lecture Assist on real lectures:** a recorded lecture as a fixture for accuracy and latency,
+   and a CUDA build path (its p95 latency tail is unexplained), before promoting it beyond opt-in.
+
 ## Run and verify
 
 ```bash
@@ -84,9 +93,30 @@ From `rust/PROGRESS.md` and `rust/PARITY_REPORT.md`:
   never run at all.
 - The installer has not been run on a clean VM, nor over a real 1.x install (the data import has
   been checked on a copy of real data: docs/UPGRADING.md).
+- The first CI run will be the first time the gate runs on macOS and on a GitHub Windows runner; a
+  fresh local clone passes since the bindings are pinned to LF (`autocrlf` checkouts made every
+  generated file look changed).
 - Lecture Assist: Windows loopback capture works on synthetic audio; not yet on a real meeting.
   macOS capture is written but uncompiled. GPU (CUDA) builds are not in CI.
 - macOS images are unsigned and not notarised.
+
+## Smoke run on the development PC (plan 9.2, 2026-11-02)
+
+Debug build, `AUTOPARA_DATA_DIR` on a scratch folder, the invented sample timetable:
+
+- **Found and fixed:** the first window could stay blank. The windows came from `tauri.conf.json`
+  and loaded before `setup` had registered the app state, so the page's first `get_settings`
+  failed ("state not managed"). The windows are now `"create": false` and built at the end of
+  `setup`. Whether it showed depended on timing; the debug build lost the race every time.
+- Works: import landing; a second launch surfaces the first window; the import dialog (native
+  picker titled "Обрати розклад", preview of course and groups); the week fills with the now line
+  and the "Далі" pill, and the morning's classes are not marked missed; hover hint on an empty
+  slot; class menu; month view; settings (version 2.0.0); the assistant's consent before anything
+  is captured; closing hides to the tray. The real autostart entry was untouched throughout.
+- Seen in passing: the first launch from a background shell opened minimized (not seen from a
+  normal start); a click right after closing a class menu with Esc was swallowed once.
+- Not run here: the installer, autostart, a real update, uninstall, Lecture Assist with a model,
+  anything on macOS. Those are the release checklist's VM and Mac steps.
 
 ## Security pass (plan 9.3, 2026-11-02)
 
