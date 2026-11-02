@@ -30,8 +30,10 @@ impl SCStreamOutputTrait for Sink {
             // One channel of 32-bit floats, as configured below.
             let samples: Vec<f32> = buffer
                 .data()
-                .chunks_exact(4)
-                .map(|b| f32::from_ne_bytes([b[0], b[1], b[2], b[3]]))
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .map(|bytes| f32::from_ne_bytes(*bytes))
                 .collect();
             if !samples.is_empty() {
                 let _ = self.0.try_send(samples);
