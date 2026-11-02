@@ -1,6 +1,6 @@
 // Tooltips, context menus and message boxes — drawn by the page, rounded, in the theme's colours
 // (Python `ui/popups.py`). Each returns when the user has answered; nothing here acts by itself.
-import { h } from "../dom";
+import { h, morph } from "../dom";
 import { t } from "../i18n";
 
 // ---------------------------------------------------------------------- tooltips
@@ -104,20 +104,35 @@ export function showMenu(items: MenuItem[], x: number, y: number): Promise<strin
  * Esc. The dialog is removed when it closes. */
 export function modal<T>(build: (finish: (value: T | null) => void) => HTMLElement, label: string): Promise<T | null> {
   hideTip();
+  // The dialog grows out of the button that opened it and shrinks back into it.
+  const origin = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
+  // A class card keeps its own name for the schedule's morphs; it gets it back afterwards.
+  const own = origin?.style.getPropertyValue("view-transition-name") ?? "";
+  const name = (element: HTMLElement | null, value: string) => element?.style.setProperty("view-transition-name", value);
   return new Promise((resolve) => {
     const dialog = h("dialog", { "aria-label": label });
     let result: T | null = null;
     const finish = (value: T | null) => {
       result = value;
-      dialog.close();
+      const back = origin?.isConnected ? origin : null;
+      name(dialog, "dialog");
+      void morph(() => {
+        dialog.close();
+        name(back, "dialog");
+      }).then(() => name(back, own));
     };
     dialog.append(build(finish));
     dialog.addEventListener("close", () => {
       dialog.remove();
       resolve(result);
     });
-    document.body.append(dialog);
-    dialog.showModal();
+    name(origin, "dialog");
+    void morph(() => {
+      name(origin, own);
+      name(dialog, "dialog");
+      document.body.append(dialog);
+      dialog.showModal();
+    }).then(() => name(dialog, ""));
   });
 }
 

@@ -155,6 +155,9 @@ A neutral card: "Доступна нова версія AutoPara {v}" with Що 
 Moving between periods and views is a morph through the View Transitions API: a class keeps a
 `view-transition-name` (its place within one view, its date across views), so it grows from its old
 box into the new one, and everything else cross-fades. The segmented control's pill glides.
+The same morph (`dom.ts` `morph`) runs wherever the screen changes on a user's action: a dialog
+grows out of the button that opened it and shrinks back into it, the two top tabs, the theme, the
+missed-class and update banners, the assistant's model lists, and the overlay folding to a pill.
 `prefers-reduced-motion` turns all motion off. Motion never delays what the window does.
 
 ## Theme and styling

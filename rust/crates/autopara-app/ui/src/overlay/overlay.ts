@@ -10,7 +10,7 @@ import type { AssistEvent } from "../bindings/AssistEvent";
 import type { AssistState } from "../bindings/AssistState";
 import type { Notes } from "../bindings/Notes";
 import type { Term } from "../bindings/Term";
-import { type Child, h, replace, style } from "../dom";
+import { type Child, h, morph, replace, style } from "../dom";
 import { type MessageKey, t } from "../i18n";
 import { icon } from "../icons";
 import * as ipc from "../ipc";
@@ -77,7 +77,7 @@ async function setCollapsed(collapsed: boolean): Promise<void> {
   look.collapsed = collapsed;
   applyLook();
   await win.setSize(collapsed ? PILL : new LogicalSize(look.width, look.height));
-  render();
+  await morph(render);
 }
 
 async function setClickThrough(on: boolean): Promise<void> {

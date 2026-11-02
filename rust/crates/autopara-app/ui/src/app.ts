@@ -7,7 +7,7 @@ import type { Lesson } from "./bindings/Lesson";
 import type { OccurrenceStatus } from "./bindings/OccurrenceStatus";
 import type { Settings } from "./bindings/Settings";
 import type { ViewMode } from "./bindings/ViewMode";
-import { h, replace } from "./dom";
+import { h, morph, replace } from "./dom";
 import { t } from "./i18n";
 import {
   type IsoDate, addDays, addMinutes, firstOfMonth, monthGrid, shiftMonth, toIso, toMinutes, weekStart,
@@ -269,16 +269,9 @@ export class App {
   // -------------------------------------------------------------- navigation
 
   /** Change what is on screen, morphing from the old picture to the new (PORT_SPEC §F.4). */
-  async navigate(change: () => void, morph: "place" | "date" = "place"): Promise<void> {
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const start = (document as Document & { startViewTransition?: (cb: () => Promise<void>) => unknown }).startViewTransition;
-    this.morph = morph;
-    if (!start || reduce || document.documentElement.classList.contains("still")) {
-      change();
-      await this.reload();
-      return;
-    }
-    start.call(document, async () => {
+  async navigate(change: () => void, kind: "place" | "date" = "place"): Promise<void> {
+    this.morph = kind;
+    await morph(async () => {
       change();
       await this.reload();
     });
@@ -316,8 +309,10 @@ export class App {
     const dark = document.documentElement.dataset.theme === "dark";
     this.settings.theme = dark ? "light" : "dark";
     await this.backend.setTheme(this.settings.theme);
-    this.applyTheme();
-    await this.reload();
+    await morph(async () => {
+      this.applyTheme();
+      await this.reload();
+    });
   }
 
   setFilter(filter: LessonFilter, groupId: number | null): void {

@@ -3,7 +3,7 @@
 // and are shown one at a time.
 import type { App } from "../app";
 import type { Lesson } from "../bindings/Lesson";
-import { h } from "../dom";
+import { h, morph } from "../dom";
 import { t } from "../i18n";
 import { icon } from "../icons";
 import type { IsoDate } from "../lib/calendar";
@@ -49,6 +49,11 @@ export class CatchupBanner {
 
   private render(): void {
     const current = this.queue[0];
+    if (this.element.hidden === !current) this.draw(current);
+    else void morph(() => this.draw(current));
+  }
+
+  private draw(current: { lesson: Lesson; date: IsoDate } | undefined): void {
     this.element.hidden = !current;
     if (!current) return;
     const { lesson } = current;

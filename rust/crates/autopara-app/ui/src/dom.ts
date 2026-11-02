@@ -30,6 +30,20 @@ export function style(element: HTMLElement, properties: Record<string, string>):
   return element;
 }
 
+type ViewTransition = { finished: Promise<void> };
+type StartViewTransition = (change: () => void | Promise<void>) => ViewTransition;
+
+/** Make a change on screen as a morph (View Transitions): elements with a `view-transition-name`
+ * grow from their old box to the new one, the rest cross-fades. Resolves when the morph is over.
+ * Without the API, with reduced motion asked for, or in a still picture, the change just happens. */
+export async function morph(change: () => void | Promise<void>): Promise<void> {
+  const start = (document as Document & { startViewTransition?: StartViewTransition }).startViewTransition;
+  const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  if (!start || reduce || document.documentElement.classList.contains("still")) return change();
+  // A morph cut short by the next one still made its change; that is all a caller waits for.
+  await start.call(document, change).finished.catch(() => undefined);
+}
+
 /** An element's content replaced by `children`. */
 export function replace(element: Element, ...children: Child[]): void {
   element.replaceChildren(...children.filter((child): child is Node | string => Boolean(child)));

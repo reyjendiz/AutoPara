@@ -2,7 +2,7 @@
 // itself is a separate webview the Rust side lays over `view` (src-tauri/src/meeting.rs); this side
 // only says where it goes and when it may show.
 import type { App } from "../app";
-import { h } from "../dom";
+import { h, morph } from "../dom";
 import { t } from "../i18n";
 
 function siteName(site: string): string {
@@ -75,11 +75,13 @@ export class MeetingTab {
   }
 
   choose(active: boolean): void {
-    this.active = active;
-    this.scheduleTab.setAttribute("aria-selected", String(!active));
-    this.meetingTab.setAttribute("aria-selected", String(active));
-    this.panel.parentElement?.classList.toggle("meeting-on", active);
-    this.render();
+    void morph(() => {
+      this.active = active;
+      this.scheduleTab.setAttribute("aria-selected", String(!active));
+      this.meetingTab.setAttribute("aria-selected", String(active));
+      this.panel.parentElement?.classList.toggle("meeting-on", active);
+      this.render();
+    });
   }
 
   private closed(): void {

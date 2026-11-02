@@ -2,7 +2,7 @@
 // new version is news, not trouble, so the card is neutral. Installing is always a click here.
 import type { App } from "../app";
 import type { UpdateStatus } from "../bindings/UpdateStatus";
-import { h, style } from "../dom";
+import { h, morph, style } from "../dom";
 import { t } from "../i18n";
 import { icon } from "../icons";
 import { inform } from "./popups";
@@ -72,6 +72,6 @@ export class UpdateBanner {
         if (status.manual) await inform(t("update_failed_title"), t("update_failed_text"));
         return;
     }
-    this.element.hidden = false;
+    if (this.element.hidden) void morph(() => (this.element.hidden = false));
   }
 }
