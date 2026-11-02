@@ -18,7 +18,8 @@
         "height": 800,
         "minWidth": 900,
         "minHeight": 600,
-        "visible": false
+        "visible": false,
+        "create": false
       },
       {
         "label": "overlay",
@@ -34,7 +35,8 @@
         "alwaysOnTop": true,
         "skipTaskbar": true,
         "resizable": true,
-        "visible": false
+        "visible": false,
+        "create": false
       }
     ],
     "macOSPrivateApi": true,
