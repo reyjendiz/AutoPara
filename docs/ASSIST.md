@@ -37,8 +37,11 @@ audio source ─▶ 16 kHz mono ─▶ voice detector ─▶ segmenter ─▶ wh
   spelling. A partial line every second, a final line per utterance.
 - **Notes** (`notes.rs`, `llm/`): every 75 seconds the last 5 minutes of transcript go to the
   chat model, which returns topic, key points, definitions, deadlines and flagged items as JSON.
-  Any OpenAI-compatible server works; requests are limited to 6 a minute. With fallback on, a
-  failing cloud provider hands over to a local Ollama.
+  The default chat model is built in (`llm/local.rs`): llama.cpp's `llama-server`, downloaded
+  with the first chosen GGUF model and run on 127.0.0.1 with a random key, on the GPU through
+  Vulkan or on the CPU. Any OpenAI-compatible server also works; requests are limited to 6 a
+  minute. With fallback on, any other provider hands over to the built-in model when it is
+  downloaded, and the built-in model hands over to a local Ollama.
 - **Helpers** (`helpers.rs`): "recap the last 2 minutes", "explain simpler", "the topic in brief",
   a free question about the class, and a summary when listening stops.
 - **Engine** (`engine.rs`): one worker thread; a panic inside becomes an error state, not a crash.
@@ -50,7 +53,8 @@ keep listening (without an answer it stops after 2 minutes).
 
 ## Privacy model
 
-- Recognition is local. Nothing leaves the computer unless the user picks a cloud chat model.
+- Recognition is local, and so is the default chat model. Nothing leaves the computer unless the
+  user picks a cloud chat model.
 - With a cloud model (DeepSeek, Qwen, or a custom server), short transcript windows and the
   user's questions go to that provider. Local presets (Ollama, LM Studio, llama.cpp) keep
   everything on the machine.
@@ -69,9 +73,13 @@ keep listening (without an answer it stops after 2 minutes).
 2. Download a speech model. The default is `small` (488 MB) on CPU builds; `large-v3-turbo-q5_0`
    on CUDA builds and `medium-q5_0` on Metal builds. Files are checked against their SHA-256 and
    kept in `models/` in the data folder. The small Silero model makes speech detection better.
-3. Optionally pick a chat model for notes. Cloud presets need an API key; the field is
-   write-only (leave it empty to keep the saved key). "Перевірити з’єднання" sends one short
-   request.
+3. For notes, answers and questions, download a built-in model ("Вбудована мовна модель"):
+   Gemma 4 12B (7 GB, recommended for a graphics card with 8 GB or more), MamayLM 12B (7.3 GB,
+   trained on Ukrainian text) or Gemma 4 E4B (5.2 GB, for weaker computers, also without a
+   graphics card). The first download also fetches the llama.cpp runtime (38 MB). Windows only
+   for now; on a Mac pick another provider. Or pick another provider: cloud presets need an API
+   key; the field is write-only (leave it empty to keep the saved key). "Перевірити з’єднання"
+   sends one short request. "Без нотаток" keeps only the transcript.
 4. Start listening: the "Слухати пару" button in the top bar, "Слухати цю пару" in a class's
    menu, the tray, or the shortcut. With "Слухати автоматично, коли AutoPara відкриває пару" on
    (off by default), it starts by itself whenever a class is opened on time or joined by hand

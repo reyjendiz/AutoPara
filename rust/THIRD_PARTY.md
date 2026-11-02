@@ -87,6 +87,9 @@ Their transitive packages are MIT, Apache-2.0, BSD-2/3-Clause, ISC and BlueOak-1
 |---|---|
 | whisper ggml models (`ggerganov/whisper.cpp` on Hugging Face) | MIT |
 | Silero VAD v5, ggml conversion | MIT |
+| llama.cpp `llama-server`, release b12052, Windows Vulkan build (the built-in chat model's runtime) | MIT |
+| Gemma 4 12B and E4B, Google's QAT q4_0 GGUF | Apache-2.0 |
+| MamayLM Gemma 3 12B v2.0, INSAIT's Q4_K_M GGUF | Gemma Terms of Use |
 
 ## Assets
 

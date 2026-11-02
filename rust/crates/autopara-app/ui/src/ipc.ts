@@ -110,6 +110,8 @@ export const assistHotkeyActive = (): Promise<boolean> => invoke<boolean>("assis
 export const assistTestConnection = (): Promise<void> => invoke("assist_test_connection");
 export const assistDevices = (): Promise<AudioDevice[]> => invoke<AudioDevice[]>("assist_devices");
 export const assistModels = (): Promise<ModelStatus[]> => invoke<ModelStatus[]>("assist_models");
+/** The built-in language models; downloaded and deleted through the same two commands. */
+export const assistChatModels = (): Promise<ModelStatus[]> => invoke<ModelStatus[]>("assist_chat_models");
 export const assistDownloadModel = (id: string): Promise<void> => invoke("assist_download_model", { id });
 export const assistDeleteModel = (id: string): Promise<void> => invoke("assist_delete_model", { id });
 export const assistDeleteAll = (): Promise<void> => invoke("assist_delete_all");

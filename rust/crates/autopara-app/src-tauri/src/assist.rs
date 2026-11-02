@@ -14,6 +14,7 @@ use chrono::{NaiveDateTime, Timelike};
 use lecture_assist::audio::AudioSource;
 use lecture_assist::audio::capture::{self, Capture, Device};
 use lecture_assist::llm::chain::ProviderChain;
+use lecture_assist::llm::local::{self, LocalModel};
 use lecture_assist::llm::openai::OpenAiCompatible;
 use lecture_assist::llm::presets::preset;
 use lecture_assist::llm::{ChatProvider, Message, complete};
@@ -21,8 +22,8 @@ use lecture_assist::models::{self, Model, ModelStore};
 use lecture_assist::stt::{Recognizer, Whisper};
 use lecture_assist::vad::{EnergyVad, SileroVad, Vad};
 use lecture_assist::{
-    AskKind, AssistConfig, AssistEngine, AssistEvent, ClassContext, FlagKind, Handle, Language,
-    Parts, State,
+    AskKind, AssistConfig, AssistEngine, AssistError, AssistEvent, ClassContext, FlagKind, Handle,
+    Language, Parts, State,
 };
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
@@ -86,10 +87,12 @@ pub struct AssistSettings {
     pub language: Language,
     /// Comma-separated terms for the recogniser's prompt.
     pub glossary: String,
-    /// A preset id, `custom`, or empty for transcript only.
+    /// `builtin` (the default), a preset id, `custom`, or `none` for transcript only.
     pub provider: String,
     pub base_url: String,
     pub chat_model: String,
+    /// The built-in model's id, used when `provider` is `builtin`.
+    pub local_model: String,
     pub fallback: bool,
     pub retention_days: u32,
     /// Start listening whenever AutoPara opens a class (off unless the user turns it on).
@@ -100,6 +103,9 @@ pub struct AssistSettings {
     /// Changed only through `set_assist_hotkey`, which checks for a conflict first.
     pub hotkey: String,
 }
+
+/// The provider id of the built-in model.
+const BUILTIN: &str = "builtin";
 
 fn setting(state: &AppState, key: &str) -> String {
     state
@@ -112,7 +118,9 @@ fn setting(state: &AppState, key: &str) -> String {
 
 pub fn load_settings(state: &AppState) -> AssistSettings {
     let get = |key| setting(state, key);
-    let provider = get("assist_provider");
+    let provider = Some(get("assist_provider"))
+        .filter(|p| !p.is_empty())
+        .unwrap_or_else(|| BUILTIN.to_string());
     let model = Some(get("assist_model"))
         .filter(|m| models::model(m).is_some())
         .unwrap_or_else(|| models::default_speech_model().to_string());
@@ -123,10 +131,13 @@ pub fn load_settings(state: &AppState) -> AssistSettings {
         language: serde_json::from_value(serde_json::Value::String(get("assist_language")))
             .unwrap_or_default(),
         glossary: get("assist_glossary"),
-        has_key: !provider.is_empty() && secrets::has_api_key(&provider),
+        has_key: secrets::has_api_key(&provider),
         provider,
         base_url: get("assist_base_url"),
         chat_model: get("assist_chat_model"),
+        local_model: Some(get("assist_local_model"))
+            .filter(|m| local::chat_model(m).is_some())
+            .unwrap_or_else(|| local::DEFAULT_CHAT_MODEL.to_string()),
         fallback: get("assist_fallback") != "0",
         retention_days: get("assist_retention_days").parse().unwrap_or(30),
         auto_listen: get("assist_auto_listen") == "1",
@@ -162,6 +173,7 @@ pub fn save_assist_settings(
         ("assist_provider", input.provider.clone()),
         ("assist_base_url", input.base_url.clone()),
         ("assist_chat_model", input.chat_model.clone()),
+        ("assist_local_model", input.local_model.clone()),
         (
             "assist_fallback",
             if input.fallback { "1" } else { "0" }.into(),
@@ -255,26 +267,73 @@ pub fn assist_models(state: tauri::State<'_, AppState>) -> Vec<ModelStatus> {
         .collect()
 }
 
+/// The built-in chat models; "installed" also needs the server that runs them.
+#[tauri::command]
+pub fn assist_chat_models(state: tauri::State<'_, AppState>) -> Vec<ModelStatus> {
+    let store = store(&state);
+    let runtime = local::runtime_installed(&store);
+    let offered = if local::RUNTIME.is_some() {
+        local::CHAT_MODELS
+    } else {
+        &[]
+    };
+    offered
+        .iter()
+        .map(|m| ModelStatus {
+            model: *m,
+            installed: runtime && store.installed(m),
+        })
+        .collect()
+}
+
+/// A speech model, or a chat model together with the server on its first download; progress
+/// counts both as one.
 #[tauri::command]
 pub async fn assist_download_model(app: AppHandle, id: String) -> CommandResult<()> {
-    let model = models::model(&id).ok_or("not_found")?;
     let store = store(&app.state::<AppState>());
     let progress = |done: u64, total: u64| {
         let _ = app.emit(DOWNLOAD_EVENT, (&id, done, total));
     };
-    store
-        .download(model, progress)
-        .await
-        .map(|_| ())
-        .map_err(|e| e.code().to_string())
+    let failed = |e: AssistError| e.code().to_string();
+    if let Some(model) = models::model(&id) {
+        return store
+            .download(model, progress)
+            .await
+            .map(|_| ())
+            .map_err(failed);
+    }
+    let model = local::chat_model(&id).ok_or("not_found")?;
+    let runtime = local::RUNTIME.ok_or("not_found")?;
+    let total = runtime.size + model.size;
+    if !local::runtime_installed(&store) {
+        local::install_runtime(&store, |done, _| progress(done, total))
+            .await
+            .map_err(failed)?;
+    }
+    if !store.installed(model) {
+        store
+            .download(model, |done, _| progress(runtime.size + done, total))
+            .await
+            .map_err(failed)?;
+    }
+    Ok(())
 }
 
 #[tauri::command]
 pub fn assist_delete_model(state: tauri::State<'_, AppState>, id: String) -> CommandResult<()> {
-    let model = models::model(&id).ok_or("not_found")?;
-    store(&state)
-        .delete(model)
-        .map_err(|e| e.code().to_string())
+    let store = store(&state);
+    let failed = |e: AssistError| e.code().to_string();
+    if let Some(model) = models::model(&id) {
+        return store.delete(model).map_err(failed);
+    }
+    let model = local::chat_model(&id).ok_or("not_found")?;
+    // Windows keeps a file the server has open from being deleted.
+    local::shutdown();
+    store.delete(model).map_err(failed)?;
+    if !local::CHAT_MODELS.iter().any(|m| store.installed(m)) {
+        local::delete_runtime(&store).map_err(failed)?;
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -378,7 +437,7 @@ pub fn start(app: &AppHandle, lesson_id: Option<i64>) -> CommandResult<()> {
                 _ => Box::new(EnergyVad::default()),
             })
         }),
-        chat: chat(&settings),
+        chat: chat(&settings, &store),
     };
     let config = AssistConfig {
         language,
@@ -419,7 +478,8 @@ pub async fn assist_test_connection(app: AppHandle) -> CommandResult<()> {
         fallback: false,
         ..load_settings(&app.state::<AppState>())
     };
-    let provider = chat(&settings).ok_or("assist_error_chat")?;
+    let store = store(&app.state::<AppState>());
+    let provider = chat(&settings, &store).ok_or("assist_error_chat")?;
     let messages = vec![Message::user("Reply with the single word: ok")];
     complete(provider.as_ref(), messages)
         .await
@@ -427,33 +487,49 @@ pub async fn assist_test_connection(app: AppHandle) -> CommandResult<()> {
         .map_err(|e| e.code().to_string())
 }
 
-/// The user's provider, then a local one when asked to fall back.
-fn chat(settings: &AssistSettings) -> Option<Arc<dyn ChatProvider>> {
-    if settings.provider.is_empty() {
-        return None;
-    }
-    let chosen = preset(&settings.provider);
-    let base_url = Some(settings.base_url.clone())
-        .filter(|u| !u.is_empty())
-        .or_else(|| chosen.map(|p| p.base_url.to_string()))?;
-    let model = Some(settings.chat_model.clone())
-        .filter(|m| !m.is_empty())
-        .or_else(|| chosen.map(|p| p.model.to_string()))?;
+/// The user's provider, then, when asked to fall back, the built-in model (or Ollama when the
+/// built-in model is the user's choice).
+fn chat(settings: &AssistSettings, store: &ModelStore) -> Option<Arc<dyn ChatProvider>> {
     let timeout = Duration::from_secs(30);
-    let key = secrets::api_key(&settings.provider);
-    let mut providers: Vec<Arc<dyn ChatProvider>> = vec![Arc::new(
-        OpenAiCompatible::new(base_url, model, key, 0.3, timeout).ok()?,
-    )];
-    let local = chosen.is_some_and(|p| p.local);
-    if settings.fallback
-        && !local
-        && let Some(ollama) = preset("ollama")
-    {
-        let fallback =
-            OpenAiCompatible::new(ollama.base_url, ollama.model, None, 0.3, timeout).ok()?;
-        providers.push(Arc::new(fallback));
+    let mut providers: Vec<Arc<dyn ChatProvider>> = Vec::new();
+    match settings.provider.as_str() {
+        "none" => return None,
+        // Nothing downloaded yet means no notes, not requests to a missing Ollama.
+        BUILTIN => providers.push(builtin_model(settings, store)?),
+        id => {
+            let chosen = preset(id);
+            let base_url = Some(settings.base_url.clone())
+                .filter(|u| !u.is_empty())
+                .or_else(|| chosen.map(|p| p.base_url.to_string()))?;
+            let model = Some(settings.chat_model.clone())
+                .filter(|m| !m.is_empty())
+                .or_else(|| chosen.map(|p| p.model.to_string()))?;
+            let key = secrets::api_key(id);
+            let client = OpenAiCompatible::new(base_url, model, key, 0.3, timeout).ok()?;
+            providers.push(Arc::new(client));
+        }
+    }
+    if settings.fallback {
+        let fallback = if settings.provider == BUILTIN {
+            preset("ollama")
+                .and_then(|p| OpenAiCompatible::new(p.base_url, p.model, None, 0.3, timeout).ok())
+                .map(|client| Arc::new(client) as Arc<dyn ChatProvider>)
+        } else {
+            builtin_model(settings, store)
+        };
+        providers.extend(fallback);
     }
     Some(Arc::new(ProviderChain(providers)))
+}
+
+/// The chosen built-in model, when it and its server are downloaded.
+fn builtin_model(settings: &AssistSettings, store: &ModelStore) -> Option<Arc<dyn ChatProvider>> {
+    let model = local::chat_model(&settings.local_model)?;
+    let server = local::server_path(store).filter(|p| p.is_file())?;
+    let local = LocalModel::new(server, store.path(model));
+    store
+        .installed(model)
+        .then(|| Arc::new(local) as Arc<dyn ChatProvider>)
 }
 
 /// Pass events on to the windows and keep the text: segments, notes and the summary.
@@ -626,8 +702,6 @@ pub fn assist_ask(app: AppHandle, kind: AskKind, text: String) {
 
 #[cfg(test)]
 mod tests {
-    use lecture_assist::AssistError;
-
     use super::*;
 
     #[test]
@@ -688,9 +762,10 @@ mod tests {
             model: "small".into(),
             language: Language::Auto,
             glossary: String::new(),
-            provider: String::new(),
+            provider: "none".into(),
             base_url: String::new(),
             chat_model: String::new(),
+            local_model: local::DEFAULT_CHAT_MODEL.into(),
             fallback: true,
             retention_days: 30,
             auto_listen: false,
@@ -698,11 +773,17 @@ mod tests {
             has_key: false,
             hotkey: String::new(),
         };
-        assert!(chat(&settings).is_none());
+        let store = ModelStore::new("no-such-folder");
+        assert!(chat(&settings, &store).is_none());
+        let builtin = AssistSettings {
+            provider: BUILTIN.into(),
+            ..settings.clone()
+        };
+        assert!(chat(&builtin, &store).is_none(), "nothing downloaded");
         let ollama = AssistSettings {
             provider: "ollama".into(),
             ..settings
         };
-        assert!(chat(&ollama).is_some());
+        assert!(chat(&ollama, &store).is_some());
     }
 }

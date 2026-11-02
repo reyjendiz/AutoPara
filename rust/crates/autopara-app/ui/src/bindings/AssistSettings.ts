@@ -15,9 +15,13 @@ device: string, model: string, language: Language,
  */
 glossary: string, 
 /**
- * A preset id, `custom`, or empty for transcript only.
+ * `builtin` (the default), a preset id, `custom`, or `none` for transcript only.
  */
-provider: string, base_url: string, chat_model: string, fallback: boolean, retention_days: number, 
+provider: string, base_url: string, chat_model: string, 
+/**
+ * The built-in model's id, used when `provider` is `builtin`.
+ */
+local_model: string, fallback: boolean, retention_days: number, 
 /**
  * Start listening whenever AutoPara opens a class (off unless the user turns it on).
  */

@@ -268,6 +268,7 @@ pub fn run() {
             assist::assist_hotkey_active,
             hotkey::set_assist_hotkey,
             assist::assist_models,
+            assist::assist_chat_models,
             assist::assist_download_model,
             assist::assist_delete_model,
             assist::assist_delete_all,
@@ -285,6 +286,7 @@ pub fn run() {
         .run(|app, event| {
             if let RunEvent::ExitRequested { .. } = event {
                 tracing::info!("quitting");
+                lecture_assist::llm::local::shutdown();
                 if let Some(engine) = app
                     .state::<AppState>()
                     .engine

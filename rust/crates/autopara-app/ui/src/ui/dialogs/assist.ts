@@ -3,12 +3,13 @@ import type { App } from "../../app";
 import type { AssistSettings } from "../../bindings/AssistSettings";
 import type { Language } from "../../bindings/Language";
 import type { ModelStatus } from "../../bindings/ModelStatus";
-import { h, replace } from "../../dom";
+import { h, morph, replace } from "../../dom";
 import { type MessageKey, t } from "../../i18n";
 import { ask, confirmYesNo, inform, modal } from "../popups";
 
 const PROVIDERS: [string, MessageKey][] = [
-  ["", "assist_llm_none"],
+  ["builtin", "assist_llm_builtin"],
+  ["none", "assist_llm_none"],
   ["deepseek", "assist_llm_deepseek"],
   ["qwen", "assist_llm_qwen"],
   ["ollama", "assist_llm_ollama"],
@@ -23,7 +24,13 @@ const LANGUAGES: [Language, MessageKey][] = [
   ["en", "assist_language_en"],
 ];
 
-const megabytes = (bytes: number) => t("assist_size_mb", { mb: String(Math.round(bytes / 1_000_000)) });
+const CHAT_MODEL_NAMES: Record<string, MessageKey> = {
+  "gemma4-12b": "assist_chat_gemma4_12b",
+  "mamaylm-12b": "assist_chat_mamaylm_12b",
+  "gemma4-e4b": "assist_chat_gemma4_e4b",
+};
+
+const megabytes =(bytes: number) => t("assist_size_mb", { mb: String(Math.round(bytes / 1_000_000)) });
 /** Errors come back as string keys; anything else is shown as the generic one. */
 const message = (error: unknown) => t((typeof error === "string" && error.startsWith("assist_") ? error : "assist_error_io") as MessageKey);
 
@@ -76,14 +83,20 @@ export async function openAssistSettings(app: App): Promise<void> {
     const testNote = h("span", { class: "hint", role: "status" });
 
     let model = s.model;
+    let localModel = s.local_model;
     const models = h("div", { class: "models" });
+    const chatModels = h("div", { class: "models" });
     const drawModels = async () => {
-      const list = await assist.assistModels();
-      replace(models, ...list.filter((m) => !m.model.vad).map(modelRow), ...list.filter((m) => m.model.vad && !m.installed).map(modelRow));
+      const [list, chat] = await Promise.all([assist.assistModels(), assist.assistChatModels()]);
+      await morph(() => {
+        replace(models, ...list.filter((m) => !m.model.vad).map(modelRow), ...list.filter((m) => m.model.vad && !m.installed).map(modelRow));
+        replace(chatModels, ...chat.map(modelRow));
+      });
     };
     const modelRow = ({ model: m, installed }: ModelStatus) => {
-      const radio = h("input", { type: "radio", name: "model", value: m.id, checked: m.id === model, disabled: !installed || m.vad });
-      radio.addEventListener("change", () => (model = m.id));
+      const name = CHAT_MODEL_NAMES[m.id];
+      const radio = h("input", { type: "radio", name: name ? "local_model" : "model", value: m.id, checked: m.id === (name ? localModel : model), disabled: !installed || m.vad });
+      radio.addEventListener("change", () => (name ? (localModel = m.id) : (model = m.id)));
       const progress = h("span", { class: "hint" });
       const action = installed
         ? h("button", { class: "btn plain", type: "button" }, t("assist_model_delete"))
@@ -99,9 +112,21 @@ export async function openAssistSettings(app: App): Promise<void> {
         await drawModels();
       });
       progressOf.set(m.id, progress);
-      return h("label", { class: "check" }, radio, `${m.id} · ${megabytes(m.size)}`, h("span", { class: "grow" }), progress, action);
+      return h("label", { class: "check" }, radio, name ? t(name) : `${m.id} · ${megabytes(m.size)}`, h("span", { class: "grow" }), progress, action);
     };
     void drawModels();
+
+    const builtinPart = h("div", {}, h("div", { class: "section" }, t("assist_chat_models")), h("p", { class: "hint" }, t("assist_chat_models_hint")), chatModels);
+    const serverPart = h("div", { class: "form" },
+      h("label", {}, t("assist_llm_url")), baseUrl,
+      h("label", {}, t("assist_llm_model")), chatModel,
+      h("label", {}, t("assist_api_key")), key);
+    const showProvider = () => {
+      builtinPart.hidden = provider.value !== "builtin";
+      serverPart.hidden = provider.value === "builtin" || provider.value === "none";
+    };
+    provider.addEventListener("change", showProvider);
+    showProvider();
 
     const input = (): AssistSettings => ({
       ...s,
@@ -112,6 +137,7 @@ export async function openAssistSettings(app: App): Promise<void> {
       provider: provider.value,
       base_url: baseUrl.value.trim(),
       chat_model: chatModel.value.trim(),
+      local_model: localModel,
       fallback: fallback.checked,
       auto_listen: autoListen.checked,
       answer_questions: answerQuestions.checked,
@@ -159,11 +185,9 @@ export async function openAssistSettings(app: App): Promise<void> {
       h("div", { class: "section" }, t("assist_model")),
       models,
       h("div", { class: "section" }, t("assist_llm")),
-      h("div", { class: "form" },
-        h("label", {}, t("assist_llm")), provider,
-        h("label", {}, t("assist_llm_url")), baseUrl,
-        h("label", {}, t("assist_llm_model")), chatModel,
-        h("label", {}, t("assist_api_key")), key),
+      h("div", { class: "form" }, h("label", {}, t("assist_llm")), provider),
+      builtinPart,
+      serverPart,
       h("div", { class: "row" }, keyState, forget, h("span", { class: "grow" }), testNote,
         h("button", { class: "btn", type: "button", onclick: () => void test() }, t("assist_test_connection"))),
       h("label", { class: "check" }, fallback, t("assist_fallback")),

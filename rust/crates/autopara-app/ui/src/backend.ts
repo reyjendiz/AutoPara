@@ -29,6 +29,7 @@ export type AssistBackend = Pick<
   | "assistTestConnection"
   | "assistDevices"
   | "assistModels"
+  | "assistChatModels"
   | "assistDownloadModel"
   | "assistDeleteModel"
   | "assistDeleteAll"
@@ -272,11 +273,11 @@ export async function demoBackend(params: URLSearchParams): Promise<Backend> {
   };
 }
 
-/** Consent given, one model installed, no chat provider: enough to show the screens. */
+/** Consent given, one speech model installed, the built-in chat model not yet: enough to show the screens. */
 function demoAssist(): AssistBackend {
   let settings: AssistSettings = {
-    consent: true, device: "", model: "small", language: "auto", glossary: "", provider: "", base_url: "",
-    chat_model: "", fallback: true, retention_days: 30, auto_listen: false, answer_questions: false, has_key: false, hotkey: "Ctrl+Alt+L",
+    consent: true, device: "", model: "small", language: "auto", glossary: "", provider: "builtin", base_url: "",
+    chat_model: "", local_model: "gemma4-12b", fallback: true, retention_days: 30, auto_listen: false, answer_questions: false, has_key: false, hotkey: "Ctrl+Alt+L",
   };
   const model = (id: string, size: number, vad = false) => ({ id, file: `${id}.bin`, url: "", size, sha256: "", vad });
   const unlisten = async () => () => undefined;
@@ -292,6 +293,11 @@ function demoAssist(): AssistBackend {
       { model: model("small", 487_601_967), installed: true },
       { model: model("large-v3-turbo", 1_624_555_275), installed: false },
       { model: model("silero", 885_098, true), installed: true },
+    ],
+    assistChatModels: async () => [
+      { model: model("gemma4-12b", 6_975_879_296), installed: false },
+      { model: model("mamaylm-12b", 7_300_778_784), installed: false },
+      { model: model("gemma4-e4b", 5_154_941_280), installed: false },
     ],
     assistDownloadModel: async () => undefined,
     assistDeleteModel: async () => undefined,
