@@ -391,3 +391,14 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
   race `rust-release.yml` to create the same release.
 - **Why:** one workflow, one version, one all-or-nothing release. Leaving `installer.yml` running
   would rebuild Python 1.10.0 on every push to `main` and never give a 2.x release its APK.
+
+## Xcode 26 on the Mac runners
+
+- **Decision:** the macOS jobs of `rust-ci.yml` and `rust-release.yml` select the newest installed
+  Xcode 26 before building, and the release's Apple Silicon job runs on `macos-15` instead of
+  `macos-14`.
+- **Why:** `screencapturekit` 11 requires `apple-metal` 0.10, whose Swift bridge names Metal tensor
+  types that exist only in the macOS 26 SDK; with the runners' default Xcode 16 the build script
+  fails ("cannot find 'MTLTensorDataType' in scope"). Every 0.10.x release has the same code. The
+  types sit behind `@available(macOS 26, *)`, so the app still runs on older macOS; only the SDK
+  used to build must be new. `macos-14` has no Xcode 26.

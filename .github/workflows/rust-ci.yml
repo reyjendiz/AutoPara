@@ -41,6 +41,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # screencapturekit's Metal bridge uses the macOS 26 SDK; the runners default to an older Xcode.
+      - name: Select Xcode 26
+        if: runner.os == 'macOS'
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -n1)" && xcodebuild -version
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
