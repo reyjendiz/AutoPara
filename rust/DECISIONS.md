@@ -404,7 +404,13 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
   minimise, maximise and close buttons and drags the window.
 - **How:** the class page is a second webview added to the main window (Tauri's `unstable`
   feature, `Window::add_child`), placed over the area the interface reports and hidden while the
-  schedule tab or a dialog is showing. One class at a time; opening another replaces it.
+  schedule tab or a dialog is showing. One class at a time; opening another replaces it. A webview
+  is always a rectangle (and `unsafe` window regions are not allowed), so an initialization script
+  adds one style rule to the page: a click-through `html::after` fixed to the viewport whose
+  box-shadow paints the tab's border and background colours over the four corners. Rounding the
+  site's `body` instead failed on pages that scroll the whole document (Zoom). The interface sends
+  its colours with every placement, so a theme change recolours the corners. Nothing else is
+  injected into the site.
 - **Security:** the page is a remote origin with no capability. The `default` capability names the
   interface's webview (`webviews: ["main"]`), not the window, and Tauri refuses every command from
   a remote origin that no capability names, so the page cannot reach the app. Logs name only the

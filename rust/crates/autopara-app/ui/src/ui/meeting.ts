@@ -57,6 +57,7 @@ export class MeetingTab {
     new ResizeObserver(() => this.place()).observe(this.view);
     // The page covers whatever is drawn under it, so it steps aside while a dialog is open.
     new MutationObserver(() => this.place()).observe(document.body, { childList: true });
+    new MutationObserver(() => this.place()).observe(document.documentElement, { attributeFilter: ["data-theme"] });
     this.render();
   }
 
@@ -84,6 +85,9 @@ export class MeetingTab {
   private place(): void {
     const box = this.view.getBoundingClientRect();
     const visible = this.active && this.site !== null && !document.querySelector("body > dialog");
-    void this.app.backend.meeting.place(box.x, box.y, box.width, box.height, visible);
+    // Inside the panel's 1px border; the page's corners are painted in these colours (meeting.rs).
+    const border = getComputedStyle(this.view).borderTopColor;
+    const background = getComputedStyle(document.body).backgroundColor;
+    void this.app.backend.meeting.place(box.x + 1, box.y + 1, box.width - 2, box.height - 2, visible, border, background);
   }
 }

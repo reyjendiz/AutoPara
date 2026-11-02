@@ -8,7 +8,7 @@ use std::sync::{Mutex, PoisonError};
 
 use tauri::{
     AppHandle, Emitter, EventTarget, LogicalPosition, LogicalSize, Manager, State, Url,
-    WebviewBuilder, WebviewUrl,
+    WebviewBuilder, WebviewUrl, webview::PageLoadEvent,
 };
 use tauri_plugin_opener::OpenerExt;
 
@@ -20,7 +20,6 @@ const OPENED_EVENT: &str = "meeting-opened";
 const GOOGLE_SIGN_IN: &str =
     "https://accounts.google.com/ServiceLogin?continue=https%3A%2F%2Fmeet.google.com%2F";
 const ZOOM_SIGN_IN: &str = "https://zoom.us/signin";
-
 /// What the interface last said about the tab, and the page it shows.
 #[derive(Default)]
 pub struct Meeting(Mutex<Place>);
@@ -28,8 +27,43 @@ pub struct Meeting(Mutex<Place>);
 #[derive(Default)]
 struct Place {
     bounds: (f64, f64, f64, f64),
-    visible: bool,
+    /// The interface's border and background colours, which the page's corners are painted in.
+    colours: (String, String),
     page: Option<Url>,
+}
+
+/// A webview is always a rectangle (and `unsafe` window regions are not allowed), so the page gets
+/// one style rule: a click-through ring fixed to its viewport that paints the tab's rounded border
+/// and the background beyond it over the page's corners. It holds however the site scrolls.
+fn corners(border: &str, background: &str) -> String {
+    let rule = format!(
+        "html::after{{content:'';position:fixed;inset:0;border-radius:13px;pointer-events:none;\
+         z-index:2147483647;box-shadow:0 0 0 1px {border},0 0 0 40px {background}}}"
+    );
+    format!(
+        r#"(() => {{
+  const put = () => {{
+    let style = document.getElementById("autopara-corners");
+    if (!style) {{
+      style = document.createElement("style");
+      style.id = "autopara-corners";
+      document.documentElement.append(style);
+    }}
+    style.textContent = "{rule}";
+  }};
+  if (document.documentElement) put();
+  else document.addEventListener("readystatechange", put, {{ once: true }});
+}})();"#
+    )
+}
+
+/// A colour as the interface's computed style gives it (`rgb(17, 17, 19)`): nothing that could
+/// end the string or the rule it goes into.
+fn is_colour(value: &str) -> bool {
+    value.len() < 40
+        && value
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || "(),.% #".contains(c))
 }
 
 /// The page AutoPara shows for a class link, or `None` when the link belongs in the browser:
@@ -53,13 +87,26 @@ pub fn page(link: &str) -> Option<Url> {
 pub fn open(app: &AppHandle, page: Url) -> tauri::Result<()> {
     let site = page.host_str().unwrap_or_default().to_owned();
     let state = app.state::<Meeting>();
-    let (x, y, width, height) = state.place().bounds;
+    let ((x, y, width, height), (border, background)) = {
+        let place = state.place();
+        (place.bounds, place.colours.clone())
+    };
     match app.get_webview(LABEL) {
         Some(webview) => webview.navigate(page.clone())?,
         None => {
             let window = app.get_window("main").ok_or(tauri::Error::WindowNotFound)?;
             window.add_child(
-                WebviewBuilder::new(LABEL, WebviewUrl::External(page.clone())),
+                WebviewBuilder::new(LABEL, WebviewUrl::External(page.clone()))
+                    .initialization_script(corners(&border, &background))
+                    // The script above has the colours of when the tab was made; a page that
+                    // loads after a theme change gets today's.
+                    .on_page_load(|webview, payload| {
+                        if payload.event() == PageLoadEvent::Finished {
+                            let (border, background) =
+                                webview.state::<Meeting>().place().colours.clone();
+                            let _ = webview.eval(corners(&border, &background));
+                        }
+                    }),
                 LogicalPosition::new(x, y),
                 LogicalSize::new(width.max(1.0), height.max(1.0)),
             )?;
@@ -76,9 +123,11 @@ impl Meeting {
     }
 }
 
-/// Where the tab's area is (logical pixels) and whether the page may show: only while its tab is
-/// chosen and no dialog is open, since the page would cover the interface's own dialogs.
+/// Where the tab's area is (logical pixels), whether the page may show (only while its tab is
+/// chosen and no dialog is open, since the page would cover the interface's own dialogs), and the
+/// interface's colours for the page's corners.
 #[tauri::command]
+#[allow(clippy::too_many_arguments)] // the command's arguments are its IPC message
 pub fn meeting_place(
     app: AppHandle,
     state: State<'_, Meeting>,
@@ -87,15 +136,29 @@ pub fn meeting_place(
     width: f64,
     height: f64,
     visible: bool,
+    border: String,
+    background: String,
 ) -> CommandResult<()> {
-    {
+    if !is_colour(&border) || !is_colour(&background) {
+        return Err("invalid_colour".into());
+    }
+    let recoloured = {
         let mut place = state.place();
         place.bounds = (x, y, width, height);
-        place.visible = visible;
-    }
+        let colours = (border, background);
+        let changed = place.colours != colours;
+        place.colours = colours;
+        changed
+    };
     let Some(webview) = app.get_webview(LABEL) else {
         return Ok(());
     };
+    if recoloured {
+        let (border, background) = state.place().colours.clone();
+        webview
+            .eval(corners(&border, &background))
+            .map_err(failed)?;
+    }
     webview
         .set_position(LogicalPosition::new(x, y))
         .and_then(|()| webview.set_size(LogicalSize::new(width.max(1.0), height.max(1.0))))
@@ -161,6 +224,14 @@ mod tests {
             page(link).map(String::from),
             Some("https://us04web.zoom.us/wc/join/78964062532?pwd=abc.1".to_owned())
         );
+    }
+
+    #[test]
+    fn only_plain_colours_reach_the_page() {
+        assert!(is_colour("rgb(17, 17, 19)"));
+        assert!(is_colour("#1c1c1f"));
+        assert!(!is_colour("red\";alert(1)//"));
+        assert!(!is_colour("red}body{display:none"));
     }
 
     #[test]

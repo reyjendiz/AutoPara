@@ -78,7 +78,7 @@ export interface Backend {
 
 /** The "Відкрита пара" tab: the class page itself is a separate webview the Rust side places. */
 export interface MeetingBackend {
-  place(x: number, y: number, width: number, height: number, visible: boolean): Promise<void>;
+  place(x: number, y: number, width: number, height: number, visible: boolean, border: string, background: string): Promise<void>;
   signIn(service: "google" | "zoom"): Promise<void>;
   inBrowser(): Promise<void>;
   close(): Promise<void>;
