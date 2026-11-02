@@ -491,3 +491,17 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
   is simpler (no overlay capability, no transparency, no click-through recovery).
 - **Unchanged (R13):** text on the user's screen only; the panel shows the pulsing recording dot
   and nothing hides it.
+
+## Lecture Assist: only the class in AutoPara's tab is heard
+
+- **Decision (owner, 2026-11-02: "it takes sound from the whole computer"):** the default audio
+  source, when the class is open in AutoPara's tab at the start of listening, is a WASAPI process
+  loopback of AutoPara's own process tree (`audio/app.rs`, the `wasapi` crate, MIT). The class
+  page plays from WebView2 processes that AutoPara started, so the class is heard and nothing
+  else the computer plays. The engine converts to 16 kHz mono itself. "Весь звук комп’ютера"
+  (`system`) and the device list stay for a class in a browser or the Zoom app.
+- **Alternative:** cpal, which has no process loopback.
+- **Limits:** chosen when listening starts; a class moved to the browser later is no longer heard
+  until listening restarts. Windows 10 2004 or later. Teacher-only listening is a separate step.
+- **Answers** to the teacher's questions are now asked for as short as possible (a few words or
+  one short sentence), and the panel sets them apart from the transcript.
