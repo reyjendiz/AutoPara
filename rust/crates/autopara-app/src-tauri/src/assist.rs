@@ -77,7 +77,8 @@ impl Assist {
 #[ts(export)]
 pub struct AssistSettings {
     pub consent: bool,
-    /// An id from the device list; empty for the default device.
+    /// An id from the device list, `system` for everything the computer plays, or empty for the
+    /// class in AutoPara's tab (everything when the class is not there).
     pub device: String,
     pub model: String,
     pub language: Language,
@@ -102,6 +103,8 @@ pub struct AssistSettings {
 
 /// The provider id of the built-in model.
 const BUILTIN: &str = "builtin";
+/// The audio source that is everything the computer plays.
+const SYSTEM_SOUND: &str = "system";
 
 fn setting(state: &AppState, key: &str) -> String {
     state
@@ -410,9 +413,18 @@ pub fn start(app: &AppHandle, lesson_id: Option<i64>) -> CommandResult<()> {
         .find(|m| m.vad && store.installed(m))
         .map(|m| store.path(m));
     let language = settings.language;
-    let device = Some(settings.device.clone()).filter(|d| !d.is_empty());
+    // The default hears only AutoPara when the class is in its tab, so nothing else the computer
+    // plays gets in; `system` is the whole output, as before.
+    #[cfg(windows)]
+    let class_only = settings.device.is_empty() && crate::meeting::is_open(app);
+    let device = Some(settings.device.clone()).filter(|d| !d.is_empty() && d != SYSTEM_SOUND);
     let parts = Parts {
         source: Box::new(move || {
+            #[cfg(windows)]
+            if class_only {
+                let own = lecture_assist::audio::app::AppAudio::open(std::process::id());
+                return Ok(Box::new(own) as Box<dyn AudioSource>);
+            }
             // On a Mac, the default is everything it plays; a chosen device (BlackHole) wins.
             #[cfg(target_os = "macos")]
             if device.is_none() {

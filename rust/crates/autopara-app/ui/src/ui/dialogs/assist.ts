@@ -57,7 +57,7 @@ export async function openAssistSettings(app: App): Promise<void> {
   await modal<boolean>((finish) => {
     const select = (options: [string, string][], value: string, label: MessageKey) =>
       h("select", { class: "select", "aria-label": t(label) }, ...options.map(([v, text]) => h("option", { value: v, selected: v === value }, text)));
-    const device = select([["", t("assist_audio_default")], ...devices.map((d): [string, string] => [d.id, d.name])], s.device, "assist_audio_source");
+    const device = select([["", t("assist_audio_default")], ["system", t("assist_audio_system")], ...devices.map((d): [string, string] => [d.id, d.name])], s.device, "assist_audio_source");
     const language = select(LANGUAGES.map(([v, key]) => [v, t(key)]), s.language, "assist_language");
     const glossary = h("input", { class: "input", type: "text", value: s.glossary, "aria-label": t("assist_glossary") });
     const provider = select(PROVIDERS.map(([v, key]) => [v, t(key)]), s.provider, "assist_llm");

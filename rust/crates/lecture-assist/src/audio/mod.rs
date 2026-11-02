@@ -2,6 +2,8 @@
 //!
 //! Samples stay in memory; nothing here writes audio anywhere.
 
+#[cfg(windows)]
+pub mod app;
 pub mod capture;
 pub mod fake;
 #[cfg(target_os = "macos")]

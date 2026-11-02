@@ -49,9 +49,9 @@ pub fn helper_messages(
         ),
         AskKind::Answer => format!(
             "{class}\nThe teacher just asked the class: {text}\nWrite the answer the student can \
-             say aloud: 1 to 3 short sentences in plain words, no preamble. Use what was said in \
-             class first, general knowledge where it says nothing.\n\nSummary so far: {summary}\n\
-             Recent:\n{}",
+             say aloud, as short as possible: a few words, or one short sentence when words are \
+             not enough. No preamble, no explanation. Use what was said in class first, general \
+             knowledge where it says nothing.\n\nSummary so far: {summary}\nRecent:\n{}",
             transcript.window(3)
         ),
         AskKind::Summary => format!(
@@ -115,7 +115,7 @@ mod tests {
         assert!(ask(AskKind::Free, "що таке ребро?").contains("що таке ребро?"));
         let answer = ask(AskKind::Answer, "Хто знає, що таке дерево?");
         assert!(answer.contains("asked the class: Хто знає, що таке дерево?"));
-        assert!(answer.contains("say aloud"));
+        assert!(answer.contains("say aloud, as short as possible"));
         let summary = ask(AskKind::Summary, "");
         assert!(summary.contains("Markdown") && summary.contains("do not answer"));
         for kind in [

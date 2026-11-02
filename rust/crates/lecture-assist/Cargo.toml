@@ -28,8 +28,9 @@ tracing.workspace = true
 ts-rs.workspace = true
 whisper-rs = { version = "0.16.0", optional = true }
 
-# Unpacks the built-in model's runtime; see llm/local.rs.
+# Unpacks the built-in model's runtime (llm/local.rs); hears only AutoPara's own sound (audio/app.rs).
 [target.'cfg(windows)'.dependencies]
+wasapi = "0.26.0"
 zip.workspace = true
 
 # Audio-only ScreenCaptureKit stream (macOS 13+); see audio/macos.rs.

@@ -30,6 +30,7 @@ check` (`deny.toml`); exceptions are explained in `DECISIONS.md`.
 | tracing / tracing-subscriber / tracing-appender | 0.1.44 / 0.3.23 / 0.2.5 | MIT | the log file |
 | windows-registry (Windows only) | 0.100.0 | MIT OR Apache-2.0 | the autostart entry |
 | cpal | 0.18.2 | Apache-2.0 | Lecture Assist: WASAPI loopback and input capture |
+| wasapi | 0.26.0 | MIT | Lecture Assist: hearing only AutoPara's own sound (process loopback) |
 | rubato | 5.0.1 | MIT | Lecture Assist: resampling to 16 kHz |
 | whisper-rs / whisper-rs-sys | 0.16.0 / 0.15.0 | Unlicense (bundled whisper.cpp and ggml: MIT) | Lecture Assist: speech recognition and Silero VAD |
 | reqwest (rustls, no default features) | 0.13.5 | MIT OR Apache-2.0 | Lecture Assist: chat providers |

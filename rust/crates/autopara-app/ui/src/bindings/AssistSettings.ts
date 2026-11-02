@@ -7,7 +7,8 @@ import type { Language } from "./Language";
  */
 export type AssistSettings = { consent: boolean, 
 /**
- * An id from the device list; empty for the default device.
+ * An id from the device list, `system` for everything the computer plays, or empty for the
+ * class in AutoPara's tab (everything when the class is not there).
  */
 device: string, model: string, language: Language, 
 /**

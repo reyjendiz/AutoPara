@@ -136,6 +136,11 @@ impl Meeting {
     }
 }
 
+/// Whether a class page is open in the tab.
+pub fn is_open(app: &AppHandle) -> bool {
+    app.state::<Meeting>().place().page.is_some()
+}
+
 /// Where the tab's area is (logical pixels), whether the page may show (only while its tab is
 /// chosen and no dialog is open, since the page would cover the interface's own dialogs), and the
 /// interface's colours for the page's corners.

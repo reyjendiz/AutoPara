@@ -27,8 +27,11 @@ audio source ─▶ 16 kHz mono ─▶ voice detector ─▶ segmenter ─▶ wh
                panel + database ◀── events ◀── engine.rs ◀── notes.rs / helpers.rs ◀── llm/
 ```
 
-- **Audio** (`audio/`): on Windows, WASAPI loopback of the default output device through `cpal`,
-  following the default device when it changes and reconnecting when it drops. On macOS 13+,
+- **Audio** (`audio/`): on Windows, by default and while the class is open in AutoPara's tab,
+  a process loopback of AutoPara itself (`app.rs`, `wasapi`): the class page plays from a WebView2
+  child process, so only the class is heard, not music or videos elsewhere on the computer.
+  Otherwise ("Весь звук комп’ютера", or a class not in the tab), WASAPI loopback of the default
+  output device through `cpal`, following the default device when it changes and reconnecting when it drops. On macOS 13+,
   ScreenCaptureKit audio (`macos.rs`, untested on hardware); a chosen input device such as
   BlackHole is used instead when picked, or when the permission is missing. Resampled with
   `rubato`.
@@ -85,9 +88,9 @@ keep listening (without an answer it stops after 2 minutes).
    (off by default), it starts by itself whenever a class is opened on time or joined by hand
    today (`assist::listen_on_open`); consent is still required and the indicators are the same.
 
-Where the meeting runs does not matter: the capture is the computer's sound output, so a Meet or
-Zoom tab in the browser is heard exactly like the Zoom app, as long as it plays through the
-captured device and the tab is not muted.
+A class in AutoPara's tab is heard on its own. A class elsewhere (a browser tab, the Zoom app) is
+heard through the computer's sound output, together with everything else that plays, as long as
+it plays through the captured device and the tab is not muted.
 
 ## Shortcut and panel
 
