@@ -9,7 +9,7 @@ set -euo pipefail
 out="${OUT_DIR:-$PWD/emulator-out}"
 mkdir -p "$out"
 
-version=$(sed -n 's/^__version__ = "\([^"]*\)".*/\1/p' autopara/__init__.py | head -n1)
+version=$(sed -n 's/^version = "\([^"]*\)".*/\1/p' rust/Cargo.toml | head -n1)
 apk="$out/AutoPara-$version.apk"
 echo "== Release APK, version $version"
 if curl -fsSL -o "$apk" "https://github.com/${GITHUB_REPOSITORY}/releases/download/v${version}/AutoPara-${version}.apk"; then
