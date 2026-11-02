@@ -73,7 +73,13 @@ keep listening (without an answer it stops after 2 minutes).
    write-only (leave it empty to keep the saved key). "Перевірити з’єднання" sends one short
    request.
 4. Start listening: the "Слухати пару" button in the top bar, "Слухати цю пару" in a class's
-   menu, the tray, or the shortcut.
+   menu, the tray, or the shortcut. With "Слухати автоматично, коли AutoPara відкриває пару" on
+   (off by default), it starts by itself whenever a class is opened on time or joined by hand
+   today (`assist::listen_on_open`); consent is still required and the indicators are the same.
+
+Where the meeting runs does not matter: the capture is the computer's sound output, so a Meet or
+Zoom tab in the browser is heard exactly like the Zoom app, as long as it plays through the
+captured device and the tab is not muted.
 
 ## Shortcut and overlay
 
