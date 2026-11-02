@@ -15,17 +15,24 @@ pub struct SystemBrowser {
 
 impl LinkOpener for SystemBrowser {
     fn open(&mut self, url: &str) -> bool {
+        let site = site(url);
         match self.app.opener().open_url(url, None::<&str>) {
             Ok(()) => {
-                tracing::info!(url, "opened");
+                tracing::info!(site, "opened");
                 true
             }
             Err(error) => {
-                tracing::warn!(url, %error, "the system refused to open the link");
+                tracing::warn!(site, %error, "the system refused to open the link");
                 false
             }
         }
     }
+}
+
+/// The host part of a link. Meeting links carry passcodes (`pwd=`), and the log's tail goes into
+/// the diagnostics text a user may paste anywhere, so the log names only the site.
+fn site(url: &str) -> &str {
+    url.split('/').nth(2).unwrap_or_default()
 }
 
 /// One repeat guard shared by every path that opens a link (the scheduler, a card click, the
@@ -48,5 +55,23 @@ impl LinkOpener for SharedOpener {
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .open(url)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_log_names_only_the_site() {
+        assert_eq!(
+            site("https://us02web.zoom.us/j/123?pwd=secret"),
+            "us02web.zoom.us"
+        );
+        assert_eq!(
+            site("https://meet.google.com/abc-defg-hij"),
+            "meet.google.com"
+        );
+        assert_eq!(site("nonsense"), "");
     }
 }
