@@ -122,7 +122,8 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); width
 .content.meeting-on > .meeting { display: flex; }
 .meeting-bar { display: flex; align-items: center; gap: 8px; }
 .meeting-title { font-size: 15pt; font-weight: 700; white-space: nowrap; }
-.meeting-view { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); overflow: hidden; }
+.meeting-body { flex: 1; min-height: 0; display: flex; gap: 12px; }
+.meeting-view { flex: 1; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); overflow: hidden; }
 .meeting-view p { max-width: 460px; margin: 0; text-align: center; color: var(--text-muted); }
 
 /* ------------------------------------------------------------- navigation bar */

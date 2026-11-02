@@ -1,10 +1,7 @@
-// The Lecture Assist overlay (plan step 7.10): a small always-on-top window on the user's own
-// screen that shows what the assistant hears and writes. It lives from app start, hidden, so it
-// sees every event; the Rust side shows it when listening starts.
-import "./overlay.css";
-import { LogicalSize } from "@tauri-apps/api/dpi";
-import { listen } from "@tauri-apps/api/event";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+// The Lecture Assist panel (plan step 7.10): what the assistant hears and writes, beside the class
+// in the "Відкрита пара" tab. It exists from app start, hidden, so it sees every event, and shows
+// itself when listening starts.
+import "./panel.css";
 import type { AskKind } from "../bindings/AskKind";
 import type { AssistEvent } from "../bindings/AssistEvent";
 import type { AssistState } from "../bindings/AssistState";
@@ -13,24 +10,21 @@ import type { Term } from "../bindings/Term";
 import { type Child, h, morph, replace, style } from "../dom";
 import { type MessageKey, t } from "../i18n";
 import { icon } from "../icons";
+import type { AssistBackend } from "../backend";
 import * as ipc from "../ipc";
 import { elapsed, tail } from "./text";
 
 const TRANSCRIPT_LINES = 6;
-const PILL = new LogicalSize(260, 48);
 
 interface Look {
-  opacity: number;
   font: number;
   collapsed: boolean;
-  width: number;
-  height: number;
 }
 
 function loadLook(): Look {
-  const fallback: Look = { opacity: 85, font: 14, collapsed: false, width: 380, height: 520 };
+  const fallback: Look = { font: 14, collapsed: false };
   try {
-    return { ...fallback, ...(JSON.parse(localStorage.getItem("overlay") ?? "{}") as Partial<Look>) };
+    return { ...fallback, ...(JSON.parse(localStorage.getItem("assist-panel") ?? "{}") as Partial<Look>) };
   } catch {
     return fallback;
   }
@@ -38,13 +32,12 @@ function loadLook(): Look {
 
 function saveLook(look: Look): void {
   try {
-    localStorage.setItem("overlay", JSON.stringify(look));
+    localStorage.setItem("assist-panel", JSON.stringify(look));
   } catch {
     // A preference, not data: losing it is fine.
   }
 }
 
-const win = getCurrentWindow();
 const look = loadLook();
 let state: AssistState = { state: "off" };
 let startedAt = 0;
@@ -59,31 +52,24 @@ let reply = "";
 let answer = { question: "", text: "", done: true };
 let error = "";
 let classOver = false;
-let clickThrough = false;
 
-const root = document.querySelector("#overlay") as HTMLElement;
-const clock = h("span", { class: "clock" });
+const root = h("aside", { class: "assist", "aria-label": t("assist_title"), hidden: true });
+const clock = h("span", { class: "assist-clock" });
 
 function applyLook(): void {
-  style(document.documentElement, { "--alpha": String(look.opacity / 100), "--font": `${look.font}px` });
+  style(root, { "--assist-font": `${look.font}px` });
   saveLook(look);
 }
 
-async function setCollapsed(collapsed: boolean): Promise<void> {
-  if (collapsed && !look.collapsed) {
-    const size = (await win.innerSize()).toLogical(await win.scaleFactor());
-    [look.width, look.height] = [size.width, size.height];
-  }
+function setCollapsed(collapsed: boolean): void {
   look.collapsed = collapsed;
   applyLook();
-  await win.setSize(collapsed ? PILL : new LogicalSize(look.width, look.height));
-  await morph(render);
+  void morph(render);
 }
 
-async function setClickThrough(on: boolean): Promise<void> {
-  clickThrough = on;
-  await win.setIgnoreCursorEvents(on);
-  render();
+/** Closing is offered once listening has stopped; while it runs the panel only folds. */
+function close(): void {
+  void morph(() => void (root.hidden = true));
 }
 
 function button(key: MessageKey, onclick: () => void): HTMLButtonElement {
@@ -98,15 +84,16 @@ function section(key: MessageKey, items: string[]): Child {
 function header(): HTMLElement {
   const listening = state.state === "listening";
   const dot = h("span", { class: `dot${listening ? " live" : ""}`, role: "img", "aria-label": t("assist_recording") });
-  const title = h("span", { class: "title", "data-tauri-drag-region": true }, subject || t("assist_title"));
+  const running = listening || state.state === "paused" || state.state === "starting";
+  const title = h("span", { class: "title" }, subject || t("assist_title"));
   return h(
     "header",
-    { "data-tauri-drag-region": true },
+    {},
     dot,
     clock,
     title,
-    button(look.collapsed ? "assist_expand" : "assist_collapse", () => void setCollapsed(!look.collapsed)),
-    h("button", { class: "btn", type: "button", title: t("assist_hide"), "aria-label": t("assist_hide"), onclick: () => void win.hide() }, icon("close", 14)),
+    button(look.collapsed ? "assist_expand" : "assist_collapse", () => setCollapsed(!look.collapsed)),
+    running ? null : h("button", { class: "btn plain", type: "button", title: t("assist_hide"), "aria-label": t("assist_hide"), onclick: close }, icon("close", 14)),
   );
 }
 
@@ -129,7 +116,7 @@ function ask(kind: AskKind, text = ""): void {
 }
 
 function body(): HTMLElement {
-  const field = h("input", { type: "text", placeholder: t("assist_ask_placeholder"), "aria-label": t("assist_ask_placeholder") });
+  const field = h("input", { class: "input", type: "text", placeholder: t("assist_ask_placeholder"), "aria-label": t("assist_ask_placeholder") });
   const form = h(
     "form",
     {
@@ -200,19 +187,11 @@ function range(key: MessageKey, value: number, min: number, max: number, set: (v
 }
 
 function footer(): HTMLElement {
-  const through = h("input", { type: "checkbox", checked: clickThrough });
-  through.addEventListener("change", () => void setClickThrough(through.checked));
-  return h(
-    "footer",
-    {},
-    range("assist_opacity", look.opacity, 40, 100, (v) => (look.opacity = v)),
-    range("assist_font_size", look.font, 11, 22, (v) => (look.font = v)),
-    h("label", { title: t("assist_click_through_hint") }, through, t("assist_click_through")),
-  );
+  return h("footer", {}, range("assist_font_size", look.font, 11, 22, (v) => (look.font = v)));
 }
 
 function render(): void {
-  root.className = look.collapsed ? "pill" : "panel";
+  root.classList.toggle("folded", look.collapsed);
   replace(root, header(), !look.collapsed && controls(), !look.collapsed && body(), !look.collapsed && footer());
   tick();
 }
@@ -227,11 +206,15 @@ function reset(): void {
   startedAt = Date.now();
 }
 
+let shown: () => void = () => undefined;
+
 function onEvent(event: AssistEvent): void {
   switch (event.type) {
     case "stateChanged":
       if (event.state.state === "starting") {
         reset();
+        root.hidden = false;
+        shown();
         // Not awaited: later events must not wait behind it, or the state would go backwards.
         void ipc.assistSubject().then((title) => {
           subject = title ?? "";
@@ -272,16 +255,16 @@ function onEvent(event: AssistEvent): void {
   render();
 }
 
-applyLook();
-render();
-setInterval(tick, 1000);
-void ipc.onAssist(onEvent);
-void ipc.onAssistClassOver(() => {
-  classOver = true;
+/** The panel, hidden until listening starts; `onShow` runs then, so the class tab can come forward. */
+export function assistPanel(assist: Pick<AssistBackend, "onAssist" | "onAssistClassOver">, onShow: () => void): HTMLElement {
+  shown = onShow;
+  applyLook();
   render();
-});
-// Opening AutoPara from the tray turns click-through off (the Rust side has already done it).
-void listen("overlay-solid", () => {
-  clickThrough = false;
-  render();
-});
+  setInterval(tick, 1000);
+  void assist.onAssist(onEvent);
+  void assist.onAssistClassOver(() => {
+    classOver = true;
+    render();
+  });
+  return root;
+}

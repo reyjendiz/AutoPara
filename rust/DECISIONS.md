@@ -475,6 +475,19 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
 - **Decision (owner, 2026-11-02):** every screen change made by the user is a View Transitions
   morph through one helper (`dom.ts` `morph`): dialogs grow out of the control that opened them and
   shrink back into it, plus the top tabs, the theme, the banners, the assistant's model lists and
-  the overlay's pill. Reduced motion, a still demo picture or a webview without the API skip it.
+  the assistant panel folding. Reduced motion, a still demo picture or a webview without the API skip it.
 - **Not morphed:** live text (transcript lines, notes) — it changes every second and would never
   sit still; the class page in its tab, which is a native webview the morph cannot capture.
+
+## Lecture Assist: a panel in the main window, not an overlay
+
+- **Decision (owner, 2026-11-02):** the assistant's notes are a panel on the right of the
+  "Відкрита пара" tab, beside the class page, instead of the separate always-on-top `overlay`
+  window ("Lecture Assist: overlay window" no longer applies). The panel exists from start,
+  hidden, and shows itself (bringing the window and the tab forward) on `starting`. It folds to
+  its header and closes only once listening has stopped. Opacity and click-through went with the
+  window; font size and folding stay, in `localStorage`.
+- **Why:** the class itself now opens inside AutoPara, so the notes belong next to it; one window
+  is simpler (no overlay capability, no transparency, no click-through recovery).
+- **Unchanged (R13):** text on the user's screen only; the panel shows the pulsing recording dot
+  and nothing hides it.

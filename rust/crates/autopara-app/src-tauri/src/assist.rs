@@ -40,10 +40,6 @@ pub const DOWNLOAD_EVENT: &str = "assist-download";
 /// The class has ended (plus grace); the interface asks whether to keep listening.
 pub const CLASS_OVER_EVENT: &str = "assist-class-over";
 
-pub const OVERLAY: &str = "overlay";
-/// Sent to the overlay when click-through is turned off from outside it.
-pub const OVERLAY_SOLID_EVENT: &str = "overlay-solid";
-
 const GRACE_MINUTES: i64 = 10;
 /// Without an answer to "keep listening?", listening stops.
 const ANSWER_SECONDS: u64 = 120;
@@ -97,7 +93,7 @@ pub struct AssistSettings {
     pub retention_days: u32,
     /// Start listening whenever AutoPara opens a class (off unless the user turns it on).
     pub auto_listen: bool,
-    /// Answer the teacher's questions in the overlay as they are heard (off unless turned on).
+    /// Answer the teacher's questions in the assistant's panel as they are heard (off unless turned on).
     pub answer_questions: bool,
     pub has_key: bool,
     /// Changed only through `set_assist_hotkey`, which checks for a conflict first.
@@ -463,9 +459,8 @@ pub fn start(app: &AppHandle, lesson_id: Option<i64>) -> CommandResult<()> {
         })
     });
     tauri::async_runtime::spawn(forward(app.clone(), session, events));
-    if let Some(overlay) = app.get_webview_window(OVERLAY) {
-        let _ = overlay.show();
-    }
+    // The assistant's panel is in the main window, beside the class.
+    crate::show_main_window(app);
     let end_time =
         |l: Lesson| chrono::NaiveTime::from_hms_opt(l.end.hour().into(), l.end.minute().into(), 0);
     if let Some(end) = lesson.and_then(end_time).map(|time| date.and_time(time)) {
@@ -632,7 +627,7 @@ async fn class_over(app: AppHandle, end: NaiveDateTime, keep: Arc<AtomicBool>) {
     }
 }
 
-/// The subject being listened to, for the overlay's title; `None` when not listening.
+/// The subject being listened to, for the panel's title; `None` when not listening.
 #[tauri::command]
 pub fn assist_subject(app: AppHandle) -> Option<String> {
     app.state::<Assist>()

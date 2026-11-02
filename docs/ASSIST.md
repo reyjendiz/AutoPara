@@ -8,7 +8,7 @@ and keeps notes. It shows text on the user's own screen and nothing else.
 - Write audio to disk. Audio stays in memory for the few seconds it takes to recognise it.
 - Speak, act in the meeting, or show up as a microphone or a camera.
 - Hide itself or its recording indicator, from the user or from screen sharing. The tray icon
-  gets a red dot while audio is captured, the overlay shows a pulsing dot, and on a Mac the
+  gets a red dot while audio is captured, the assistant's panel shows a pulsing dot, and on a Mac the
   system's own screen-recording indicator is on.
 - Answer the questions and tasks it hears. They are flagged ("Питання / Завдання") for the
   student to deal with.
@@ -24,7 +24,7 @@ audio source ─▶ 16 kHz mono ─▶ voice detector ─▶ segmenter ─▶ wh
 (capture.rs,                    (vad.rs: Silero   (≤ 28 s,      (stt.rs)   (text.rs: phantoms,
  macos.rs, fake.rs)              or energy)        0.5 s overlap)           repeats, flags)
                                                                               │
-             overlay + database ◀── events ◀── engine.rs ◀── notes.rs / helpers.rs ◀── llm/
+               panel + database ◀── events ◀── engine.rs ◀── notes.rs / helpers.rs ◀── llm/
 ```
 
 - **Audio** (`audio/`): on Windows, WASAPI loopback of the default output device through `cpal`,
@@ -48,7 +48,7 @@ audio source ─▶ 16 kHz mono ─▶ voice detector ─▶ segmenter ─▶ wh
   States: `off → starting → listening ⇄ paused → stopping → off`, or `error`.
 
 The app saves final lines, notes, terms and the summary in the `assist_*` tables, shows the
-overlay window, relabels the tray item, and asks 10 minutes after the class ends whether to
+panel beside the class in the "Відкрита пара" tab (bringing AutoPara forward), relabels the tray item, and asks 10 minutes after the class ends whether to
 keep listening (without an answer it stops after 2 minutes).
 
 ## Privacy model
@@ -89,14 +89,13 @@ Where the meeting runs does not matter: the capture is the computer's sound outp
 Zoom tab in the browser is heard exactly like the Zoom app, as long as it plays through the
 captured device and the tab is not muted.
 
-## Shortcut and overlay
+## Shortcut and panel
 
 - `Ctrl+Alt+L` starts and stops listening from anywhere. It can be changed in the settings; a
   combination another program holds is reported as taken and the old one is kept.
-- The overlay is a small always-on-top window, outside the taskbar, that remembers where it
-  was. It has opacity and font size sliders, collapses to a pill, and has a click-through
-  switch. A click-through window cannot be clicked, so opening AutoPara from the tray turns
-  click-through off again.
+- The assistant is a panel on the right of the "Відкрита пара" tab, beside the class page, which
+  narrows to make room. It appears (and the tab comes forward) when listening starts, folds to
+  its header, has a font size slider, and can be closed once listening has stopped.
 
 ## Troubleshooting
 
@@ -108,6 +107,5 @@ captured device and the tab is not muted.
 | Notes never appear | No chat model selected, a wrong key, or the server is down: use "Перевірити з’єднання". |
 | "Забагато запитів" | The provider's rate limit; notes resume on their own. |
 | The shortcut does nothing | Another program holds it: the settings say so. Choose another. |
-| The overlay ignores clicks | Click-through is on: open AutoPara from the tray. |
 
 Errors and state changes are in the log (`logs/` in the data folder), without any text heard.

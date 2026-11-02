@@ -39,7 +39,7 @@ rust/
   crates/lecture-assist/     audio capture, VAD, speech recognition, LLM client, notes
   crates/autopara-app/
     src-tauri/               the Tauri binary: commands, tray, autostart, updates, assist wiring
-    ui/src/                  the interface (main window and the assist overlay)
+    ui/src/                  the interface, the assistant's panel included
   xtask/                     cargo xtask check | golden | demo-data | screenshots | bench-stt
   fixtures/golden/           the 1.10.0 parser's and scheduler's output, for parity tests
 ```
@@ -52,7 +52,7 @@ rust/
 One process. The Tauri main thread owns the windows and the tray; a tokio task (`engine.rs`) runs
 the scheduler; Lecture Assist, when switched on, runs its capture and recognition on threads of its
 own and shares nothing with the scheduler but the database, so an assistant failure never touches
-joining. Two windows: `main` (the calendar) and `overlay` (the assist notes, hidden until used).
+joining. One window, `main`; the assistant's notes are a panel in its class tab.
 
 Closing the main window hides it to the tray; only the tray's quit item exits. A second launch
 surfaces the first (`tauri-plugin-single-instance`).

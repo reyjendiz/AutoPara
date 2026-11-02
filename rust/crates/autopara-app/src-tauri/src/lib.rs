@@ -41,11 +41,6 @@ pub fn show_main_window(app: &AppHandle) {
         let _ = window.show();
         let _ = window.set_focus();
     }
-    // A click-through overlay cannot be clicked; opening AutoPara is the way back.
-    if let Some(overlay) = app.get_webview_window(assist::OVERLAY) {
-        let _ = overlay.set_ignore_cursor_events(false);
-        let _ = overlay.emit(assist::OVERLAY_SOLID_EVENT, ());
-    }
 }
 
 /// `AUTOPARA_DATA_DIR` overrides the folder, so a development or test run never touches the

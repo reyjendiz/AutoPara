@@ -36,7 +36,7 @@ the document wrote it.
 | Dialogs | `ui/dialogs/` | `import.ts`, `group.ts` (another course and group), `edit.ts` (a class), `settings.ts`, `assist.ts` (Lecture Assist consent and settings). |
 | Popups | `ui/popups.ts` | Rounded tooltips, context menus and message boxes drawn by the page. |
 | Glyphs | `icons.ts` | Every icon, drawn on a 24-unit grid in `currentColor`. |
-| Overlay | `overlay/` | The Lecture Assist window (docs/ASSIST.md). |
+| Assistant panel | `assist/` | Lecture Assist beside the class in the class tab (docs/ASSIST.md). |
 
 Pure logic lives in `lib/` (dates, colours, grid geometry, what a lesson does on a date, search and
 the "now / next" pill), so the week, the day, the month and the counts can never disagree, and it
@@ -157,7 +157,7 @@ Moving between periods and views is a morph through the View Transitions API: a 
 box into the new one, and everything else cross-fades. The segmented control's pill glides.
 The same morph (`dom.ts` `morph`) runs wherever the screen changes on a user's action: a dialog
 grows out of the button that opened it and shrinks back into it, the two top tabs, the theme, the
-missed-class and update banners, the assistant's model lists, and the overlay folding to a pill.
+missed-class and update banners, the assistant's model lists, and the assistant's panel folding to its header.
 `prefers-reduced-motion` turns all motion off. Motion never delays what the window does.
 
 ## Theme and styling
@@ -188,6 +188,6 @@ go stale.
 ## Tests
 
 `npm test` (vitest) covers `lib/` (dates, Ukrainian forms, grid geometry, filters, the "now / next"
-pill), `i18n`, the IPC wrappers and the overlay's text pieces. `npm run typecheck` and `npm run
+pill), `i18n`, the IPC wrappers and the assistant panel's text pieces. `npm run typecheck` and `npm run
 lint` are part of `cargo xtask check`. The look is compared by eye against the 1.x pictures with
 `cargo xtask screenshots` (`rust/PARITY_UI.md`).

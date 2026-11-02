@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { elapsed, tail } from "./text";
 
-describe("overlay text", () => {
+describe("assistant panel text", () => {
   it("formats elapsed time", () => {
     expect(elapsed(0)).toBe("0:00");
     expect(elapsed(65_400)).toBe("1:05");

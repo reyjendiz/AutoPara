@@ -1,4 +1,4 @@
-// The overlay's small pure pieces, kept apart from the DOM so they can be tested.
+// The assistant panel's small pure pieces, kept apart from the DOM so they can be tested.
 
 /** `m:ss`, or `h:mm:ss` past an hour. */
 export function elapsed(ms: number): string {

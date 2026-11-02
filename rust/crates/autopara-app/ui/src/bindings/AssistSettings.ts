@@ -27,7 +27,7 @@ local_model: string, fallback: boolean, retention_days: number,
  */
 auto_listen: boolean, 
 /**
- * Answer the teacher's questions in the overlay as they are heard (off unless turned on).
+ * Answer the teacher's questions in the assistant's panel as they are heard (off unless turned on).
  */
 answer_questions: boolean, has_key: boolean, 
 /**

@@ -37,6 +37,7 @@ export type AssistBackend = Pick<
   | "assistStop"
   | "onAssist"
   | "onAssistDownload"
+  | "onAssistClassOver"
 >;
 
 export interface Backend {
@@ -306,5 +307,6 @@ function demoAssist(): AssistBackend {
     assistStop: async () => undefined,
     onAssist: unlisten,
     onAssistDownload: unlisten,
+    onAssistClassOver: unlisten,
   };
 }

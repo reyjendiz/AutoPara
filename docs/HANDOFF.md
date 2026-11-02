@@ -128,10 +128,9 @@ Debug build, `AUTOPARA_DATA_DIR` on a scratch folder, the invented sample timeta
   committed `.docx`) was searched for key patterns and for the 27 meeting ids of the real
   timetable. No hits; every committed link is an invented one.
 - CSP: `default-src 'self'`, no inline scripts, `object-src 'none'`, IPC only. Capabilities: the
-  main window has `core:default` only; the overlay adds moving, hiding, resizing and click-through
-  of itself. No plugin (opener, dialog, notification, updater) is reachable from the page; Rust
-  calls them. App commands are callable from both windows (Tauri's default without an app
-  manifest); both load only the bundled pages.
+  main window has `core:default` only. No plugin (opener, dialog, notification, updater) is
+  reachable from the page; Rust calls them. App commands are callable from the window (Tauri's
+  default without an app manifest), which loads only the bundled pages.
 - URLs: the scheduler and the editor accept `https://` only; `open_release_page` only this
   repository's release pages; the updater one fixed HTTPS endpoint; a custom chat server must be
   `https://`, or plain `http://` only to 127.0.0.1 / localhost (fixed in this pass).
@@ -148,7 +147,7 @@ Debug build, `AUTOPARA_DATA_DIR` on a scratch folder, the invented sample timeta
 | `rust/crates/autopara-core` | Model, `.docx` reader and parser, SQLite, 1.x import, scheduler and engine, the string table. |
 | `rust/crates/lecture-assist` | Audio capture, VAD, whisper, the LLM client, notes. |
 | `rust/crates/autopara-app/src-tauri` | Commands, tray, autostart, updates, the assistant's wiring, the NSIS template. |
-| `rust/crates/autopara-app/ui/src` | The interface and the overlay. |
+| `rust/crates/autopara-app/ui/src` | The interface, the assistant's panel included. |
 | `rust/xtask` | The developer commands. |
 | `rust/PORT_SPEC.md`, `DECISIONS.md`, `PARITY_UI.md`, `PARITY_REPORT.md`, `PROGRESS.md` | The 1.x behaviour, the choices, the comparison, the plan's checklist. |
 | `.github/workflows/rust-ci.yml`, `rust-release.yml` | The gate on three runners; the release. |
