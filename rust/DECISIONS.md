@@ -393,3 +393,27 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
   fails ("cannot find 'MTLTensorDataType' in scope"). Every 0.10.x release has the same code. The
   types sit behind `@available(macOS 26, *)`, so the app still runs on older macOS; only the SDK
   used to build must be new. `macos-14` has no Xcode 26.
+
+## Classes open in AutoPara's own tab
+
+- **Decision:** at the owner's request, Google Meet links and Zoom `/j/<id>` links open in a
+  "Відкрита пара" tab inside the main window instead of the system browser (1.x and 2.0 until now
+  opened the browser). A Zoom link becomes Zoom's web client (`/wc/join/<id>`, same query), so no
+  Zoom app is involved. Any other link still goes to the browser, and "Відкрити в браузері" moves a
+  class there. Windows also loses its system title bar: the tab row carries the window's own
+  minimise, maximise and close buttons and drags the window.
+- **How:** the class page is a second webview added to the main window (Tauri's `unstable`
+  feature, `Window::add_child`), placed over the area the interface reports and hidden while the
+  schedule tab or a dialog is showing. One class at a time; opening another replaces it.
+- **Security:** the page is a remote origin with no capability. The `default` capability names the
+  interface's webview (`webviews: ["main"]`), not the window, and Tauri refuses every command from
+  a remote origin that no capability names, so the page cannot reach the app. Logs name only the
+  site, never the link (it carries the passcode).
+- **Sign-in:** "Увійти в Google" and "Увійти в Zoom" open the services' sign-in pages in the tab;
+  cookies stay in AutoPara's WebView2 profile. Google says it blocks sign-in from embedded
+  webviews, so a Google account may be refused there (checked only up to the sign-in page loading:
+  no credentials were entered during development). Meet's guest join and Zoom's web client work
+  without an account; camera and microphone go through WebView2's own permission prompt.
+- **Alternatives:** keep the browser (the owner asked for tabs); a separate window per class (not
+  tabs); spoofing a browser user agent to get past Google's check (rejected: it defeats a security
+  control).
