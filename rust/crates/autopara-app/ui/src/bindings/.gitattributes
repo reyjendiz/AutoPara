@@ -1,0 +1,2 @@
+# ts-rs writes LF; a CRLF checkout (Windows, core.autocrlf) would make every test run look like a change.
+*.ts text eol=lf
