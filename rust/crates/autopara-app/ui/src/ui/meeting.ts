@@ -19,6 +19,8 @@ export class MeetingTab {
   private readonly title: HTMLElement;
   private readonly view: HTMLElement;
   private readonly openOnly: HTMLElement[];
+  private readonly listen: HTMLButtonElement;
+  private listening = false;
   private site: string | null = null;
   private active = false;
 
@@ -31,6 +33,9 @@ export class MeetingTab {
     // The row is also the title bar: its empty part drags the window.
     this.tabs = h("div", { class: "tabs", role: "tablist", "data-tauri-drag-region": "" }, this.scheduleTab, this.meetingTab);
     this.title = h("span", { class: "meeting-title" });
+    // The same switch as in the schedule's row, so listening starts without leaving the class.
+    this.listen = h("button", { class: "btn listen", onclick: () => void (this.listening ? app.backend.assist.assistStop() : app.listenTo(null)) });
+    this.setListening(false);
     this.openOnly = [
       button(t("meeting_in_browser"), () => void meeting.inBrowser().then(() => this.closed())),
       button(t("meeting_close"), () => void meeting.close().then(() => this.closed())),
@@ -43,6 +48,7 @@ export class MeetingTab {
         "div",
         { class: "meeting-bar", "data-tauri-drag-region": "" },
         this.title,
+        this.listen,
         h("div", { class: "grow", "data-tauri-drag-region": "" }),
         button(t("meeting_sign_in_google"), () => void meeting.signIn("google")),
         button(t("meeting_sign_in_zoom"), () => void meeting.signIn("zoom")),
@@ -59,6 +65,13 @@ export class MeetingTab {
     new MutationObserver(() => this.place()).observe(document.body, { childList: true });
     new MutationObserver(() => this.place()).observe(document.documentElement, { attributeFilter: ["data-theme"] });
     this.render();
+  }
+
+  /** Mirrors the schedule's listen button: a red dot and "stop" while the assistant runs. */
+  setListening(on: boolean): void {
+    this.listening = on;
+    this.listen.classList.toggle("on", on);
+    this.listen.textContent = t(on ? "tray_stop_listening" : "tray_listen");
   }
 
   choose(active: boolean): void {

@@ -159,7 +159,11 @@ export class App {
       else void (action === "import" ? this.openImport() : this.openSettings());
     });
     void this.backend.assist.onAssist((event) => {
-      if (event.type === "stateChanged") this.nav.setListening(!["off", "error"].includes(event.state.state));
+      if (event.type === "stateChanged") {
+        const on = !["off", "error"].includes(event.state.state);
+        this.nav.setListening(on);
+        this.meeting.setListening(on);
+      }
     });
     this.backend.onFileDrop((kind, paths) => {
       const docx = paths.find((path) => path.toLowerCase().endsWith(".docx"));
