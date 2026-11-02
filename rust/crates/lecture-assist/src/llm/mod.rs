@@ -1,6 +1,7 @@
 //! The chat provider layer (plan step 7.6).
 
 pub mod chain;
+pub mod local;
 pub mod openai;
 pub mod presets;
 pub mod rate;
