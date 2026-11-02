@@ -41,11 +41,11 @@ export class NavBar {
       this.sub,
       this.nextUp,
       this.listen,
-      h("div", { class: "grow" }),
       h("div", { class: "segmented", role: "radiogroup" }, this.thumb, ...this.segments.values()),
       h("button", { class: "btn", "data-tip": t("nav_today_tip"), onclick: () => app.goToday() }, t("nav_today")),
       this.previous,
       this.next,
+      h("div", { class: "grow" }),
     );
     new ResizeObserver(() => this.placeThumb(false)).observe(this.element);
   }

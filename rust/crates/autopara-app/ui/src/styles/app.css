@@ -113,7 +113,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); width
 .nav .listen { height: 28px; margin-left: 6px; border-radius: 14px; display: inline-flex; align-items: center; }
 .nav .listen.on::before { content: ""; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: #e5484d; }
 .grow { flex: 1; }
-.segmented { position: relative; height: 40px; padding: 3px; border: 1px solid var(--border); border-radius: 20px; background: var(--surface); display: flex; gap: 2px; margin-right: 8px; }
+.segmented { position: relative; height: 40px; padding: 3px; border: 1px solid var(--border); border-radius: 20px; background: var(--surface); display: flex; gap: 2px; margin: 0 8px 0 14px; }
 .segmented button { position: relative; z-index: 1; height: 32px; padding: 0 16px; border: 0; border-radius: 16px; background: transparent; color: var(--text-muted); font-weight: 700; cursor: pointer; transition: color 110ms; }
 .segmented button:hover:not(.on) { background: var(--chip-bg); color: var(--text); }
 .segmented button.on { color: var(--accent-text); }
