@@ -9,3 +9,9 @@ TS_RS_EXPORT_DIR = { value = "crates/autopara-app/ui/src/bindings", relative = t
 # The dash forms work for both MSVC and clang.
 CMAKE_C_FLAGS_RELEASE = "-O2 -DNDEBUG"
 CMAKE_CXX_FLAGS_RELEASE = "-O2 -DNDEBUG"
+
+# screencapturekit and apple-metal link Swift code. Their build scripts add the rpath to the system's
+# Swift runtime only to their own binaries, so ours (the app, every test) would fail to start with
+# "Library not loaded: @rpath/libswiftCore.dylib".
+[target.'cfg(target_os = "macos")']
+rustflags = ["-C", "link-arg=-Wl,-rpath,/usr/lib/swift"]
