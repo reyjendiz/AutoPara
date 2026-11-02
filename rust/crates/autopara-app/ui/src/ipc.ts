@@ -79,6 +79,17 @@ export const onSchedulerEvent = (handler: (event: SchedulerEvent) => void): Prom
 export const onTrayAction = (handler: (action: string) => void): Promise<UnlistenFn> =>
   listen<string>("tray-action", (event) => handler(event.payload));
 
+// ------------------------------------------------------------- the class tab
+
+export const meetingPlace = (x: number, y: number, width: number, height: number, visible: boolean): Promise<void> =>
+  invoke("meeting_place", { x, y, width, height, visible });
+export const meetingSignIn = (service: "google" | "zoom"): Promise<void> => invoke("meeting_sign_in", { service });
+export const meetingInBrowser = (): Promise<void> => invoke("meeting_in_browser");
+export const meetingClose = (): Promise<void> => invoke("meeting_close");
+/** A class page opened in the tab; the payload is its site (`meet.google.com`, `us04web.zoom.us`). */
+export const onMeetingOpened = (handler: (site: string) => void): Promise<UnlistenFn> =>
+  listen<string>("meeting-opened", (event) => handler(event.payload));
+
 // ------------------------------------------------------------------ Lecture Assist
 
 export const assistSettings = (): Promise<AssistSettings> => invoke<AssistSettings>("assist_settings");

@@ -72,7 +72,17 @@ export interface Backend {
   onTrayAction(handler: (action: string) => void): void;
   /** A file dropped anywhere on the window: its path, while dragging (`hover`) and on drop. */
   onFileDrop(handler: (kind: "hover" | "leave" | "drop", paths: string[]) => void): void;
+  meeting: MeetingBackend;
   assist: AssistBackend;
+}
+
+/** The "Відкрита пара" tab: the class page itself is a separate webview the Rust side places. */
+export interface MeetingBackend {
+  place(x: number, y: number, width: number, height: number, visible: boolean): Promise<void>;
+  signIn(service: "google" | "zoom"): Promise<void>;
+  inBrowser(): Promise<void>;
+  close(): Promise<void>;
+  onOpened(handler: (site: string) => void): void;
 }
 
 // ------------------------------------------------------------------- the real app
@@ -118,6 +128,13 @@ export function tauriBackend(): Backend {
     onSchedulerEvent: (handler) => void ipc.onSchedulerEvent(handler),
     onTrayAction: (handler) => void ipc.onTrayAction(handler),
     onFileDrop: (handler) => void tauriFileDrop(handler),
+    meeting: {
+      place: ipc.meetingPlace,
+      signIn: ipc.meetingSignIn,
+      inBrowser: ipc.meetingInBrowser,
+      close: ipc.meetingClose,
+      onOpened: (handler) => void ipc.onMeetingOpened(handler),
+    },
     assist: ipc,
   };
 }
@@ -244,6 +261,13 @@ export async function demoBackend(params: URLSearchParams): Promise<Backend> {
     onSchedulerEvent: () => undefined,
     onTrayAction: () => undefined,
     onFileDrop: () => undefined,
+    meeting: {
+      place: async () => undefined,
+      signIn: async () => undefined,
+      inBrowser: async () => undefined,
+      close: async () => undefined,
+      onOpened: () => undefined,
+    },
     assist: demoAssist(),
   };
 }

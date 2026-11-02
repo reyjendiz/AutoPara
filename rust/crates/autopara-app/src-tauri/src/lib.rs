@@ -7,6 +7,7 @@ mod commands;
 mod hotkey;
 mod ipc;
 mod logging;
+mod meeting;
 mod opener;
 mod secrets;
 mod tray;
@@ -197,6 +198,7 @@ pub fn run() {
             app.manage(Mutex::new(log_guard));
             app.manage(assist::Assist::default());
             app.manage(updates::Updates::default());
+            app.manage(meeting::Meeting::default());
 
             // The pages call commands as soon as they load, so the windows ("create": false in
             // tauri.conf.json) are made only once every piece of state above exists.
@@ -255,6 +257,10 @@ pub fn run() {
             commands::install_update,
             commands::skip_update,
             commands::open_release_page,
+            meeting::meeting_place,
+            meeting::meeting_sign_in,
+            meeting::meeting_in_browser,
+            meeting::meeting_close,
             assist::assist_settings,
             assist::save_assist_settings,
             assist::set_assist_consent,

@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "What the main window may do: the core defaults, and its own title bar buttons and dragging (Windows).",
-  "windows": ["main"],
+  "description": "What the main window's own interface may do: the core defaults, and its title bar buttons and dragging (Windows). Named by webview, so the class page in the same window (label meeting, a remote site) gets nothing.",
+  "webviews": ["main"],
   "permissions": [
     "core:default",
     "core:window:allow-minimize",

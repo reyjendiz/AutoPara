@@ -19,6 +19,7 @@ import { UpdateBanner } from "./ui/updates";
 import { FilterBar } from "./ui/filters";
 import { renderGrid } from "./ui/grid";
 import { Landing } from "./ui/landing";
+import { MeetingTab } from "./ui/meeting";
 import { renderMonth } from "./ui/month";
 import { NavBar } from "./ui/nav";
 import { ask, confirmYesNo, inform, showMenu } from "./ui/popups";
@@ -64,6 +65,7 @@ export class App {
   readonly catchup: CatchupBanner;
   readonly updates: UpdateBanner;
   readonly landing: Landing;
+  readonly meeting: MeetingTab;
   readonly surface = h("div", { class: "surface-host" });
   private readonly content: HTMLElement;
 
@@ -75,9 +77,11 @@ export class App {
     this.catchup = new CatchupBanner(this);
     this.updates = new UpdateBanner(this);
     this.landing = new Landing(this);
-    this.content = h("main", { class: "content", "data-tauri-drag-region": "" }, this.nav.element, this.filters.element, this.updates.element, this.catchup.element, this.surface);
+    this.meeting = new MeetingTab(this);
+    this.content = h("main", { class: "content", "data-tauri-drag-region": "" }, this.meeting.tabs, this.nav.element, this.filters.element, this.updates.element, this.catchup.element, this.surface, this.meeting.panel);
     replace(root, h("div", { class: "app" }, this.rail.element, this.content));
     this.surface.style.setProperty("display", "contents");
+    this.meeting.choose(false);
   }
 
   // ------------------------------------------------------------------ helpers

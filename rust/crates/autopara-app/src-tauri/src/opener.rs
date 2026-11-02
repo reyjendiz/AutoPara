@@ -8,7 +8,10 @@ use autopara_core::scheduler::LinkOpener;
 use tauri::AppHandle;
 use tauri_plugin_opener::OpenerExt;
 
-/// The system's default browser. Only ever called with links the scheduler accepted (https).
+use crate::meeting;
+
+/// Meet and Zoom classes in AutoPara's own tab (`meeting.rs`), anything else in the system's
+/// default browser. Only ever called with links the scheduler accepted (https).
 pub struct SystemBrowser {
     app: AppHandle,
 }
@@ -16,6 +19,17 @@ pub struct SystemBrowser {
 impl LinkOpener for SystemBrowser {
     fn open(&mut self, url: &str) -> bool {
         let site = site(url);
+        if let Some(page) = meeting::page(url) {
+            // Off this thread: a card click arrives in a synchronous command on the main thread.
+            let app = self.app.clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(error) = meeting::open(&app, page) {
+                    tracing::warn!(%error, "the class page did not open");
+                }
+            });
+            tracing::info!(site, "opened in the app");
+            return true;
+        }
         match self.app.opener().open_url(url, None::<&str>) {
             Ok(()) => {
                 tracing::info!(site, "opened");

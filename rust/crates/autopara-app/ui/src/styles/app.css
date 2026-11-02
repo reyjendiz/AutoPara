@@ -104,12 +104,28 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); width
 .rail-pill .tool:disabled { opacity: 0.4; cursor: default; background: transparent; }
 .clock { width: 60px; height: 20px; border-radius: 10px; background: var(--chip-bg); color: var(--text-muted); font-size: 8pt; font-weight: 600; display: grid; place-items: center; opacity: 0.5; font-variant-numeric: tabular-nums; }
 
+/* ------------------------------------------------------- tabs and the class tab */
+
+.tabs { display: flex; align-items: center; gap: 6px; min-height: 40px; }
+.tab { height: 34px; padding: 0 16px; border: 1px solid transparent; border-radius: 17px; background: transparent; color: var(--text-muted); font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+.tab:hover { background: var(--chip-bg); color: var(--text); }
+.tab[aria-selected="true"] { background: var(--surface); border-color: var(--border); color: var(--text); }
+.tab.live::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #e5484d; }
+/* !important: the surface host carries an inline `display: contents`. */
+.content.meeting-on > :not(.tabs, .meeting) { display: none !important; }
+.meeting { display: none; flex: 1; flex-direction: column; gap: 12px; min-height: 0; }
+.content.meeting-on > .meeting { display: flex; }
+.meeting-bar { display: flex; align-items: center; gap: 8px; }
+.meeting-title { font-size: 15pt; font-weight: 700; white-space: nowrap; }
+.meeting-view { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); overflow: hidden; }
+.meeting-view p { max-width: 460px; margin: 0; text-align: center; color: var(--text-muted); }
+
 /* ------------------------------------------------------------- navigation bar */
 
 /* Windows: the system title bar is off, and these stand at the end of the navigation row. */
 .window-controls { position: fixed; top: 22px; right: 24px; z-index: 50; display: flex; gap: 6px; }
 .window-controls .close:hover { background: #e5484d; border-color: #e5484d; color: #fff; }
-.own-titlebar .nav { padding-right: 126px; }
+.own-titlebar .tabs { padding-right: 126px; }
 
 .nav { display: flex; align-items: center; gap: 8px; }
 .nav-title { margin: 0; font-size: 21pt; font-weight: 700; white-space: nowrap; }

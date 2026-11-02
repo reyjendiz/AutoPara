@@ -1,0 +1,173 @@
+//! The "Відкрита пара" tab: a class's Google Meet or Zoom page inside the main window, as a second
+//! webview over the area the interface keeps for it (`ui/src/ui/meeting.ts`).
+//!
+//! The page is remote. Tauri refuses every command from a remote origin unless a capability names
+//! that origin, and none does, so the page has no way into the app.
+
+use std::sync::{Mutex, PoisonError};
+
+use tauri::{
+    AppHandle, Emitter, EventTarget, LogicalPosition, LogicalSize, Manager, State, Url,
+    WebviewBuilder, WebviewUrl,
+};
+use tauri_plugin_opener::OpenerExt;
+
+use crate::commands::{CommandResult, failed};
+
+const LABEL: &str = "meeting";
+/// Tells the interface a class page opened (payload: its site), so it switches to the tab.
+const OPENED_EVENT: &str = "meeting-opened";
+const GOOGLE_SIGN_IN: &str =
+    "https://accounts.google.com/ServiceLogin?continue=https%3A%2F%2Fmeet.google.com%2F";
+const ZOOM_SIGN_IN: &str = "https://zoom.us/signin";
+
+/// What the interface last said about the tab, and the page it shows.
+#[derive(Default)]
+pub struct Meeting(Mutex<Place>);
+
+#[derive(Default)]
+struct Place {
+    bounds: (f64, f64, f64, f64),
+    visible: bool,
+    page: Option<Url>,
+}
+
+/// The page AutoPara shows for a class link, or `None` when the link belongs in the browser:
+/// Meet as it is, and a Zoom `/j/<id>` link as Zoom's web client, so no app is handed the link.
+pub fn page(link: &str) -> Option<Url> {
+    let mut url = Url::parse(link).ok()?;
+    let host = url.host_str()?.to_owned();
+    if host == "meet.google.com" {
+        return Some(url);
+    }
+    if host == "zoom.us" || host.ends_with(".zoom.us") {
+        let id = url.path().strip_prefix("/j/")?.to_owned();
+        url.set_path(&format!("/wc/join/{id}"));
+        return Some(url);
+    }
+    None
+}
+
+/// Show `page` in the tab, replacing whatever it showed. Creating a webview waits on the main
+/// thread, so this is never called from it (a synchronous command would deadlock WebView2).
+pub fn open(app: &AppHandle, page: Url) -> tauri::Result<()> {
+    let site = page.host_str().unwrap_or_default().to_owned();
+    let state = app.state::<Meeting>();
+    let (x, y, width, height) = state.place().bounds;
+    match app.get_webview(LABEL) {
+        Some(webview) => webview.navigate(page.clone())?,
+        None => {
+            let window = app.get_window("main").ok_or(tauri::Error::WindowNotFound)?;
+            window.add_child(
+                WebviewBuilder::new(LABEL, WebviewUrl::External(page.clone())),
+                LogicalPosition::new(x, y),
+                LogicalSize::new(width.max(1.0), height.max(1.0)),
+            )?;
+        }
+    }
+    state.place().page = Some(page);
+    crate::show_main_window(app);
+    app.emit_to(EventTarget::webview("main"), OPENED_EVENT, site)
+}
+
+impl Meeting {
+    fn place(&self) -> std::sync::MutexGuard<'_, Place> {
+        self.0.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+}
+
+/// Where the tab's area is (logical pixels) and whether the page may show: only while its tab is
+/// chosen and no dialog is open, since the page would cover the interface's own dialogs.
+#[tauri::command]
+pub fn meeting_place(
+    app: AppHandle,
+    state: State<'_, Meeting>,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+    visible: bool,
+) -> CommandResult<()> {
+    {
+        let mut place = state.place();
+        place.bounds = (x, y, width, height);
+        place.visible = visible;
+    }
+    let Some(webview) = app.get_webview(LABEL) else {
+        return Ok(());
+    };
+    webview
+        .set_position(LogicalPosition::new(x, y))
+        .and_then(|()| webview.set_size(LogicalSize::new(width.max(1.0), height.max(1.0))))
+        .and_then(|()| {
+            if visible {
+                webview.show()
+            } else {
+                webview.hide()
+            }
+        })
+        .map_err(failed)
+}
+
+/// "Увійти в Google" / "Увійти в Zoom": the sign-in page in the tab. The webview keeps its cookies
+/// in AutoPara's own profile, so one sign-in lasts.
+#[tauri::command]
+pub async fn meeting_sign_in(app: AppHandle, service: String) -> CommandResult<()> {
+    let link = match service.as_str() {
+        "google" => GOOGLE_SIGN_IN,
+        "zoom" => ZOOM_SIGN_IN,
+        _ => return Err("invalid_service".into()),
+    };
+    let page = Url::parse(link).map_err(failed)?;
+    open(&app, page).map_err(failed)
+}
+
+/// "Відкрити в браузері": the class page in the system browser instead, and the tab closed.
+#[tauri::command]
+pub fn meeting_in_browser(app: AppHandle, state: State<'_, Meeting>) -> CommandResult<()> {
+    let page = state.place().page.clone();
+    if let Some(page) = page {
+        app.opener()
+            .open_url(page.as_str(), None::<&str>)
+            .map_err(failed)?;
+    }
+    meeting_close(app, state)
+}
+
+/// "Закрити пару": leaves the meeting by closing its page.
+#[tauri::command]
+pub fn meeting_close(app: AppHandle, state: State<'_, Meeting>) -> CommandResult<()> {
+    state.place().page = None;
+    match app.get_webview(LABEL) {
+        Some(webview) => webview.close().map_err(failed),
+        None => Ok(()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn meet_links_open_as_they_are() {
+        let link = "https://meet.google.com/vdc-yvjh-bxc";
+        assert_eq!(page(link).map(String::from), Some(link.to_owned()));
+    }
+
+    #[test]
+    fn zoom_join_links_become_the_web_client() {
+        let link = "https://us04web.zoom.us/j/78964062532?pwd=abc.1";
+        assert_eq!(
+            page(link).map(String::from),
+            Some("https://us04web.zoom.us/wc/join/78964062532?pwd=abc.1".to_owned())
+        );
+    }
+
+    #[test]
+    fn other_links_stay_in_the_browser() {
+        assert_eq!(page("https://us04web.zoom.us/my/teacher"), None);
+        assert_eq!(page("https://teams.microsoft.com/l/meetup-join/x"), None);
+        assert_eq!(page("https://evilzoom.us/j/1"), None);
+        assert_eq!(page("nonsense"), None);
+    }
+}

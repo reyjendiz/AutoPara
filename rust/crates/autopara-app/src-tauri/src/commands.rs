@@ -72,7 +72,7 @@ impl AppState {
     }
 }
 
-fn failed(error: impl std::fmt::Display) -> String {
+pub(crate) fn failed(error: impl std::fmt::Display) -> String {
     tracing::warn!(%error, "command failed");
     error.to_string()
 }
