@@ -141,6 +141,9 @@ pub fn save_assist_settings(
     input: AssistSettings,
     api_key: Option<String>,
 ) -> CommandResult<AssistSettings> {
+    if !is_safe_endpoint(&input.base_url) {
+        return Err("assist_error_url".into());
+    }
     let language = serde_json::to_value(input.language)
         .ok()
         .and_then(|v| v.as_str().map(str::to_string))
@@ -174,6 +177,20 @@ pub fn save_assist_settings(
         secrets::set_api_key(&input.provider, &key)?;
     }
     Ok(load_settings(&state))
+}
+
+/// The key and the class's text go to this address: `https://`, or plain `http://` only to this
+/// computer (Ollama, LM Studio). Empty means the preset's own address.
+fn is_safe_endpoint(url: &str) -> bool {
+    let url = url.trim().to_ascii_lowercase();
+    url.is_empty()
+        || url.starts_with("https://")
+        || ["http://127.0.0.1", "http://localhost", "http://[::1]"]
+            .iter()
+            .any(|local| {
+                url.strip_prefix(local)
+                    .is_some_and(|rest| rest.is_empty() || rest.starts_with([':', '/']))
+            })
 }
 
 /// Accept the first-run consent, or revoke it (which also stops listening).
@@ -585,6 +602,27 @@ mod tests {
     use lecture_assist::AssistError;
 
     use super::*;
+
+    #[test]
+    fn the_key_goes_only_over_https_or_to_this_computer() {
+        for good in [
+            "",
+            "https://api.deepseek.com/v1",
+            "http://127.0.0.1:11434/v1",
+            "http://localhost:1234/v1",
+        ] {
+            assert!(is_safe_endpoint(good), "{good}");
+        }
+        for bad in [
+            "http://example.com/v1",
+            "http://localhost.example.com/v1",
+            "ftp://127.0.0.1",
+            "api.deepseek.com",
+        ] {
+            assert!(!is_safe_endpoint(bad), "{bad}");
+        }
+        assert!(!t("assist_error_url").is_empty());
+    }
 
     /// `t` asserts in debug builds when a key is missing.
     #[test]
