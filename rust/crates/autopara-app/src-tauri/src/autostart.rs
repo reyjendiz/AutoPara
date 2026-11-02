@@ -12,7 +12,8 @@ use std::io;
 #[cfg(target_os = "macos")]
 use std::path::PathBuf;
 
-pub const VALUE_NAME: &str = "AutoPara";
+#[cfg(any(windows, test))]
+const VALUE_NAME: &str = "AutoPara";
 #[cfg(windows)]
 const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
 
@@ -59,7 +60,7 @@ fn plist_path() -> Option<PathBuf> {
 #[cfg(target_os = "macos")]
 fn current() -> Option<String> {
     let text = std::fs::read_to_string(plist_path()?).ok()?;
-    text.contains("<string>--hidden</string>").then(|| text)
+    text.contains("<string>--hidden</string>").then_some(text)
 }
 
 #[cfg(target_os = "macos")]
