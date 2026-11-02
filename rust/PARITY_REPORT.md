@@ -94,7 +94,7 @@ Compared side by side with the 1.x pictures (`rust/PARITY_UI.md`); no pixel diff
 |---|---|---|
 | H.1 Windows (NSIS) | ⚠️ | Custom Tauri template doing what `AutoPara.nsi` did; differences listed in DECISIONS "Windows installer". Built and signed locally for 2.0.0 (8.5 MB). Not yet run on a clean VM or over a real 1.x install. |
 | H.2 macOS | ⚠️ | `.app` + `.dmg` per architecture, names as in 1.x, unsigned. Never built: needs the macOS CI runners. |
-| H.3 Release workflow | ⚠️ | `rust-release.yml` publishes only after all three platforms built (DECISIONS "Release workflow"). Runs only on `main`, so its first run is the release itself; `rust-ci.yml` builds the same apps on the pushed branch. The Android APK is now a fourth job. |
+| H.3 Release workflow | ⚠️ | `rust-release.yml` publishes only after all three platforms built (DECISIONS "Release workflow"). Never run: the branch has not been pushed. The Android APK is not part of it yet. |
 
 ## I. Known gaps and 1.x bugs
 

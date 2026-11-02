@@ -67,8 +67,7 @@ Download **`AutoPara-<version>-Setup.exe`** from the latest release and run it. 
 procedure. On a Mac, take **`AutoPara-<version>.dmg`** (Apple Silicon) or
 **`AutoPara-Intel-<version>.dmg`** (Intel) from the same release and drag AutoPara into
 Applications; the app is not signed, so open it the first time through the context menu → Відкрити.
-On Android, take **`AutoPara-<version>.apk`** from the same release (see
-[android/README.md](android/README.md)); every download in a release has the same version number.
+For Android, see [android/README.md](android/README.md).
 
 The target PC needs **nothing preinstalled**. Windows 10/11 64-bit; the app uses the system's
 WebView2, which Windows 11 and an updated Windows 10 already have (the installer adds it otherwise).

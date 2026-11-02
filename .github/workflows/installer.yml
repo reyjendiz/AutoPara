@@ -1,0 +1,413 @@
+# Builds the Windows installer and the macOS disk image on every push to main and publishes them as a
+# GitHub release.
+#
+# The installer used to be built by hand on the maintainer's machine, which meant the download
+# link in the README could point at a build nobody could reproduce. This job runs the same two
+# stages `build.cmd` runs locally -- PyInstaller, then makensis -- on a clean Windows runner.
+#
+# A release is cut when APP_VERSION in installer/AutoPara.nsi names a version that has no tag yet.
+# Pushing to main without touching that number still builds and still uploads the .exe as a
+# workflow artifact; it just does not create a second release under a tag that already exists.
+# So: bump APP_VERSION in the same commit as the change you want released.
+
+name: Installer
+
+on:
+  push:
+    branches: [main]
+    # The Android app is built by its own workflow; a change confined to it has nothing to release.
+    paths-ignore:
+      - "android/**"
+      - ".github/workflows/android.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write # needed to create the release and upload the .exe to it
+
+# Two pushes in quick succession would otherwise race to create the same tag.
+concurrency:
+  group: installer-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the version from the installer script
+        id: version
+        shell: pwsh
+        run: |
+          # installer/AutoPara.nsi is the single source of the version number: it names the
+          # OutFile, the Add/Remove Programs entry and VIProductVersion. Anything here that
+          # tracked a version of its own would drift from the file the build actually reads.
+          $script = Get-Content installer/AutoPara.nsi -Raw
+          if ($script -notmatch '(?m)^!define\s+APP_VERSION\s+"([^"]+)"') {
+              throw "APP_VERSION not found in installer/AutoPara.nsi"
+          }
+          $version = $Matches[1]
+          "version=$version"                >> $env:GITHUB_OUTPUT
+          "tag=v$version"                   >> $env:GITHUB_OUTPUT
+          "setup=AutoPara-$version-Setup.exe" >> $env:GITHUB_OUTPUT
+          Write-Host "APP_VERSION = $version"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13' # the version the app is developed and tested against
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          # Not in requirements.txt: neither is needed to run the app, only to build and check it.
+          python -m pip install pyinstaller pytest
+
+      - name: Run the tests
+        shell: pwsh
+        # The parser's regression fixture is the real timetable, which is not in the repository
+        # (it holds live meeting links), so the 100+ document-backed tests SKIP here and the run
+        # still reads green. This step guards the rest of the suite -- imports, the scheduler, the
+        # Qt widgets, the installer script's agreement with the app -- not the parser.
+        run: python -m pytest -q
+
+      - name: Install NSIS
+        shell: pwsh
+        run: |
+          # Present on some runner images and not others; build.ps1 looks in both Program Files
+          # locations, which is where either route puts it.
+          function Find-Makensis {
+              @(
+                  "$env:ProgramFiles\NSIS\makensis.exe"
+                  "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
+              ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+          }
+
+          if (Find-Makensis) {
+              Write-Host "NSIS already present: $(Find-Makensis)"
+          } else {
+              # chocolatey is a download from the internet: it can fail on a bad moment and still
+              # leave the step looking finished, so the result is checked rather than assumed, and a
+              # miss is tried again before it costs a whole build.
+              foreach ($attempt in 1..3) {
+                  if (Find-Makensis) { break }
+                  Write-Host "Installing NSIS (attempt $attempt of 3)"
+                  choco install nsis --no-progress -y --force
+                  Start-Sleep -Seconds (5 * $attempt)
+              }
+          }
+          $found = Find-Makensis
+          if (-not $found) { throw "NSIS could not be installed: makensis.exe is not in Program Files" }
+          Write-Host "NSIS ready: $found"
+
+      - name: Build the application bundle and the installer
+        shell: pwsh
+        # The same entry point a maintainer double-clicks, so CI cannot pass on a path that a
+        # local build does not take. It renders build\AutoPara.ico first: without it the exe --
+        # and every shortcut pointing at it -- carries PyInstaller's stock Python icon.
+        run: .\build.cmd
+
+      - name: Check the installer was produced
+        shell: pwsh
+        run: |
+          $setup = "dist/${{ steps.version.outputs.setup }}"
+          if (-not (Test-Path $setup)) { throw "$setup was not built" }
+          "{0} {1:N1} MB" -f $setup, ((Get-Item $setup).Length / 1MB)
+
+      # Uploaded whether or not a release is cut, so any build off main can be downloaded and
+      # tried without a version bump.
+      - name: Upload the installer as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoPara-${{ steps.version.outputs.version }}-Setup
+          path: dist/${{ steps.version.outputs.setup }}
+          if-no-files-found: error
+
+      - name: Publish the release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ steps.version.outputs.tag }}"
+
+          # "No release found" is an answer, not a failure, so this one probe runs with the
+          # step's stop-on-error preference lifted and is judged by its exit code alone.
+          $ErrorActionPreference = "Continue"
+          gh release view $tag *> $null
+          $released = ($LASTEXITCODE -eq 0)
+          $ErrorActionPreference = "Stop"
+
+          if ($released) {
+              Write-Host "$tag is already released; bump APP_VERSION in installer/AutoPara.nsi to cut a new one."
+              exit 0
+          }
+          $notes = @"
+          **Windows:** завантажте **${{ steps.version.outputs.setup }}** нижче та запустіть його.
+          Нічого більше встановлювати не треба — ні Python, ні інших програм.
+
+          **macOS (Apple Silicon):** завантажте **AutoPara-${{ steps.version.outputs.version }}.dmg**,
+          відкрийте його й перетягніть AutoPara у «Програми». Застосунок не підписано, тож при першому
+          запуску відкрийте його через контекстне меню → «Відкрити».
+
+          **macOS (Intel):** те саме, але файл **AutoPara-Intel-${{ steps.version.outputs.version }}.dmg**.
+
+          **Android:** завантажте **AutoPara-${{ steps.version.outputs.version }}.apk** і відкрийте його на телефоні чи планшеті
+          (Android 8.0 і новіше). Android один раз попросить дозволити встановлення з браузера або файлового менеджера.
+
+          Зібрано з ${{ github.sha }}.
+          "@
+          gh release create $tag "dist/${{ steps.version.outputs.setup }}" `
+              --title "AutoPara ${{ steps.version.outputs.version }}" `
+              --notes $notes
+
+  # The macOS disk image. It runs after the Windows job because that job is the one that creates the
+  # release; this one only adds its file to it. It also fills the gap when a release exists without
+  # an image (the first release was cut before this job did), so a push builds the image only when
+  # the release for this version has none yet.
+  build-mac:
+    needs: build
+    runs-on: macos-14 # Apple Silicon
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Decide whether this version needs an image
+        id: plan
+        run: |
+          version=$(sed -n 's/^!define[[:space:]]*APP_VERSION[[:space:]]*"\([^"]*\)".*/\1/p' installer/AutoPara.nsi | head -1)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "dmg=AutoPara-$version.dmg" >> "$GITHUB_OUTPUT"
+          have=$(gh release view "v$version" --json assets -q '[.assets[].name | select(endswith(".dmg"))] | length' 2>/dev/null || echo none)
+          if [ "$have" = "none" ]; then
+            echo "No release v$version exists, so there is nothing to attach an image to."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          elif [ "$have" != "0" ]; then
+            echo "v$version already has its disk image."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-python@v5
+        if: steps.plan.outputs.build == 'true'
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        if: steps.plan.outputs.build == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install pyinstaller pytest
+
+      - name: Run the tests
+        if: steps.plan.outputs.build == 'true'
+        run: python -m pytest -q
+
+      - name: Build the application and the disk image
+        if: steps.plan.outputs.build == 'true'
+        run: python build_mac.py
+
+      - name: Check the image was produced
+        if: steps.plan.outputs.build == 'true'
+        run: |
+          test -f "dist/${{ steps.plan.outputs.dmg }}"
+          ls -lh "dist/${{ steps.plan.outputs.dmg }}"
+
+      - name: Upload the image as a workflow artifact
+        if: steps.plan.outputs.build == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoPara-${{ steps.plan.outputs.version }}-macOS
+          path: dist/${{ steps.plan.outputs.dmg }}
+          if-no-files-found: error
+
+      - name: Attach the image to the release
+        if: steps.plan.outputs.build == 'true'
+        run: gh release upload "v${{ steps.plan.outputs.version }}" "dist/${{ steps.plan.outputs.dmg }}" --clobber
+
+  # The same image for Macs with an Intel processor, built on an Intel runner (an Apple Silicon one
+  # cannot produce an Intel bundle: PyInstaller bundles the interpreter it runs on). It waits for the
+  # Apple Silicon job so that file is always the first .dmg a release holds -- copies of AutoPara
+  # that predate the Intel image take the first .dmg they find.
+  build-mac-intel:
+    needs: build-mac
+    runs-on: macos-15-intel
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Decide whether this version needs an Intel image
+        id: plan
+        run: |
+          version=$(sed -n 's/^!define[[:space:]]*APP_VERSION[[:space:]]*"\([^"]*\)".*/\1/p' installer/AutoPara.nsi | head -1)
+          dmg="AutoPara-Intel-$version.dmg"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "dmg=$dmg" >> "$GITHUB_OUTPUT"
+          have=$(gh release view "v$version" --json assets -q "[.assets[].name | select(. == \"$dmg\")] | length" 2>/dev/null || echo none)
+          if [ "$have" = "none" ]; then
+            echo "No release v$version exists, so there is nothing to attach an image to."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          elif [ "$have" != "0" ]; then
+            echo "v$version already has its Intel image."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-python@v5
+        if: steps.plan.outputs.build == 'true'
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        if: steps.plan.outputs.build == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install pyinstaller pytest
+
+      - name: Run the tests
+        if: steps.plan.outputs.build == 'true'
+        run: python -m pytest -q
+
+      - name: Build the application and the disk image
+        if: steps.plan.outputs.build == 'true'
+        run: python build_mac.py
+
+      - name: Check the image was produced and is for Intel
+        if: steps.plan.outputs.build == 'true'
+        run: |
+          test -f "dist/${{ steps.plan.outputs.dmg }}"
+          ls -lh "dist/${{ steps.plan.outputs.dmg }}"
+          file dist/AutoPara.app/Contents/MacOS/* | head -3
+
+      - name: Upload the image as a workflow artifact
+        if: steps.plan.outputs.build == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoPara-${{ steps.plan.outputs.version }}-macOS-Intel
+          path: dist/${{ steps.plan.outputs.dmg }}
+          if-no-files-found: error
+
+      - name: Attach the image to the release
+        if: steps.plan.outputs.build == 'true'
+        run: gh release upload "v${{ steps.plan.outputs.version }}" "dist/${{ steps.plan.outputs.dmg }}" --clobber
+
+  # The Android app, built from android/ and attached to the same release under the same version
+  # number as the PC apps (its version is read from autopara/__init__.py, which bump_version.py keeps
+  # in step with APP_VERSION). Like the disk images it only adds a file to a release that exists.
+  #
+  # Signing: with the repository secrets ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
+  # ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD the APK carries that key and updates install over each
+  # other. Without them it carries the build machine's debug key: it installs, but a newer one needs
+  # the older uninstalled first.
+  build-android:
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Decide whether this version needs an APK
+        id: plan
+        run: |
+          version=$(sed -n 's/^!define[[:space:]]*APP_VERSION[[:space:]]*"\([^"]*\)".*/\1/p' installer/AutoPara.nsi | head -1)
+          apk="AutoPara-$version.apk"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "apk=$apk" >> "$GITHUB_OUTPUT"
+          have=$(gh release view "v$version" --json assets -q "[.assets[].name | select(. == \"$apk\")] | length" 2>/dev/null || echo none)
+          if [ "$have" = "none" ]; then
+            echo "No release v$version exists, so there is nothing to attach an APK to."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          elif [ "$have" != "0" ]; then
+            echo "v$version already has its APK."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-java@v4
+        if: steps.plan.outputs.build == 'true'
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        if: steps.plan.outputs.build == 'true'
+
+      - name: Accept SDK licences
+        if: steps.plan.outputs.build == 'true'
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+
+      - name: Decode the signing key (when the secrets exist)
+        if: steps.plan.outputs.build == 'true'
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            {
+              echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/release.keystore"
+              echo "ANDROID_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+              echo "ANDROID_KEY_ALIAS=$KEY_ALIAS"
+              echo "ANDROID_KEY_PASSWORD=$KEY_PASSWORD"
+            } >> "$GITHUB_ENV"
+            echo "SIGNING=release key" >> "$GITHUB_ENV"
+          else
+            echo "SIGNING=debug key" >> "$GITHUB_ENV"
+          fi
+
+      - name: Test the core and build the release APK
+        if: steps.plan.outputs.build == 'true'
+        working-directory: android
+        run: ./gradlew :core:test :app:assembleRelease --console=plain
+
+      - name: Check the APK carries this version and is signed
+        if: steps.plan.outputs.build == 'true'
+        run: |
+          mkdir -p dist
+          cp android/app/build/outputs/apk/release/*.apk "dist/${{ steps.plan.outputs.apk }}"
+          tools=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -n1)
+          "$tools/apksigner" verify --verbose "dist/${{ steps.plan.outputs.apk }}"
+          "$tools/aapt2" dump badging "dist/${{ steps.plan.outputs.apk }}" | grep -E "^package:" | tee badging.txt
+          grep -q "versionName='${{ steps.plan.outputs.version }}'" badging.txt
+
+      - name: Upload the APK as a workflow artifact
+        if: steps.plan.outputs.build == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoPara-${{ steps.plan.outputs.version }}-Android
+          path: dist/${{ steps.plan.outputs.apk }}
+          if-no-files-found: error
+
+      - name: Attach the APK to the release
+        if: steps.plan.outputs.build == 'true'
+        run: gh release upload "v${{ steps.plan.outputs.version }}" "dist/${{ steps.plan.outputs.apk }}" --clobber
+
+      - name: Say so in the release notes
+        if: steps.plan.outputs.build == 'true'
+        run: |
+          tag="v${{ steps.plan.outputs.version }}"
+          body=$(gh release view "$tag" --json body -q .body)
+          if ! grep -q "Android" <<< "$body"; then
+            printf '%s\n\n%s\n' "$body" "**Android:** завантажте **${{ steps.plan.outputs.apk }}** і відкрийте його на телефоні чи планшеті (Android 8.0 і новіше). Android один раз попросить дозволити встановлення з браузера або файлового менеджера." > notes.md
+            gh release edit "$tag" --notes-file notes.md
+          fi
