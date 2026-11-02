@@ -8,35 +8,31 @@ lists the invariants. Read those first — this file does not repeat them.
 
 - **Repository:** https://github.com/reyjendiz/AutoPara (the old name `sevcenkoa864-oss/AutoPara`
   redirects). The latest published release is **v1.10.0**, the Python app.
-- **2.0.0 is the Rust + Tauri 2 rewrite** on the local branch `rust-rewrite`, not pushed yet. It
+- **2.0.0 is the Rust + Tauri 2 rewrite** on the branch `rust-rewrite` (pushed, not merged). It
   reproduces the 1.x desktop app (`rust/PARITY_REPORT.md`) and adds Lecture Assist
   (`docs/ASSIST.md`). The step-by-step status is `rust/PROGRESS.md`.
 - **Merging `rust-rewrite` into `main` publishes 2.0.0** (`rust-release.yml`): the version is
-  already 2.0.0, not a pre-release. Push the branch first and let `rust-ci.yml` run on it; merge
-  only after the release checklist has passed.
-- The Python app (`autopara/`, `tests/`, `installer/`, `build.cmd`, `installer.yml`) is unchanged
-  and stays until the parity report is accepted. `android/` is untouched.
+  already 2.0.0, not a pre-release. Merge only after `rust-ci.yml` is green on the branch and the
+  release checklist has passed.
+- The Python app (`autopara/`, `tests/`, `installer/`, `build.cmd`) stays in the tree, unbuilt,
+  until the parity report is accepted; its last state is the tag `python-final`. `installer.yml` is
+  retired: the Android APK is built by `rust-release.yml` under the workspace version.
 
 ## Waiting on the owner
 
-1. **Push `rust-rewrite`** so CI runs for the first time on all three runners (plan 1.4, 6.5, 9.1).
-   The macOS code (ScreenCaptureKit capture, the `.app`/`.dmg`) has never been compiled.
+1. **The release workflow** (`rust-release.yml`, now with the Android job) runs only on `main`, so
+   its first run is the 2.0.0 release itself (plan 6.5); `rust-ci.yml` covers the same builds
+   except bundling and signing.
 2. **Repository secrets** `TAURI_SIGNING_PRIVATE_KEY` (contents of
    `%USERPROFILE%\.tauri\autopara-updater.key`) and, if set, its password; back the key up
    (docs/RELEASE_CHECKLIST.md).
-3. **Tag `python-final`** on the last Python commit (`8e73aff`, 1.10.0) before the merge. Not done
-   from here: a tag is meant to be pushed.
-4. **The Python tree:** stays where it is for now (`rust/DECISIONS.md`, "The Python tree stays in
+3. **The Python tree:** stays where it is for now (`rust/DECISIONS.md`, "The Python tree stays in
    place"). Moving it to `legacy/python/` is a separate change once the parity report is accepted.
-5. **`installer.yml` and Android.** That workflow still builds the Python app on every push to
-   `main` and attaches the APK only to the Python version's release, so 2.x releases have no APK.
-   Retire its Windows and Mac jobs, and move the Android build under the workspace version, in one
-   change at the cutover.
-6. **A 1.10.1 bridge release (optional).** 1.x cannot download 2.0 because its updater asks the old
+4. **A 1.10.1 bridge release (optional).** 1.x cannot download 2.0 because its updater asks the old
    repository name (docs/UPGRADING.md). Fixing `GITHUB_REPO` in a last Python release would let 1.x
    users get 2.0 in one click; without it they download it by hand, guided by the release notes'
    first line.
-7. **Hardware:** a clean Windows VM for the release checklist (install, autostart, upgrade over
+5. **Hardware:** a clean Windows VM for the release checklist (install, autostart, upgrade over
    1.10.0, uninstall); a Mac of each kind; a real lecture recording for Lecture Assist accuracy.
 
 ## Next three improvements

@@ -12,10 +12,11 @@ manual dispatch). What it does depends on one number:
   which every crate inherits and Tauri takes for the installer, the executable's version info and
   Add/Remove Programs.
 - If `v<version>` already has a release, it stops: nothing is built or published.
-- Otherwise it builds Windows, Apple Silicon and Intel in parallel, signs the updater files with
-  `TAURI_SIGNING_PRIVATE_KEY`, and **only when all three succeeded** creates `v<version>` with
-  `AutoPara-<version>-Setup.exe`, `AutoPara-<version>.dmg`, `AutoPara-Intel-<version>.dmg`, the two
-  `.app.tar.gz` update archives, their `.sig` files and `latest.json`.
+- Otherwise it builds Windows, Apple Silicon, Intel and Android in parallel, signs the updater files
+  with `TAURI_SIGNING_PRIVATE_KEY`, and **only when all four succeeded** creates `v<version>` with
+  `AutoPara-<version>-Setup.exe`, `AutoPara-<version>.dmg`, `AutoPara-Intel-<version>.dmg`,
+  `AutoPara-<version>.apk`, the two `.app.tar.gz` update archives, their `.sig` files and
+  `latest.json`.
 
 So the number is the whole switch. Two consequences worth holding onto:
 
@@ -29,12 +30,13 @@ So the number is the whole switch. Two consequences worth holding onto:
 1.x copies cannot install 2.x by themselves (docs/UPGRADING.md); the first line of the release
 notes tells them where to download it.
 
-**Python 1.x and Android.** `.github/workflows/installer.yml` still runs on pushes to `main` and
-builds the Python app under `APP_VERSION` in `installer/AutoPara.nsi` (1.10.0, already released, so
-it publishes nothing), and its `build-android` job attaches `AutoPara-<version>.apk` to the release
-of the *Python* version. Until that workflow is retired and the Android build moves under the
-workspace version, a 2.x release has no APK. Both are cutover decisions for the owner
-(docs/HANDOFF.md).
+**Android** has no version of its own: `android/app/build.gradle.kts` reads the workspace version
+(`versionCode` = major·10000 + minor·100 + patch). The repository secrets `ANDROID_KEYSTORE_BASE64`,
+`ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD` sign the APK with a
+stable key; without them it carries the runner's debug key.
+
+**Python 1.x** is no longer built: `installer.yml` was retired at the cutover and the last Python
+state is the tag `python-final`.
 
 ## Step 1 — Does this change warrant a release?
 

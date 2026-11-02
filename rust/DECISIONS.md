@@ -268,8 +268,8 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
 - **Python:** `installer.yml` created the release from the Windows job and the Mac jobs attached
   their images afterwards.
 - **Why:** `latest.json` names every platform's file, so it can only be written once all exist;
-  a release missing a file would point the updater at nothing. The Android APK is still built and
-  attached by `installer.yml` under the Python app's version; it moves over in phase 8.
+  a release missing a file would point the updater at nothing. Since the cutover the Android APK
+  is a fourth job of the same workflow (see "Cutover of the release workflow").
 
 ## Lecture Assist: voice activity detection
 
@@ -374,10 +374,20 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
 ## The Python tree stays in place
 
 - **Decision (plan 8.3):** `autopara/`, `tests/`, `installer/` and the build scripts stay where they
-  are; nothing moves to `legacy/python/` yet. The `python-final` tag (on `8e73aff`, 1.10.0) is left
-  to the owner, since a tag is meant to be pushed.
+  are; nothing moves to `legacy/python/` yet. The last Python state is tagged `python-final`
+  (`8e73aff`, 1.10.0).
 - **Alternatives:** move the tree to `legacy/python/` now.
-- **Why:** the plan keeps the Python tests until the parity report is accepted, and
-  `installer.yml`, the Android build (which reads `autopara/__init__.py`) and the docs' references
-  all point at the current paths; moving them is one change for the cutover, together with retiring
-  `installer.yml`.
+- **Why:** the plan keeps the Python tests until the parity report is accepted, and the docs and
+  `tools/` still point at the current paths; moving them is a separate change after that.
+
+## Cutover of the release workflow
+
+- **Decision:** `installer.yml` (the Python app's Windows, Mac and Android release) is removed. The
+  Android APK is built by an `android` job in `rust-release.yml`, and the release is published only
+  when Windows, both Macs and Android succeeded. `android/app/build.gradle.kts` and
+  `android/ci/emulator-run.sh` read the version from `rust/Cargo.toml` instead of
+  `autopara/__init__.py`, so the APK is 2.0.0 (`versionCode` 20000) like the rest.
+- **Alternatives:** keep `installer.yml` for Android only, reading the Rust version; it would then
+  race `rust-release.yml` to create the same release.
+- **Why:** one workflow, one version, one all-or-nothing release. Leaving `installer.yml` running
+  would rebuild Python 1.10.0 on every push to `main` and never give a 2.x release its APK.

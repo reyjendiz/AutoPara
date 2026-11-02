@@ -94,7 +94,7 @@ fails blocks the release.
 ## After pushing
 
 - [ ] The `Rust release` workflow is green and the release `v<version>` has
-      `AutoPara-<version>-Setup.exe`, `AutoPara-<version>.dmg`, `AutoPara-Intel-<version>.dmg`, the
-      two `.app.tar.gz` archives, a `.sig` for the Setup.exe and each archive, and `latest.json`.
+      `AutoPara-<version>-Setup.exe`, `AutoPara-<version>.dmg`, `AutoPara-Intel-<version>.dmg`,
+      `AutoPara-<version>.apk`, the two `.app.tar.gz` archives, a `.sig` for the Setup.exe and each archive, and `latest.json`.
 - [ ] `https://github.com/reyjendiz/AutoPara/releases/latest/download/latest.json` serves that
       version (pre-releases excepted).
