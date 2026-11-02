@@ -97,3 +97,14 @@ jobs:
         with:
           manifest-path: rust/Cargo.toml
           command: check
+
+  # The whole history, not just this push: a key committed and removed later is still public.
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
