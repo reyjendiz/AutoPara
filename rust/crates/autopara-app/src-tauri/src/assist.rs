@@ -450,6 +450,9 @@ pub fn start(app: &AppHandle, lesson_id: Option<i64>) -> CommandResult<()> {
         answer_questions: settings.answer_questions,
         ..AssistConfig::default()
     };
+    // The engine runs chat requests on the async runtime, but the tray, the shortcut and an
+    // opened class call this from the main thread, which is outside it.
+    let _runtime = tauri::async_runtime::handle().inner().enter();
     let (handle, events) = AssistEngine::start(config, context.clone(), parts);
     let keep = Arc::new(AtomicBool::new(false));
     assist.with(|r| {
