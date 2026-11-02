@@ -704,6 +704,17 @@ pub fn assist_resume(app: AppHandle) {
         .with(|r| r.as_ref().map(|r| r.handle.resume()));
 }
 
+/// The language model off for the rest of this class (listening goes on), or back on. Off also
+/// stops the built-in model's server, so its memory and graphics card are free at once.
+#[tauri::command]
+pub fn assist_set_chat(app: AppHandle, on: bool) {
+    app.state::<Assist>()
+        .with(|r| r.as_ref().map(|r| r.handle.set_chat(on)));
+    if !on {
+        local::shutdown();
+    }
+}
+
 #[tauri::command]
 pub fn assist_ask(app: AppHandle, kind: AskKind, text: String) {
     app.state::<Assist>()

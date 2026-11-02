@@ -41,6 +41,7 @@ enum Command {
     Resume,
     Stop,
     Ask(AskKind, String),
+    SetChat(bool),
 }
 
 /// Controls a running engine. Dropping it stops the engine too.
@@ -59,6 +60,11 @@ impl Handle {
 
     pub fn stop(&self) {
         let _ = self.commands.send(Command::Stop);
+    }
+
+    /// Turn the language model off or back on; listening and the transcript go on either way.
+    pub fn set_chat(&self, on: bool) {
+        let _ = self.commands.send(Command::SetChat(on));
     }
 
     /// Run a helper; its reply streams back as `HelperReply` events.
@@ -154,6 +160,8 @@ struct Worker {
     config: AssistConfig,
     context: ClassContext,
     chat: Option<Arc<dyn ChatProvider>>,
+    /// The user turned the language model off for now.
+    chat_off: bool,
     events: UnboundedSender<AssistEvent>,
     runtime: tokio::runtime::Handle,
     shared: Arc<Mutex<Shared>>,
@@ -179,6 +187,7 @@ impl Worker {
             config,
             context,
             chat,
+            chat_off: false,
             events,
             runtime,
             shared: Arc::default(),
@@ -252,6 +261,7 @@ impl Worker {
                     self.state(State::Listening);
                 }
                 Ok(Command::Ask(kind, text)) => self.ask(kind, text),
+                Ok(Command::SetChat(on)) => self.chat_off = !on,
                 Ok(_) | Err(RecvTimeoutError::Timeout) => {}
             }
             if paused {
@@ -376,9 +386,13 @@ impl Worker {
         }
     }
 
+    fn chat(&self) -> Option<Arc<dyn ChatProvider>> {
+        self.chat.clone().filter(|_| !self.chat_off)
+    }
+
     /// Rolling notes; skipped while the previous request is still out or the rate is spent.
     fn notes(&mut self) {
-        let Some(chat) = self.chat.clone() else {
+        let Some(chat) = self.chat() else {
             return;
         };
         if self.notes_task.as_ref().is_some_and(|t| !t.is_finished())
@@ -429,7 +443,7 @@ impl Worker {
     }
 
     fn ask(&self, kind: AskKind, text: String) {
-        let Some(chat) = self.chat.clone() else {
+        let Some(chat) = self.chat() else {
             return report(&self.events, &AssistError::Chat("no chat provider".into()));
         };
         if !lock(&self.rate).try_acquire(Instant::now()) {
@@ -444,7 +458,7 @@ impl Worker {
     /// Like `ask`, but quiet: with no provider or no request left this minute, the question just
     /// stays in the list instead of putting an error over the class.
     fn answer(&self, question: String) {
-        let Some(chat) = self.chat.clone() else {
+        let Some(chat) = self.chat() else {
             return;
         };
         if !lock(&self.rate).try_acquire(Instant::now()) {
@@ -464,8 +478,8 @@ impl Worker {
     /// Let pending notes land, write the end-of-class summary, then report `Off`.
     fn finish(mut self) {
         let has_text = !lock(&self.shared).transcript.segments.is_empty();
-        let summary = match (&self.chat, has_text) {
-            (Some(chat), true) => Some((chat.clone(), self.helper(AskKind::Summary, ""))),
+        let summary = match (self.chat(), has_text) {
+            (Some(chat), true) => Some((chat, self.helper(AskKind::Summary, ""))),
             _ => None,
         };
         let notes_task = self.notes_task.take();

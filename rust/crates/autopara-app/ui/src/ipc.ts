@@ -120,6 +120,8 @@ export const assistStart = (lessonId: number | null): Promise<void> => invoke("a
 export const assistStop = (): Promise<void> => invoke("assist_stop");
 export const assistPause = (): Promise<void> => invoke("assist_pause");
 export const assistResume = (): Promise<void> => invoke("assist_resume");
+/** The language model off for the rest of this class, or back on; listening goes on. */
+export const assistSetChat = (on: boolean): Promise<void> => invoke("assist_set_chat", { on });
 export const assistAsk = (kind: AskKind, text: string): Promise<void> => invoke("assist_ask", { kind, text });
 export const assistKeepListening = (): Promise<void> => invoke("assist_keep_listening");
 export const assistSubject = (): Promise<string | null> => invoke<string | null>("assist_subject");

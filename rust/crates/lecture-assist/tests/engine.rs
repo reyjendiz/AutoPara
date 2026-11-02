@@ -157,3 +157,37 @@ async fn pause_and_resume_report_their_states() {
         ]
     );
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn with_the_model_off_only_the_transcript_goes_on() {
+    let parts = Parts {
+        source: Box::new(|| {
+            Ok(Box::new(FakeSource::new(lecture(&[2.0]), 1600)) as Box<dyn AudioSource>)
+        }),
+        recognizer: Box::new(|| {
+            Ok(Box::new(Scripted(vec!["Сьогодні графи.".into()].into())) as Box<dyn Recognizer>)
+        }),
+        vad: Box::new(|| Ok(Box::new(EnergyVad::default()) as Box<dyn Vad>)),
+        chat: Some(Arc::new(Canned)),
+    };
+    let config = AssistConfig {
+        notes_every_secs: 1,
+        partial_every_ms: 0,
+        ..AssistConfig::default()
+    };
+    let (handle, mut events) = AssistEngine::start(config, ClassContext::default(), parts);
+    handle.set_chat(false);
+    let mut finals = 0;
+    while let Some(event) = events.recv().await {
+        match event {
+            AssistEvent::StateChanged { state: State::Off } => break,
+            AssistEvent::TranscriptFinal { .. } => finals += 1,
+            AssistEvent::NotesUpdated { .. } | AssistEvent::HelperReply { .. } => {
+                panic!("the model was asked while off")
+            }
+            _ => {}
+        }
+    }
+    drop(handle);
+    assert_eq!(finals, 1);
+}

@@ -52,6 +52,8 @@ let reply = "";
 let answer = { question: "", text: "", done: true };
 let error = "";
 let classOver = false;
+// The user turned the language model off for this class.
+let aiOff = false;
 
 const root = h("aside", { class: "assist", "aria-label": t("assist_title"), hidden: true });
 const clock = h("span", { class: "assist-clock" });
@@ -106,6 +108,11 @@ function controls(): Child {
     { class: "controls" },
     listening ? button("assist_pause", () => void ipc.assistPause()) : button("assist_resume", () => void ipc.assistResume()),
     button("assist_stop", () => void ipc.assistStop()),
+    button(aiOff ? "assist_ai_on" : "assist_ai_off", () => {
+      aiOff = !aiOff;
+      void ipc.assistSetChat(!aiOff);
+      render();
+    }),
   );
 }
 
@@ -166,14 +173,16 @@ function body(): HTMLElement {
     section("assist_terms", terms.map((term) => `${term.term} — ${term.explanation}`)),
     section("assist_flagged", [...flagged, ...(notes?.flagged ?? [])]),
     reply ? h("section", { class: "reply" }, reply) : null,
-    h(
-      "div",
-      { class: "helpers" },
-      button("assist_recap", () => ask("recap")),
-      button("assist_simplify", () => ask("simplify")),
-      button("assist_topic", () => ask("topic")),
-    ),
-    form,
+    aiOff
+      ? h("p", { class: "faint" }, t("assist_ai_is_off"))
+      : h(
+          "div",
+          { class: "helpers" },
+          button("assist_recap", () => ask("recap")),
+          button("assist_simplify", () => ask("simplify")),
+          button("assist_topic", () => ask("topic")),
+        ),
+    !aiOff && form,
   );
 }
 
@@ -202,7 +211,7 @@ function tick(): void {
 }
 
 function reset(): void {
-  [finals, partial, notes, terms, flagged, reply, error, classOver] = [[], "", null, [], [], "", "", false];
+  [finals, partial, notes, terms, flagged, reply, error, classOver, aiOff] = [[], "", null, [], [], "", "", false, false];
   startedAt = Date.now();
 }
 

@@ -264,6 +264,7 @@ pub fn run() {
             hotkey::set_assist_hotkey,
             assist::assist_models,
             assist::assist_chat_models,
+            assist::assist_set_chat,
             assist::assist_download_model,
             assist::assist_delete_model,
             assist::assist_delete_all,

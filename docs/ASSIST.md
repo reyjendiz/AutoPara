@@ -99,6 +99,8 @@ it plays through the captured device and the tab is not muted.
 - The assistant is a panel on the right of the "Відкрита пара" tab, beside the class page, which
   narrows to make room. It appears (and the tab comes forward) when listening starts, folds to
   its header, has a font size slider, and can be closed once listening has stopped.
+- "Вимкнути ШІ" in the panel stops the language model for the rest of the class (and the
+  built-in model's server with it, freeing the graphics card); the transcript goes on.
 
 ## Troubleshooting
 
