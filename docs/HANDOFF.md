@@ -56,6 +56,11 @@ release build is `cargo tauri build` with `TAURI_SIGNING_PRIVATE_KEY` set to the
 
 - **Never run a checkout without `AUTOPARA_DATA_DIR`.** The default data folder is the real one,
   shared with an installed 1.x or 2.x. A debug build already refuses to write the autostart entry.
+- **Never start a release build (`target\release\AutoPara.exe`) on a PC with AutoPara installed.**
+  It syncs the autostart entry on start and would point the real `Run` value at `target\`.
+  Smoke-test release builds on a VM; on the development PC use a debug build.
+- **Build whisper.cpp outside `%TEMP%` and away from very long paths.** With the target folder deep
+  under `%TEMP%`, CMake's compiler check fails ("No CMAKE_C_COMPILER could be found", MSB8029).
 - **whisper.cpp built unoptimised** under CMake's Visual Studio generator until
   `rust/.cargo/config.toml` forced `-O2`; speech recognition was several times slower.
 - **CMake's long path with spaces breaks `npm.cmd`** inside `cargo xtask check`; put it on `PATH`
@@ -82,6 +87,28 @@ From `rust/PROGRESS.md` and `rust/PARITY_REPORT.md`:
 - Lecture Assist: Windows loopback capture works on synthetic audio; not yet on a real meeting.
   macOS capture is written but uncompiled. GPU (CUDA) builds are not in CI.
 - macOS images are unsigned and not notarised.
+
+## Security pass (plan 9.3, 2026-11-02)
+
+- `cargo deny check`: advisories, bans, licences, sources ok. `cargo audit`: no vulnerabilities;
+  five warnings (`glib` unsound, `zbus_names`, `zvariant`, `zvariant_derive`, `proc-macro-error`
+  unmaintained), all Linux-only Tauri dependencies that are not built for Windows or macOS.
+- Secrets: gitleaks is not installed here; instead the whole history (and the text inside every
+  committed `.docx`) was searched for key patterns and for the 27 meeting ids of the real
+  timetable. No hits; every committed link is an invented one.
+- CSP: `default-src 'self'`, no inline scripts, `object-src 'none'`, IPC only. Capabilities: the
+  main window has `core:default` only; the overlay adds moving, hiding, resizing and click-through
+  of itself. No plugin (opener, dialog, notification, updater) is reachable from the page; Rust
+  calls them. App commands are callable from both windows (Tauri's default without an app
+  manifest); both load only the bundled pages.
+- URLs: the scheduler and the editor accept `https://` only; `open_release_page` only this
+  repository's release pages; the updater one fixed HTTPS endpoint; a custom chat server must be
+  `https://`, or plain `http://` only to 127.0.0.1 / localhost (fixed in this pass).
+- No audio is written: the only `WavWriter` is in a test; the only file Lecture Assist creates is a
+  downloaded model. The API key lives in the OS keychain, is sent only as a bearer header, and the
+  interface only ever sees `has_key`.
+- Logs: links are logged by host only and chat provider error bodies not at all (both fixed in
+  this pass): the diagnostics button copies the log's tail, and meeting links carry passcodes.
 
 ## Map
 
