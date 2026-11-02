@@ -21,8 +21,8 @@ use crate::notes::{Notes, Transcript, notes_messages, parse_reply};
 use crate::stt::Recognizer;
 use crate::vad::{FRAME, Segmenter, SegmenterConfig, Utterance, Vad, rms};
 use crate::{
-    AskKind, AssistConfig, AssistError, AssistEvent, ClassContext, SAMPLE_RATE, Segment, State,
-    Term, text,
+    AskKind, AssistConfig, AssistError, AssistEvent, ClassContext, FlagKind, SAMPLE_RATE, Segment,
+    State, Term, text,
 };
 
 /// Builds a part on the engine's thread, so a slow model load never blocks the caller.
@@ -366,8 +366,13 @@ impl Worker {
             },
         );
         if let Some(notes) = notes {
+            let question = segment.flag == Some(FlagKind::Question);
+            let text = segment.text.clone();
             emit(&self.events, AssistEvent::Flagged { segment });
             emit(&self.events, AssistEvent::NotesUpdated { notes });
+            if question && self.config.answer_questions {
+                self.answer(text);
+            }
         }
     }
 
@@ -434,6 +439,21 @@ impl Worker {
         let events = self.events.clone();
         self.runtime
             .spawn(stream_reply(chat, kind, messages, events));
+    }
+
+    /// Like `ask`, but quiet: with no provider or no request left this minute, the question just
+    /// stays in the list instead of putting an error over the class.
+    fn answer(&self, question: String) {
+        let Some(chat) = self.chat.clone() else {
+            return;
+        };
+        if !lock(&self.rate).try_acquire(Instant::now()) {
+            return;
+        }
+        let messages = self.helper(AskKind::Answer, &question);
+        let events = self.events.clone();
+        self.runtime
+            .spawn(stream_reply(chat, AskKind::Answer, messages, events));
     }
 
     fn helper(&self, kind: AskKind, text: &str) -> Vec<crate::llm::Message> {

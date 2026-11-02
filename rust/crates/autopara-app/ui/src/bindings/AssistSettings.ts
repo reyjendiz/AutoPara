@@ -21,7 +21,11 @@ provider: string, base_url: string, chat_model: string, fallback: boolean, reten
 /**
  * Start listening whenever AutoPara opens a class (off unless the user turns it on).
  */
-auto_listen: boolean, has_key: boolean, 
+auto_listen: boolean, 
+/**
+ * Answer the teacher's questions in the overlay as they are heard (off unless turned on).
+ */
+answer_questions: boolean, has_key: boolean, 
 /**
  * Changed only through `set_assist_hotkey`, which checks for a conflict first.
  */

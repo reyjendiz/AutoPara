@@ -94,6 +94,8 @@ pub struct AssistSettings {
     pub retention_days: u32,
     /// Start listening whenever AutoPara opens a class (off unless the user turns it on).
     pub auto_listen: bool,
+    /// Answer the teacher's questions in the overlay as they are heard (off unless turned on).
+    pub answer_questions: bool,
     pub has_key: bool,
     /// Changed only through `set_assist_hotkey`, which checks for a conflict first.
     pub hotkey: String,
@@ -128,6 +130,7 @@ pub fn load_settings(state: &AppState) -> AssistSettings {
         fallback: get("assist_fallback") != "0",
         retention_days: get("assist_retention_days").parse().unwrap_or(30),
         auto_listen: get("assist_auto_listen") == "1",
+        answer_questions: get("assist_answer_questions") == "1",
         hotkey: crate::hotkey::saved(state),
     }
 }
@@ -166,6 +169,10 @@ pub fn save_assist_settings(
         (
             "assist_auto_listen",
             if input.auto_listen { "1" } else { "0" }.into(),
+        ),
+        (
+            "assist_answer_questions",
+            if input.answer_questions { "1" } else { "0" }.into(),
         ),
         (
             "assist_retention_days",
@@ -381,6 +388,7 @@ pub fn start(app: &AppHandle, lesson_id: Option<i64>) -> CommandResult<()> {
             .map(|t| t.trim().to_string())
             .filter(|t| !t.is_empty())
             .collect(),
+        answer_questions: settings.answer_questions,
         ..AssistConfig::default()
     };
     let (handle, events) = AssistEngine::start(config, context.clone(), parts);
@@ -686,6 +694,7 @@ mod tests {
             fallback: true,
             retention_days: 30,
             auto_listen: false,
+            answer_questions: false,
             has_key: false,
             hotkey: String::new(),
         };

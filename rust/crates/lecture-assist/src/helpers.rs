@@ -4,11 +4,9 @@ use crate::llm::Message;
 use crate::notes::{Notes, Transcript};
 use crate::{AskKind, ClassContext};
 
-/// Explaining is the point; doing the student's work, or answering the teacher for them, is not.
-const SYSTEM: &str = "You help a student follow a lecture. Answer in Ukrainian whatever the \
-    lecture's language. Be brief and use plain text. Explain and summarise only: \
-    never write answers to questions the teacher asks the class, and never do tasks or homework \
-    for the student.";
+/// Answering the teacher's questions is the owner's choice (`AskKind::Answer`, off by default).
+const SYSTEM: &str = "You help a student during a lecture. Answer in Ukrainian whatever the \
+    lecture's language. Be brief and use plain text.";
 
 /// The request for one helper. `text` is the user's question, or the term to simplify (empty
 /// means the last phrase).
@@ -48,6 +46,13 @@ pub fn helper_messages(
             "{class}\nThe student asks about the lecture: {text}\n\nSummary so far: \
              {summary}\nRecent:\n{}",
             transcript.window(5)
+        ),
+        AskKind::Answer => format!(
+            "{class}\nThe teacher just asked the class: {text}\nWrite the answer the student can \
+             say aloud: 1 to 3 short sentences in plain words, no preamble. Use what was said in \
+             class first, general knowledge where it says nothing.\n\nSummary so far: {summary}\n\
+             Recent:\n{}",
+            transcript.window(3)
         ),
         AskKind::Summary => format!(
             "{class}\nWrite the end-of-class summary in Markdown with sections for the topic, \
@@ -93,7 +98,7 @@ mod tests {
         };
         let messages = helper_messages(kind, &context, &transcript(), &Notes::default(), text);
         assert_eq!(messages.len(), 2);
-        assert!(messages[0].content.contains("never write answers"));
+        assert!(messages[0].content.contains("Ukrainian"));
         messages[1].content.clone()
     }
 
@@ -108,12 +113,16 @@ mod tests {
         assert!(ask(AskKind::Recap, "").contains("Граф — це вершини"));
         assert!(ask(AskKind::Topic, "").contains("Вступ до графів."));
         assert!(ask(AskKind::Free, "що таке ребро?").contains("що таке ребро?"));
+        let answer = ask(AskKind::Answer, "Хто знає, що таке дерево?");
+        assert!(answer.contains("asked the class: Хто знає, що таке дерево?"));
+        assert!(answer.contains("say aloud"));
         let summary = ask(AskKind::Summary, "");
         assert!(summary.contains("Markdown") && summary.contains("do not answer"));
         for kind in [
             AskKind::Recap,
             AskKind::Topic,
             AskKind::Free,
+            AskKind::Answer,
             AskKind::Summary,
         ] {
             assert!(ask(kind, "x").contains("Дискретна математика"));

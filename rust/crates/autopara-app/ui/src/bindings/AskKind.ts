@@ -3,4 +3,4 @@
 /**
  * The on-demand helpers (plan 7.7 e) and the end-of-class summary.
  */
-export type AskKind = "recap" | "simplify" | "topic" | "free" | "summary";
+export type AskKind = "recap" | "simplify" | "topic" | "free" | "answer" | "summary";

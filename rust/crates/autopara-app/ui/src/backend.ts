@@ -276,7 +276,7 @@ export async function demoBackend(params: URLSearchParams): Promise<Backend> {
 function demoAssist(): AssistBackend {
   let settings: AssistSettings = {
     consent: true, device: "", model: "small", language: "auto", glossary: "", provider: "", base_url: "",
-    chat_model: "", fallback: true, retention_days: 30, auto_listen: false, has_key: false, hotkey: "Ctrl+Alt+L",
+    chat_model: "", fallback: true, retention_days: 30, auto_listen: false, answer_questions: false, has_key: false, hotkey: "Ctrl+Alt+L",
   };
   const model = (id: string, size: number, vad = false) => ({ id, file: `${id}.bin`, url: "", size, sha256: "", vad });
   const unlisten = async () => () => undefined;

@@ -430,3 +430,17 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
 - **Alternatives:** keep the browser (the owner asked for tabs); a separate window per class (not
   tabs); spoofing a browser user agent to get past Google's check (rejected: it defeats a security
   control).
+
+## Lecture Assist may answer the teacher's questions (opt-in)
+
+- **Decision (owner, 2026-11-02):** a setting "Підказувати відповіді на запитання викладача", off
+  by default. With it on, each segment the engine flags as a question (`FlagKind::Question`) gets
+  a short answer from the chosen language model (`AskKind::Answer`), shown in its own block at
+  the top of the overlay. The system prompt no longer forbids answering for the student.
+- **Why:** the owner attends only to keep a study deferment and asked for this directly, overriding
+  the plan's earlier rule (plan 7.7: explain, never answer). Tasks and homework are still only
+  listed.
+- **Unchanged (R13):** text on the user's own screen only; nothing speaks, types into the meeting
+  or hides the overlay from screen sharing.
+- **Limits:** answers share the rolling notes' rate limit (6 requests a minute); a question that
+  finds no request left, or no provider, is listed without an answer and shows no error.

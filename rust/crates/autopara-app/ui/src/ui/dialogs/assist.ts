@@ -68,6 +68,7 @@ export async function openAssistSettings(app: App): Promise<void> {
     });
     const fallback = h("input", { type: "checkbox", checked: s.fallback });
     const autoListen = h("input", { type: "checkbox", checked: s.auto_listen });
+    const answerQuestions = h("input", { type: "checkbox", checked: s.answer_questions });
     const retention = h("input", { class: "input", type: "number", min: "1", max: "3650", value: String(s.retention_days), "aria-label": t("assist_retention") });
     const hotkey = h("input", { class: "input", type: "text", value: s.hotkey, "aria-label": t("assist_hotkey") });
     const hotkeyNote = h("span", { class: "hint", role: "status" });
@@ -113,6 +114,7 @@ export async function openAssistSettings(app: App): Promise<void> {
       chat_model: chatModel.value.trim(),
       fallback: fallback.checked,
       auto_listen: autoListen.checked,
+      answer_questions: answerQuestions.checked,
       retention_days: Math.min(3650, Math.max(1, Math.round(Number(retention.value)) || 30)),
     });
     const persist = async () => {
@@ -170,6 +172,8 @@ export async function openAssistSettings(app: App): Promise<void> {
         h("label", {}, t("assist_hotkey")), hotkey,
         h("label", {}, t("assist_retention")), h("div", { class: "suffix-input" }, retention, h("span", {}, t("assist_retention_suffix")))),
       h("label", { class: "check" }, autoListen, t("assist_auto_listen")),
+      h("label", { class: "check" }, answerQuestions, t("assist_answer_questions")),
+      h("p", { class: "hint" }, t("assist_answer_questions_hint")),
       h("div", { class: "row" }, hotkeyNote),
       h("div", { class: "row" },
         h("button", { class: "btn plain", type: "button", onclick: () => void wipe() }, t("assist_delete_all")),

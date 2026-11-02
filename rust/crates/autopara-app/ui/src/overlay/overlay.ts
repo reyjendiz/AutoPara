@@ -55,6 +55,8 @@ let notes: Notes | null = null;
 let terms: Term[] = [];
 let flagged: string[] = [];
 let reply = "";
+// The latest teacher's question and the answer streaming in for it (`AskKind` "answer").
+let answer = { question: "", text: "", done: true };
 let error = "";
 let classOver = false;
 let clickThrough = false;
@@ -161,6 +163,9 @@ function body(): HTMLElement {
     "main",
     {},
     status,
+    answer.text
+      ? h("section", { class: "answer", "aria-live": "polite" }, h("h2", {}, t("assist_answer")), answer.question ? h("p", { class: "faint" }, answer.question) : null, h("p", {}, answer.text))
+      : null,
     h(
       "section",
       { class: "transcript", "aria-live": "polite" },
@@ -252,7 +257,11 @@ function onEvent(event: AssistEvent): void {
       flagged = [...flagged, event.segment.text];
       break;
     case "helperReply":
-      reply += event.text;
+      if (event.kind === "answer") {
+        if (answer.done && !event.done) answer = { question: flagged[flagged.length - 1] ?? "", text: "", done: false };
+        answer.text += event.text;
+        answer.done = event.done;
+      } else reply += event.text;
       break;
     case "error":
       error = event.code;

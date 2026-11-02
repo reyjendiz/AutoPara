@@ -138,6 +138,19 @@ ul {
   margin: 8px 0;
 }
 
+/* The answer to the teacher's latest question, at the top where it is seen first. */
+.answer {
+  margin-bottom: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  background: rgb(80 140 255 / 0.18);
+  white-space: pre-wrap;
+}
+
+.answer p {
+  margin: 4px 0 0;
+}
+
 .reply {
   margin-top: 8px;
   padding: 8px;

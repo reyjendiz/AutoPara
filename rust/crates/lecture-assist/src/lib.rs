@@ -102,6 +102,8 @@ pub struct AssistConfig {
     pub requests_per_minute: u32,
     /// How often the open utterance is re-read for live text; 0 turns partials off.
     pub partial_every_ms: u32,
+    /// Answer each question the teacher asks as soon as it is heard (off unless the user asks).
+    pub answer_questions: bool,
 }
 
 impl Default for AssistConfig {
@@ -113,6 +115,7 @@ impl Default for AssistConfig {
             window_minutes: 5,
             requests_per_minute: 6,
             partial_every_ms: 1000,
+            answer_questions: false,
         }
     }
 }
@@ -158,6 +161,8 @@ pub enum AskKind {
     Topic,
     /// The user's own question about the class.
     Free,
+    /// A short answer to a question the teacher asked, asked by the engine itself.
+    Answer,
     /// Written once when listening stops.
     Summary,
 }
