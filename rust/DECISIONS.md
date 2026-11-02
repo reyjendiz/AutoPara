@@ -444,3 +444,37 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
   or hides the overlay from screen sharing.
 - **Limits:** answers share the rolling notes' rate limit (6 requests a minute); a question that
   finds no request left, or no provider, is listed without an answer and shows no error.
+
+## Lecture Assist: the built-in language model
+
+- **Decision (owner, 2026-11-02: "everything must be in one app"):** the default chat provider is
+  "Вбудована модель": llama.cpp's own `llama-server` release (b12052, Windows Vulkan build, 38 MB)
+  plus a GGUF model, both downloaded from the settings and checked against a pinned SHA-256, never
+  bundled. The app starts the server on 127.0.0.1 at a free port with a random `--api-key` on the
+  first request, talks to it through the existing OpenAI-compatible client, and kills it on quit.
+  `--sleep-idle-seconds 600` unloads the model when the app is quiet. An unset provider now means
+  the built-in model; "Без нотаток" is stored as `none`.
+- **Models:** Gemma 4 12B (Google's QAT q4_0, 7.0 GB, Apache-2.0, the default), MamayLM 12B v2.0
+  (INSAIT, Ukrainian-tuned Gemma 3, 7.3 GB, Gemma licence) and Gemma 4 E4B (Google's QAT q4_0,
+  5.2 GB, Apache-2.0, for weak PCs and the CPU).
+- **Alternatives:** the `llama-cpp-2` crate in-process (both it and `whisper-rs-sys` link their own
+  static ggml, so their symbols clash, and every build would compile llama.cpp with a GPU SDK);
+  bundling the server in the installer (8.5 MB would become ~45 MB for users who never use it);
+  the CUDA build (≈165 MB plus NVIDIA's runtime under a non-permissive licence, see "GPU builds on
+  Windows"); Gemma 4 26B-A4B (fills a 16 GB card and got a history fact wrong where 12B did not).
+- **Measured** (RTX 4080 SUPER, Vulkan, Gemma 4 12B): load about 5 s, the first answer about 1.5 s
+  to its first token, then about 0.1 s, 66–71 tokens/s; a two-sentence Ukrainian answer in 0.7 s.
+- **Fallback:** with fallback on, any other provider hands over to the built-in model when it is
+  downloaded; the built-in model hands over to Ollama. Nothing downloaded means no chat at all, as
+  before, rather than requests to a server that is not there.
+- **Not yet:** macOS (the owner will do it later; `RUNTIME` is `None` there). A quit during a
+  model load leaves the server running until it idles out.
+
+## Interface: morphs everywhere
+
+- **Decision (owner, 2026-11-02):** every screen change made by the user is a View Transitions
+  morph through one helper (`dom.ts` `morph`): dialogs grow out of the control that opened them and
+  shrink back into it, plus the top tabs, the theme, the banners, the assistant's model lists and
+  the overlay's pill. Reduced motion, a still demo picture or a webview without the API skip it.
+- **Not morphed:** live text (transcript lines, notes) — it changes every second and would never
+  sit still; the class page in its tab, which is a native webview the morph cannot capture.
