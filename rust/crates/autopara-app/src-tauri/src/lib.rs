@@ -217,6 +217,7 @@ pub fn run() {
                 tracing::warn!(code, "listening shortcut not registered");
             }
             updates::schedule(handle.clone());
+            assist::reap_left_server(&handle);
             assist::prepare(&handle);
             Ok(())
         })

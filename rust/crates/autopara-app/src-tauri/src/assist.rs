@@ -329,6 +329,14 @@ async fn fetch(app: &AppHandle, id: &str) -> Result<(), AssistError> {
     Ok(())
 }
 
+/// At start: stop a built-in model server an earlier AutoPara left running when it was killed
+/// (an upgrade's installer does that) instead of quitting.
+pub fn reap_left_server(app: &AppHandle) {
+    if let Some(server) = local::server_path(&store(&app.state::<AppState>())) {
+        local::reap(&server);
+    }
+}
+
 /// Once the user has agreed to the assistant, fetch what listening needs and is not here yet: the
 /// chosen speech model, the voice detector and, for the built-in provider, its server and model.
 /// Runs at start, on consent and after the settings change; a failure waits for the next time.

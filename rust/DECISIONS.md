@@ -482,8 +482,13 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
 - **Fallback:** with fallback on, any other provider hands over to the built-in model when it is
   downloaded; the built-in model hands over to Ollama. Nothing downloaded means no chat at all, as
   before, rather than requests to a server that is not there.
-- **Not yet:** macOS (the owner will do it later; `RUNTIME` is `None` there). A quit during a
-  model load leaves the server running until it idles out.
+- **Not yet:** macOS (the owner will do it later; `RUNTIME` is `None` there).
+- **A server left behind** (seen 2026-11-03: two orphans after app upgrades, whose installer kills
+  AutoPara without letting it quit): the server's process id is written to `server.pid` beside
+  `llama-server`, removed when AutoPara stops it, and at app start and before each new server a
+  recorded process that is still `llama-server.exe` (checked with `tasklist`) is stopped with
+  `taskkill`. A job object would stop it at once, but needs `unsafe` or a new crate. Tested by
+  killing a process mid-load and starting again: the orphan was gone.
 
 ## Interface: morphs everywhere
 

@@ -154,14 +154,59 @@ struct Server {
     child: tokio::process::Child,
     model: PathBuf,
     client: Arc<OpenAiCompatible>,
+    pid_file: PathBuf,
+}
+
+impl Drop for Server {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.pid_file);
+    }
 }
 
 /// Stop the server, if one runs. Called when the app quits.
 pub fn shutdown() {
-    // shortcut: a quit during the model's load leaves the server running until it idles out
-    // and unloads; track the process id if that ever matters.
+    // A quit during the model's load leaves the server running; the next start reaps it.
     if let Ok(mut running) = RUNNING.try_lock() {
         running.take();
+    }
+}
+
+/// Where the running server's process id is kept, beside `llama-server`: an AutoPara killed
+/// without quitting (an upgrade's installer, a crash) cannot stop its server, so the next does.
+fn pid_file(server: &Path) -> PathBuf {
+    server.with_file_name("server.pid")
+}
+
+/// Stop a server an earlier AutoPara left running, if the recorded process is still a
+/// `llama-server`. Called when the app starts and before each new server.
+pub fn reap(server: &Path) {
+    let file = pid_file(server);
+    let Some(pid) = std::fs::read_to_string(&file)
+        .ok()
+        .and_then(|p| p.trim().parse::<u32>().ok())
+    else {
+        return;
+    };
+    let _ = std::fs::remove_file(&file);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        let system = std::env::var_os("SystemRoot")
+            .map(|root| PathBuf::from(root).join("System32"))
+            .unwrap_or_default();
+        let listed = std::process::Command::new(system.join("tasklist.exe"))
+            .args(["/FI", &format!("PID eq {pid}"), "/FO", "CSV", "/NH"])
+            .creation_flags(0x0800_0000) // CREATE_NO_WINDOW
+            .output();
+        let ours = listed
+            .is_ok_and(|o| String::from_utf8_lossy(&o.stdout).contains(&format!("\"{SERVER}\"")));
+        if ours {
+            tracing::info!(pid, "stopping a built-in model server left running");
+            let _ = std::process::Command::new(system.join("taskkill.exe"))
+                .args(["/PID", &pid.to_string(), "/F"])
+                .creation_flags(0x0800_0000)
+                .status();
+        }
     }
 }
 
@@ -228,7 +273,12 @@ async fn start(server: &Path, model: &Path) -> Result<Server, AssistError> {
         .kill_on_drop(true);
     #[cfg(windows)]
     command.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    reap(server);
     let mut child = command.spawn().map_err(|e| unavailable(e.to_string()))?;
+    let pid_file = pid_file(server);
+    if let Some(pid) = child.id() {
+        let _ = std::fs::write(&pid_file, pid.to_string());
+    }
     let health = format!("http://127.0.0.1:{port}/health");
     super::install_tls();
     let probe = reqwest::Client::builder()
@@ -265,6 +315,7 @@ async fn start(server: &Path, model: &Path) -> Result<Server, AssistError> {
         child,
         model: model.to_path_buf(),
         client: Arc::new(client),
+        pid_file,
     })
 }
 
