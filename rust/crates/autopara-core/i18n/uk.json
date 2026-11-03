@@ -359,7 +359,7 @@
   "assist_api_key_forget": "Забути ключ",
   "assist_model_downloading": "Завантаження… {percent}%",
   "assist_language": "Мова пари",
-  "assist_language_auto": "Визначати автоматично (укр., рос., англ.)",
+  "assist_language_auto": "Визначати автоматично (укр. або рос.)",
   "assist_language_uk": "Українська",
   "assist_language_ru": "Російська",
   "assist_language_en": "Англійська",

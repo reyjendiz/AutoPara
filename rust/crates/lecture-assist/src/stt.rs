@@ -17,7 +17,8 @@ pub trait Recognizer: Send {
 
 /// The languages a class may be in; detection picks among these only.
 #[cfg(feature = "whisper")]
-const CANDIDATES: [&str; 3] = ["uk", "ru", "en"];
+/// Classes are in Ukrainian or Russian; English is still there to pick by hand.
+const CANDIDATES: [&str; 2] = ["uk", "ru"];
 
 #[cfg(feature = "whisper")]
 pub struct Whisper {
@@ -108,6 +109,9 @@ impl Recognizer for Whisper {
         params.set_suppress_nst(true);
         // Each call is independent: carrying context between windows feeds repetition loops.
         params.set_no_context(true);
+        // One decoding pass: the temperature fallback re-decodes doubtful noisy audio up to five
+        // times, which is where a slow class came from; repetitions are cleaned up afterwards.
+        params.set_temperature_inc(0.0);
         params.set_print_progress(false);
         params.set_print_realtime(false);
         params.set_print_special(false);

@@ -117,7 +117,9 @@ impl Default for SegmenterConfig {
             threshold: 0.5,
             min_silence_frames: frames(700),
             pre_roll_frames: frames(200),
-            max_frames: frames(28_000),
+            // A teacher who talks without pausing still gets a saved line every 10 s, and each
+            // partial re-reads at most that much audio.
+            max_frames: frames(10_000),
             overlap_frames: frames(500),
         }
     }

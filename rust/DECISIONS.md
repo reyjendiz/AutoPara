@@ -527,5 +527,10 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
   used to begin before the page existed and fell back to the whole output.
 - **Limits:** chosen when listening starts; a class moved to the browser later is no longer heard
   until listening restarts. Windows 10 2004 or later. Teacher-only listening is a separate step.
+- **Speed** (owner, 2026-11-03: "transcription is very, very slow"): a teacher who talks without
+  pausing gave a saved line only at the 28 s cut, and every partial re-read up to 28 s. Cuts are
+  now at 10 s and decoding is one pass (no temperature fallback). On 90 s of speech without pauses
+  (Vulkan, turbo): RTF with partials 0.65 → 0.13, partial p95 1.91 s → 0.30 s, a saved line every
+  ~8 s instead of every ~20 s. Language detection chooses only between Ukrainian and Russian.
 - **Answers** to the teacher's questions are now asked for as short as possible (a few words or
   one short sentence), and the panel sets them apart from the transcript.

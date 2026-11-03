@@ -4,7 +4,7 @@
 recogniser the way the engine does, only as fast as the machine allows:
 
 - the energy voice detector and the engine's segmenter cut the audio into utterances
-  (700 ms of silence ends one, 28 s is the longest);
+  (700 ms of silence ends one, 10 s is the longest);
 - every second, the open utterance is transcribed again (the partial the overlay shows);
 - each finished utterance is transcribed once more (the final line that is saved).
 
@@ -35,6 +35,8 @@ late the grey line in the overlay runs behind the teacher.
 | 2026-11-03 | i5-14600KF, 32 GB | CPU, release | large-v3-turbo-q5_0 | 60 s, Windows voice (en) | 0.49 | 1.63 | 3.05 s | 3.26 s | 787 MB |
 | 2026-11-03 | i5-14600KF, RTX 4080 SUPER | CUDA 13.4, release | large-v3-turbo-q5_0 | 60 s, Windows voice (en) | 0.20 | 0.85 | 2.74 s | 2.00 s | 488 MB |
 | 2026-11-03 | i5-14600KF, RTX 4080 SUPER | Vulkan (SDK 1.4.363), release | large-v3-turbo-q5_0 | 60 s, Windows voice (en) | 0.13 | 0.93 | 3.34 s | 1.41 s | 520 MB |
+| 2026-11-03 | i5-14600KF, RTX 4080 SUPER | Vulkan, 28 s cuts | large-v3-turbo-q5_0 | 90 s without pauses (en) | 0.031 | 0.65 | 1.91 s | 1.61 s | 290 MB |
+| 2026-11-03 | i5-14600KF, RTX 4080 SUPER | Vulkan, 10 s cuts, no temperature fallback | large-v3-turbo-q5_0 | 90 s without pauses (en) | 0.015 | 0.13 | 0.30 s | 0.32 s | 259 MB |
 
 The first row (median 16 s per call) was an unoptimised whisper.cpp: with the Visual Studio
 generator, cmake-rs replaces CMake's MSVC release flags with its own and drops `/O2`, so ggml
