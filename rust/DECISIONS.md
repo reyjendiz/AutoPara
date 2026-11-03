@@ -486,10 +486,12 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
 
 ## Interface: morphs everywhere
 
-- **Decision (owner, 2026-11-02):** every screen change made by the user is a View Transitions
-  morph through one helper (`dom.ts` `morph`): dialogs grow out of the control that opened them and
-  shrink back into it, plus the top tabs, the theme, the banners, the assistant's model lists and
-  the assistant panel folding. Reduced motion, a still demo picture or a webview without the API skip it.
+- **Decision (owner, 2026-11-02):** screen changes made by the user are View Transitions morphs
+  through one helper (`dom.ts` `morph`): the top tabs, the theme, the banners and the assistant
+  panel folding.
+- **Not dialogs** (owner's report, 2026-11-03): a dialog growing out of its button was drawn under
+  the schedule's cards, whose own `view-transition-name`s put them above the dialog's snapshot.
+  Dialogs fade in by CSS again, and nothing inside a dialog morphs. Reduced motion, a still demo picture or a webview without the API skip it.
 - **Not morphed:** live text (transcript lines, notes) — it changes every second and would never
   sit still; the class page in its tab, which is a native webview the morph cannot capture.
 

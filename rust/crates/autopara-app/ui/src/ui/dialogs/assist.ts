@@ -3,7 +3,7 @@ import type { App } from "../../app";
 import type { AssistSettings } from "../../bindings/AssistSettings";
 import type { Language } from "../../bindings/Language";
 import type { ModelStatus } from "../../bindings/ModelStatus";
-import { h, morph, replace } from "../../dom";
+import { h, replace } from "../../dom";
 import { type MessageKey, t } from "../../i18n";
 import { ask, confirmYesNo, inform, modal } from "../popups";
 
@@ -88,10 +88,9 @@ export async function openAssistSettings(app: App): Promise<void> {
     const chatModels = h("div", { class: "models" });
     const drawModels = async () => {
       const [list, chat] = await Promise.all([assist.assistModels(), assist.assistChatModels()]);
-      await morph(() => {
-        replace(models, ...list.filter((m) => !m.model.vad).map(modelRow), ...list.filter((m) => m.model.vad && !m.installed).map(modelRow));
-        replace(chatModels, ...chat.map(modelRow));
-      });
+      // No morph inside a dialog: the schedule's named cards would be drawn over it.
+      replace(models, ...list.filter((m) => !m.model.vad).map(modelRow), ...list.filter((m) => m.model.vad && !m.installed).map(modelRow));
+      replace(chatModels, ...chat.map(modelRow));
     };
     const modelRow = ({ model: m, installed }: ModelStatus) => {
       const name = CHAT_MODEL_NAMES[m.id];
