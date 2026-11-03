@@ -14,7 +14,8 @@ memory. It never prints the recognised text.
 
 Without a model path it uses the default model in the data folder's `models/` (honours
 `AUTOPARA_DATA_DIR`). xtask runs the `bench_stt` example of `lecture-assist` in release mode;
-for a GPU build, run the example directly with `--features cuda` (or `metal`):
+for a GPU build, run the example directly with `--features vulkan` (or `cuda`, `metal`); a Vulkan
+build needs `VULKAN_SDK` and a short `CARGO_TARGET_DIR` (see CONTRIBUTING.md):
 
 ```
 cargo run --release -p lecture-assist --features cuda --example bench_stt -- lecture.wav model.bin
@@ -31,6 +32,9 @@ late the grey line in the overlay runs behind the teacher.
 | 2026-10-28 | i5-14600KF, 32 GB | CPU, release, AVX2, `/O2`, audio-sized window | small | 60 s, Windows voice (en) | 0.21 | 0.66 | 1.85 s | 2.13 s | 792 MB |
 | 2026-10-28 | i5-14600KF, 32 GB | CPU, release, AVX2, `/O2`, audio-sized window | small | 5.6 min, Windows voice (en) | 0.19 | 0.70 | 1.99 s | 2.20 s | 828 MB |
 | 2026-10-28 | i5-14600KF, RTX 4080 SUPER | CUDA 13.4, release, audio-sized window | small | 5.6 min, Windows voice (en) | 0.10 | 0.54 | 2.55 s | 2.55 s | 523 MB |
+| 2026-11-03 | i5-14600KF, 32 GB | CPU, release | large-v3-turbo-q5_0 | 60 s, Windows voice (en) | 0.49 | 1.63 | 3.05 s | 3.26 s | 787 MB |
+| 2026-11-03 | i5-14600KF, RTX 4080 SUPER | CUDA 13.4, release | large-v3-turbo-q5_0 | 60 s, Windows voice (en) | 0.20 | 0.85 | 2.74 s | 2.00 s | 488 MB |
+| 2026-11-03 | i5-14600KF, RTX 4080 SUPER | Vulkan (SDK 1.4.363), release | large-v3-turbo-q5_0 | 60 s, Windows voice (en) | 0.13 | 0.93 | 3.34 s | 1.41 s | 520 MB |
 
 The first row (median 16 s per call) was an unoptimised whisper.cpp: with the Visual Studio
 generator, cmake-rs replaces CMake's MSVC release flags with its own and drops `/O2`, so ggml

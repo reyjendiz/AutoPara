@@ -29,9 +29,22 @@ pub struct Whisper {
     no_speech_threshold: f32,
 }
 
+/// A Vulkan build loads `vulkan-1.dll` on first use (delay-loaded, see autopara-app's build.rs),
+/// and any whisper.cpp call without it would crash, so callers check this first. GPU drivers of
+/// every vendor install it; a computer with no graphics driver has none.
+pub fn backend_available() -> bool {
+    !cfg!(all(windows, feature = "vulkan"))
+        || std::env::var_os("SystemRoot").is_some_and(|root| {
+            std::path::Path::new(&root)
+                .join("System32")
+                .join("vulkan-1.dll")
+                .is_file()
+        })
+}
+
 #[cfg(feature = "whisper")]
 impl Whisper {
-    /// Loads the model; on the GPU when built with `cuda` or `metal` and `gpu` is set.
+    /// Loads the model; on the GPU when built with `cuda`, `vulkan` or `metal` and `gpu` is set.
     pub fn load(
         model: &std::path::Path,
         language: crate::Language,

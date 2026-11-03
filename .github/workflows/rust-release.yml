@@ -98,19 +98,33 @@ jobs:
       - name: Install the Tauri CLI
         run: cargo install tauri-cli --version "2.12.4" --locked
 
+      # Speech recognition on the GPU through Vulkan (DECISIONS.md, "GPU builds on Windows"). The
+      # SDK is only for building; the app uses the loader every graphics driver installs. Its
+      # shader generator nests a CMake project whose paths pass 260 characters under
+      # rust/target, so the build goes to a short folder.
+      - name: Install the Vulkan SDK
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $sdk = "1.4.363.0"
+          Invoke-WebRequest "https://sdk.lunarg.com/sdk/download/$sdk/windows/vulkansdk-windows-X64-$sdk.exe" -OutFile vulkansdk.exe
+          Start-Process -Wait -FilePath .\vulkansdk.exe -ArgumentList "--root", "C:\VulkanSDK\$sdk", "--accept-licenses", "--default-answer", "--confirm-command", "install"
+          "VULKAN_SDK=C:\VulkanSDK\$sdk" >> $env:GITHUB_ENV
+          "CARGO_TARGET_DIR=C:\t" >> $env:GITHUB_ENV
+
       - name: Build and sign
         working-directory: rust/crates/autopara-app
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: cargo tauri build
+        run: cargo tauri build ${{ runner.os == 'Windows' && '--features vulkan' || '' }}
 
       # Release names: AutoPara-<v>-Setup.exe, AutoPara-<v>.dmg, AutoPara-Intel-<v>.dmg, and one
       # updater archive per Mac. The Windows updater installs the Setup.exe itself.
       - name: Collect the files
         run: |
           mkdir -p out
-          bundle=target/release/bundle
+          bundle="${CARGO_TARGET_DIR:-target}/release/bundle"
           if [ "${{ matrix.platform }}" = windows-x86_64 ]; then
             setup=$(ls "$bundle"/nsis/*-setup.exe)
             cp "$setup" "out/AutoPara-$VERSION-Setup.exe"

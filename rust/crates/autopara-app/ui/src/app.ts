@@ -385,6 +385,8 @@ export class App {
     } else if (code === "model_missing") {
       await inform(t("assist_title"), t("assist_error_model"));
       await openAssistSettings(this);
+    } else if (code === "assist_error_gpu") {
+      await inform(t("assist_title"), t("assist_error_gpu"));
     } else {
       await inform(t("assist_title"), t("assist_state_error"));
     }

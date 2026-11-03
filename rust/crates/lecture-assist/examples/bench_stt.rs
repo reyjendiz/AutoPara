@@ -44,7 +44,7 @@ fn bench(args: &[String]) -> Result<(), String> {
         audio.extend(block);
     }
     let seconds = audio.len() as f64 / RATE as f64;
-    let gpu = cfg!(any(feature = "cuda", feature = "metal"));
+    let gpu = cfg!(any(feature = "cuda", feature = "vulkan", feature = "metal"));
     let started = Instant::now();
     let mut recognizer = Whisper::load(&model, lecture_assist::Language::Auto, gpu)
         .map_err(|e| format!("{}: {e}", model.display()))?;

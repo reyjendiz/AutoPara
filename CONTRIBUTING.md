@@ -50,6 +50,11 @@ is the real one (`%APPDATA%\AutoPara`), which an installed AutoPara — 1.x or 2
   long path with spaces breaks `npm.cmd` inside `cargo xtask check`.
 - `rust/.cargo/config.toml` forces `-O2` for whisper.cpp's C/C++ code: CMake's Visual Studio
   generator otherwise builds it unoptimised and speech recognition falls behind the audio.
+- Windows releases are built with `--features vulkan` (GPU speech recognition): install the
+  Vulkan SDK (LunarG; `VULKAN_SDK` set) and build into a short folder, e.g.
+  `CARGO_TARGET_DIR=C:\apt`, because whisper.cpp's shader generator nests a CMake project whose
+  paths pass Windows' 260-character limit under `rust/target`. The bundle is then in
+  `C:\apt\release\bundle\nsis`.
 - `cargo tauri build` signs the updater files and stops without `TAURI_SIGNING_PRIVATE_KEY` (the key
   file's path or contents); `--no-bundle` skips that.
 

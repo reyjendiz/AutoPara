@@ -308,12 +308,26 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
 - **Why:** a class keeps its language; per-window detection doubles the encoder work and flips
   between close languages on short phrases.
 
-## Lecture Assist: GPU builds on Windows (open)
+## Lecture Assist: GPU builds on Windows
 
-- **Status:** the `cuda` feature builds whisper.cpp against the CUDA toolkit for local use and
-  `bench-stt`. Shipping it would mean redistributing `cudart`/`cublas`, which are under NVIDIA's
-  licence, not a permissive one (R11). Until the owner decides, release builds use the CPU
-  backend on Windows and Metal on macOS. A Vulkan build is the permissive alternative to test.
+- **Decision (owner, 2026-11-03: "the best and fastest, in the installer"):** Windows releases are
+  built with the `vulkan` feature. whisper.cpp runs on any vendor's GPU through the Vulkan loader
+  (`vulkan-1.dll`) that graphics drivers install, so the installer carries no GPU libraries
+  (13.2 MB, from 8.6 MB: the compiled shaders). The default speech model on such a build is
+  `large-v3-turbo-q5_0`.
+- **Measured** (RTX 4080 SUPER, large-v3-turbo-q5_0, 60 s, `docs/ASSIST_BENCH.md`): CPU RTF 0.49
+  for finals and 1.63 with partials (it falls behind the speech); CUDA 0.20 / 0.85; Vulkan
+  0.13 / 0.93, median final 0.32 s.
+- **Alternative:** CUDA, as fast, but it needs `cublasLt64_13.dll` (490 MB) and its siblings under
+  NVIDIA's licence (R11) in every installer and update, and works only on NVIDIA cards.
+- **Starting without a GPU driver:** `vulkan-1.dll` is delay-loaded (`autopara-app/build.rs`),
+  so AutoPara starts anyway; listening checks for it first (`stt::backend_available`) and says to
+  install a graphics driver instead of crashing. With the loader but no Vulkan device, ggml falls
+  back to the CPU by itself.
+- **Building:** the Vulkan SDK (CI installs LunarG's; locally 1.4.363), and a short target folder
+  (`CARGO_TARGET_DIR=C:\apt` here, `C:\t` on CI): the shader generator is a nested CMake project
+  whose MSBuild tracking files pass 260 characters under `rust/target`. Tests and `xtask check`
+  stay on the CPU build. macOS keeps Metal.
 
 ## Lecture Assist: the shortcut
 

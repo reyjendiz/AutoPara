@@ -2,6 +2,13 @@ use std::collections::BTreeMap;
 
 fn main() {
     installer_strings();
+    // A Vulkan build must still start where no graphics driver brought vulkan-1.dll; recognition
+    // checks for it before the first whisper.cpp call (lecture_assist::stt::backend_available).
+    let windows = std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows");
+    if windows && std::env::var_os("CARGO_FEATURE_VULKAN").is_some() {
+        println!("cargo:rustc-link-arg-bins=/DELAYLOAD:vulkan-1.dll");
+        println!("cargo:rustc-link-arg-bins=delayimp.lib");
+    }
     tauri_build::build();
 }
 

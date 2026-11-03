@@ -372,6 +372,9 @@ pub fn start(app: &AppHandle, lesson_id: Option<i64>) -> CommandResult<()> {
     if !settings.consent {
         return Err("consent_required".into());
     }
+    if !lecture_assist::stt::backend_available() {
+        return Err("assist_error_gpu".into());
+    }
     let store = store(&state);
     let model = models::model(&settings.model).ok_or("model_missing")?;
     if !store.installed(model) {
@@ -436,7 +439,7 @@ pub fn start(app: &AppHandle, lesson_id: Option<i64>) -> CommandResult<()> {
             Ok(Box::new(Capture::open(device)) as Box<dyn AudioSource>)
         }),
         recognizer: Box::new(move || {
-            let gpu = cfg!(any(feature = "cuda", feature = "metal"));
+            let gpu = cfg!(any(feature = "cuda", feature = "vulkan", feature = "metal"));
             Ok(Box::new(Whisper::load(&model_path, language, gpu)?) as Box<dyn Recognizer>)
         }),
         vad: Box::new(move || {
@@ -764,6 +767,7 @@ mod tests {
         }
         for key in [
             "assist_error_crash",
+            "assist_error_gpu",
             "assist_md_key_points",
             "assist_md_definitions",
             "assist_md_deadlines",

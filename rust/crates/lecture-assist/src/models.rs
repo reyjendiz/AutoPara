@@ -67,9 +67,10 @@ pub fn model(id: &str) -> Option<&'static Model> {
     MODELS.iter().find(|m| m.id == id)
 }
 
-/// What this build runs well: turbo on CUDA, quantised medium on Metal, small on the CPU.
+/// What this build runs well: turbo on a GPU (CUDA, Vulkan), quantised medium on Metal, small on
+/// the CPU.
 pub fn default_speech_model() -> &'static str {
-    if cfg!(feature = "cuda") {
+    if cfg!(any(feature = "cuda", feature = "vulkan")) {
         "large-v3-turbo-q5_0"
     } else if cfg!(feature = "metal") {
         "medium-q5_0"
