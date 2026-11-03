@@ -153,6 +153,7 @@ pub fn assist_settings(state: tauri::State<'_, AppState>) -> AssistSettings {
 /// `api_key`: `None` leaves the saved key alone, an empty string forgets it.
 #[tauri::command]
 pub fn save_assist_settings(
+    app: AppHandle,
     state: tauri::State<'_, AppState>,
     input: AssistSettings,
     api_key: Option<String>,
@@ -201,6 +202,8 @@ pub fn save_assist_settings(
     if let (Some(key), false) = (api_key, input.provider.is_empty()) {
         secrets::set_api_key(&input.provider, &key)?;
     }
+    // A newly chosen model arrives by itself.
+    prepare(&app);
     Ok(load_settings(&state))
 }
 
@@ -226,7 +229,9 @@ pub fn set_assist_consent(app: AppHandle, accepted: bool) -> CommandResult<()> {
         .storage()
         .set_setting("assist_consent", if accepted { "1" } else { "0" })
         .map_err(|e| e.to_string())?;
-    if !accepted {
+    if accepted {
+        prepare(&app);
+    } else {
         stop(&app);
     }
     Ok(())
@@ -285,37 +290,70 @@ pub fn assist_chat_models(state: tauri::State<'_, AppState>) -> Vec<ModelStatus>
         .collect()
 }
 
-/// A speech model, or a chat model together with the server on its first download; progress
-/// counts both as one.
 #[tauri::command]
 pub async fn assist_download_model(app: AppHandle, id: String) -> CommandResult<()> {
+    fetch(&app, &id).await.map_err(|e| e.code().to_string())
+}
+
+/// One download at a time: the settings' buttons and [`prepare`] never write the same file.
+static DOWNLOADS: tauri::async_runtime::Mutex<()> = tauri::async_runtime::Mutex::const_new(());
+
+/// A speech model, or a chat model together with the server on its first download (progress
+/// counts both as one). What is already here is not fetched again.
+async fn fetch(app: &AppHandle, id: &str) -> Result<(), AssistError> {
+    let _one_at_a_time = DOWNLOADS.lock().await;
     let store = store(&app.state::<AppState>());
     let progress = |done: u64, total: u64| {
-        let _ = app.emit(DOWNLOAD_EVENT, (&id, done, total));
+        let _ = app.emit(DOWNLOAD_EVENT, (id, done, total));
     };
-    let failed = |e: AssistError| e.code().to_string();
-    if let Some(model) = models::model(&id) {
-        return store
-            .download(model, progress)
-            .await
-            .map(|_| ())
-            .map_err(failed);
+    let unknown = || AssistError::Model(format!("{id}: not in the catalogue"));
+    if let Some(model) = models::model(id) {
+        if !store.installed(model) {
+            store.download(model, progress).await?;
+        }
+        return Ok(());
     }
-    let model = local::chat_model(&id).ok_or("not_found")?;
-    let runtime = local::RUNTIME.ok_or("not_found")?;
+    let model = local::chat_model(id).ok_or_else(unknown)?;
+    let runtime = local::RUNTIME.ok_or_else(unknown)?;
     let total = runtime.size + model.size;
     if !local::runtime_installed(&store) {
-        local::install_runtime(&store, |done, _| progress(done, total))
-            .await
-            .map_err(failed)?;
+        local::install_runtime(&store, |done, _| progress(done, total)).await?;
     }
     if !store.installed(model) {
         store
             .download(model, |done, _| progress(runtime.size + done, total))
-            .await
-            .map_err(failed)?;
+            .await?;
     }
     Ok(())
+}
+
+/// Once the user has agreed to the assistant, fetch what listening needs and is not here yet: the
+/// chosen speech model, the voice detector and, for the built-in provider, its server and model.
+/// Runs at start, on consent and after the settings change; a failure waits for the next time.
+pub fn prepare(app: &AppHandle) {
+    let settings = load_settings(&app.state::<AppState>());
+    if !settings.consent {
+        return;
+    }
+    let mut wanted = vec![settings.model];
+    wanted.extend(
+        models::MODELS
+            .iter()
+            .filter(|m| m.vad)
+            .map(|m| m.id.to_string()),
+    );
+    if settings.provider == BUILTIN && local::RUNTIME.is_some() {
+        wanted.push(settings.local_model);
+    }
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        for id in wanted {
+            if let Err(error) = fetch(&app, &id).await {
+                tracing::warn!(%error, id, "could not prepare the assistant");
+                break;
+            }
+        }
+    });
 }
 
 #[tauri::command]

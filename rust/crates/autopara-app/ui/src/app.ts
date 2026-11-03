@@ -14,6 +14,7 @@ import {
   weekday, longDate, dayName,
 } from "./lib/calendar";
 import { type LessonFilter, findMatch, isActive, matches, nextUp, nextUpLabel, occursOn, repeats, subjects } from "./lib/lessons";
+import { setupBanner } from "./assist/setup";
 import { CatchupBanner } from "./ui/banner";
 import { UpdateBanner } from "./ui/updates";
 import { FilterBar } from "./ui/filters";
@@ -78,7 +79,7 @@ export class App {
     this.updates = new UpdateBanner(this);
     this.landing = new Landing(this);
     this.meeting = new MeetingTab(this);
-    this.content = h("main", { class: "content", "data-tauri-drag-region": "" }, this.meeting.tabs, this.nav.element, this.filters.element, this.updates.element, this.catchup.element, this.surface, this.meeting.panel);
+    this.content = h("main", { class: "content", "data-tauri-drag-region": "" }, this.meeting.tabs, this.nav.element, this.filters.element, this.updates.element, setupBanner(backend.assist), this.catchup.element, this.surface, this.meeting.panel);
     replace(root, h("div", { class: "app" }, this.rail.element, this.content));
     this.surface.style.setProperty("display", "contents");
     this.meeting.choose(false);

@@ -215,6 +215,7 @@ pub fn run() {
                 tracing::warn!(code, "listening shortcut not registered");
             }
             updates::schedule(handle.clone());
+            assist::prepare(&handle);
             Ok(())
         })
         .on_window_event(|window, event| match event {

@@ -72,6 +72,13 @@ keep listening (without an answer it stops after 2 minutes).
 
 ## Setting up
 
+Once the user has agreed to the assistant (the consent dialog), AutoPara downloads what listening
+needs by itself, one file at a time, with a progress strip in the main window: the chosen speech
+model, the voice detector and, with the built-in provider, its runtime and chosen model
+(`assist::prepare`, at start, on consent and after the settings are saved). A model deleted while
+it is still chosen comes back the same way; pick another one, or "Без нотаток", to keep it away.
+The steps below choose other models or providers.
+
 1. Settings → "Налаштувати помічника".
 2. Download a speech model. The default is `small` (488 MB) on CPU builds; `large-v3-turbo-q5_0`
    on CUDA builds and `medium-q5_0` on Metal builds. Files are checked against their SHA-256 and
