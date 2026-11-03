@@ -448,7 +448,8 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
 ## Lecture Assist may answer the teacher's questions (opt-in)
 
 - **Decision (owner, 2026-11-02):** a setting "Підказувати відповіді на запитання викладача", off
-  by default. With it on, each segment the engine flags as a question (`FlagKind::Question`) gets
+  by default. **On by default since 2026-11-03** (owner), stored under a new key `assist_answers`
+  because every save of the dialog had written the old one as off. With it on, each segment the engine flags as a question (`FlagKind::Question`) gets
   a short answer from the chosen language model (`AskKind::Answer`), shown in its own block at
   the top of the overlay. The system prompt no longer forbids answering for the student.
 - **Why:** the owner attends only to keep a study deferment and asked for this directly, overriding

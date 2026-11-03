@@ -94,7 +94,7 @@ pub struct AssistSettings {
     pub retention_days: u32,
     /// Start listening whenever AutoPara opens a class (off unless the user turns it on).
     pub auto_listen: bool,
-    /// Answer the teacher's questions in the assistant's panel as they are heard (off unless turned on).
+    /// Answer the teacher's questions in the assistant's panel as they are heard (on unless turned off).
     pub answer_questions: bool,
     pub has_key: bool,
     /// Changed only through `set_assist_hotkey`, which checks for a conflict first.
@@ -140,7 +140,9 @@ pub fn load_settings(state: &AppState) -> AssistSettings {
         fallback: get("assist_fallback") != "0",
         retention_days: get("assist_retention_days").parse().unwrap_or(30),
         auto_listen: get("assist_auto_listen") == "1",
-        answer_questions: get("assist_answer_questions") == "1",
+        // On unless turned off (owner, 2026-11-03). A new key: the old `assist_answer_questions`
+        // was saved as "0" by every save of the dialog, chosen or not.
+        answer_questions: get("assist_answers") != "0",
         hotkey: crate::hotkey::saved(state),
     }
 }
@@ -183,7 +185,7 @@ pub fn save_assist_settings(
             if input.auto_listen { "1" } else { "0" }.into(),
         ),
         (
-            "assist_answer_questions",
+            "assist_answers",
             if input.answer_questions { "1" } else { "0" }.into(),
         ),
         (
