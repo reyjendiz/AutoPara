@@ -549,5 +549,15 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
   counted) or by "ли", one answer per question even when it is heard twice, and "Відповісти
   зараз", which answers whatever the teacher said in the last 15 s whether or not a question was
   recognised. Automatic answers stay behind the opt-in setting.
+- **End-to-end test** (owner, 2026-11-03: "test the questions in Ukrainian and Russian
+  yourself"): phrases of a pedagogy class (questions with and without a name or "а" in front,
+  statements that look like questions) spoken by Piper (Ukrainian) and Windows' Irina (Russian),
+  run through whisper (Vulkan, auto language), `detect_flag` and the built-in model. It found that
+  whisper's cut encoder window (`audio_ctx`) repeated or dropped phrases ("Н." for a whole
+  question): GPU builds now use the whole window (~85 ms a phrase). After that: 10/10 questions
+  told from statements in each language, 80-260 ms to recognise a phrase, 0.2-0.5 s to the whole
+  answer. The answer's language is decided in code (`helpers::language_of`) and named in its
+  system line; MamayLM still drifts to Ukrainian on Russian questions, Gemma 4 12B does not. The
+  phrase table is in `text.rs` tests.
 - **Answers** to the teacher's questions are now asked for as short as possible (a few words or
   one short sentence), and the panel sets them apart from the transcript.

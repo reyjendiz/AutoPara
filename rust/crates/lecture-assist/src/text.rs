@@ -123,14 +123,20 @@ const TASK_WORDS: &[&str] = &[
     "здат",
     "здайте",
     "дедлайн",
-    "до наступно",
+    "до наступного заняття",
+    "до наступної пари",
+    "до наступного разу",
+    "на наступне заняття",
     "підготуйте",
     "задани",
     "домашк",
     "сдат",
     "сдайте",
     "подготовьте",
-    "к следующ",
+    "к следующему занятию",
+    "к следующей паре",
+    "к следующему разу",
+    "на следующее занятие",
     "homework",
     "assignment",
     "deadline",
@@ -237,6 +243,34 @@ const TELLING: &[&str] = &[
     "где мы",
 ];
 
+/// "You" in Ukrainian and Russian: a sentence that opens with a name and speaks to someone.
+const SECOND_PERSON: &[&str] = &[
+    "ти",
+    "тобі",
+    "тебе",
+    "тобою",
+    "твій",
+    "твоя",
+    "твоє",
+    "твої",
+    "ви",
+    "вам",
+    "вас",
+    "вами",
+    "ваш",
+    "ваша",
+    "ваше",
+    "ваші",
+    "ты",
+    "тебя",
+    "тобой",
+    "твой",
+    "твоё",
+    "твои",
+    "вы",
+    "ваши",
+];
+
 /// Checking the line, not asking the class.
 const SMALL_TALK: &[&str] = &[
     "як справи",
@@ -252,13 +286,40 @@ const SMALL_TALK: &[&str] = &[
 ];
 
 /// One sentence asks: a question word first, or "ли" second, and long enough to mean it. A first
-/// word set off by a comma (a name, "Отже,") is skipped: "Артеме, скільки тобі років".
+/// word set off by a comma (a name, "Отже,") is skipped, "Артеме, скільки тобі років", and so is a
+/// joining "а" or "но".
 fn asks(sentence: &str) -> bool {
     let mut raw = sentence.split_whitespace().peekable();
-    if raw.peek().is_some_and(|w| w.ends_with(',')) {
+    let addressed = raw.peek().is_some_and(|w| w.ends_with(','));
+    if addressed {
         raw.next();
     }
-    let words: Vec<String> = raw.map(normalise).filter(|w| !w.is_empty()).collect();
+    let mut words: Vec<String> = raw.map(normalise).filter(|w| !w.is_empty()).collect();
+    // "А хто з вас...", "Но почему...": a joining word before the question word.
+    if words.len() > 3 && ["а", "і", "й", "але", "и", "но", "ну"].contains(&words[0].as_str())
+    {
+        words.remove(0);
+    }
+    // "Дитина, яка грає, ..." is no question; after a name, only "you" or a word that never joins
+    // a clause makes one: "Артеме, скільки тобі років", "Артеме, скільки років триває ...".
+    let unambiguous = [
+        "скільки",
+        "навіщо",
+        "чому",
+        "хто",
+        "сколько",
+        "зачем",
+        "почему",
+        "кто",
+    ];
+    if addressed
+        && !words.iter().any(|w| SECOND_PERSON.contains(&w.as_str()))
+        && !words
+            .first()
+            .is_some_and(|w| unambiguous.contains(&w.as_str()))
+    {
+        return false;
+    }
     let opening = words.iter().take(2).cloned().collect::<Vec<_>>().join(" ");
     let first = words.first().map_or("", String::as_str);
     words.len() >= 3
@@ -330,6 +391,54 @@ mod tests {
         assert_eq!(initial_prompt(&[]), "");
         let long: Vec<String> = (0..200).map(|i| format!("термін{i}")).collect();
         assert!(initial_prompt(&long).chars().count() <= 420);
+    }
+
+    /// What a teacher says in a pedagogy class, as whisper writes it: often without the "?".
+    #[test]
+    fn ukrainian_and_russian_questions_are_told_from_statements() {
+        let questions = [
+            "Хто знає, що таке зона найближчого розвитку",
+            "Артеме, скільки років триває дошкільний вік",
+            "Які функції виконує гра в розвитку дитини",
+            "Чому важлива співпраця з батьками",
+            "Назвіть основні методи виховання",
+            "Як ви думаєте, навіщо дітям рухливі ігри",
+            "Чи можете ви навести приклад дидактичної гри",
+            "Коли був заснований перший дитячий садок в Україні",
+            "Що таке дидактична гра",
+            "Олено, як ти розумієш поняття гри",
+            "Кто знает, что такое зона ближайшего развития",
+            "Сколько лет длится дошкольный возраст",
+            "Почему игра так важна для ребёнка",
+            "Назовите основные принципы воспитания",
+            "Знаете ли вы, кто такой Макаренко",
+            "Как вы думаете, зачем детям нужен режим дня",
+            "Что такое дидактическая игра",
+            "Ирина, как вы понимаете понятие игры",
+            "Сьогодні ми поговоримо. А хто з вас читав Сухомлинського",
+        ];
+        for line in questions {
+            assert_eq!(detect_flag(line), Some(FlagKind::Question), "{line}");
+        }
+        let statements = [
+            "Сьогодні ми поговоримо про розвиток мовлення дошкільників.",
+            "Як ми бачили минулого разу, гра є провідною діяльністю.",
+            "Ми знаємо, що діти вчаться через досвід.",
+            "Отже, переходимо до наступної теми.",
+            "Дитина, яка грає, розвивається швидше.",
+            "Дитина, що грає, розвивається швидше.",
+            "Вихователь, коли планує заняття, враховує вік дітей.",
+            "Мене чути?",
+            "Сегодня мы говорим о развитии речи.",
+            "Как мы видели, игра является ведущей деятельностью.",
+            "Мы знаем, что дети учатся на опыте.",
+            "Ребёнок, который играет, развивается быстрее.",
+            "Воспитатель, когда планирует занятие, учитывает возраст детей.",
+            "Меня слышно?",
+        ];
+        for line in statements {
+            assert_eq!(detect_flag(line), None, "{line}");
+        }
     }
 
     #[test]

@@ -29,6 +29,8 @@ pub struct Whisper {
     detected: Option<&'static str>,
     threads: i32,
     no_speech_threshold: f32,
+    /// On the GPU the encoder reads whisper's whole 30 s window; see [`audio_context`].
+    gpu: bool,
 }
 
 /// A Vulkan build loads `vulkan-1.dll` on first use (delay-loaded, see autopara-app's build.rs),
@@ -67,6 +69,7 @@ impl Whisper {
             detected: None,
             threads,
             no_speech_threshold: 0.6,
+            gpu,
         })
     }
 
@@ -108,7 +111,9 @@ impl Recognizer for Whisper {
         params.set_language(Some(language.unwrap_or("uk")));
         params.set_initial_prompt(prompt);
         params.set_n_threads(self.threads);
-        params.set_audio_ctx(audio_context(audio.len()));
+        if !self.gpu {
+            params.set_audio_ctx(audio_context(audio.len()));
+        }
         params.set_no_speech_thold(self.no_speech_threshold);
         params.set_suppress_blank(true);
         params.set_suppress_nst(true);
@@ -147,7 +152,9 @@ impl Recognizer for Whisper {
 }
 
 /// Encoder frames for the audio (50 a second, plus a margin) instead of whisper's fixed 30 s:
-/// encoding the silent padding made a 3 s partial cost as much as a full window.
+/// encoding the silent padding made a 3 s partial cost as much as a full window. CPU only: with a
+/// cut window whisper repeated or dropped phrases ("Сколько лет... Сколько лет...", "Н." for a whole
+/// question, 2026-11-03), and on the GPU the whole window costs ~85 ms a phrase.
 #[cfg(feature = "whisper")]
 fn audio_context(samples: usize) -> i32 {
     let frames = samples * 50 / crate::SAMPLE_RATE as usize + 64;
