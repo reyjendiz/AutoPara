@@ -532,5 +532,14 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
   now at 10 s and decoding is one pass (no temperature fallback). On 90 s of speech without pauses
   (Vulkan, turbo): RTF with partials 0.65 → 0.13, partial p95 1.91 s → 0.30 s, a saved line every
   ~8 s instead of every ~20 s. Language detection chooses only between Ukrainian and Russian.
+- **Language detection on its own state** (owner, 2026-11-03: "it understands Ukrainian badly"):
+  detecting on the recogniser's own whisper state garbled every later window ("a a a a", "I'm a-"
+  on a clear Ukrainian LibriVox recording), so "auto", the default, transcribed nothing usable.
+  Detection now runs on a throwaway state; auto gives the same text as "uk" (turbo, 2 min of a
+  Ukrainian folk tale in 1.8 s on Vulkan) and Russian speech is still detected as Russian.
+  large-v3 (not turbo) was no better on that recording, at four times the time.
+- **Questions** are flagged when a "?" appears anywhere in the line, or on phrases a teacher asks
+  the group with ("хто знає", "як ви думаєте", "назвіть", "кто знает", ...): whisper often leaves
+  out the question mark in Ukrainian.
 - **Answers** to the teacher's questions are now asked for as short as possible (a few words or
   one short sentence), and the panel sets them apart from the transcript.

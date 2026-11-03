@@ -22,6 +22,7 @@ const CANDIDATES: [&str; 2] = ["uk", "ru"];
 
 #[cfg(feature = "whisper")]
 pub struct Whisper {
+    context: whisper_rs::WhisperContext,
     state: whisper_rs::WhisperState,
     language: crate::Language,
     /// Fixed after the first long enough utterance: a class keeps its language.
@@ -60,6 +61,7 @@ impl Whisper {
             .map_err(|e| AssistError::Model(e.to_string()))?;
         let threads = std::thread::available_parallelism().map_or(4, |n| n.get().min(8)) as i32;
         Ok(Self {
+            context,
             state,
             language,
             detected: None,
@@ -68,11 +70,14 @@ impl Whisper {
         })
     }
 
-    /// The likeliest of [`CANDIDATES`]; needs a few seconds of speech to be worth trusting.
-    fn detect(&mut self, audio: &[f32]) -> Option<&'static str> {
+    /// The likeliest of [`CANDIDATES`]; needs a few seconds of speech to be worth trusting. It runs
+    /// on a state of its own: detecting on the recogniser's state left every later window garbled
+    /// ("a a a a" for clear Ukrainian, measured on a LibriVox recording).
+    fn detect(&self, audio: &[f32]) -> Option<&'static str> {
         let threads = self.threads as usize;
-        self.state.pcm_to_mel(audio, threads).ok()?;
-        let (_, probs) = self.state.lang_detect(0, threads).ok()?;
+        let mut probe = self.context.create_state().ok()?;
+        probe.pcm_to_mel(audio, threads).ok()?;
+        let (_, probs) = probe.lang_detect(0, threads).ok()?;
         CANDIDATES.into_iter().max_by(|a, b| {
             let p = |l: &str| {
                 whisper_rs::get_lang_id(l)

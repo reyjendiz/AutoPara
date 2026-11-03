@@ -137,12 +137,44 @@ const TASK_WORDS: &[&str] = &[
     "prepare for next",
 ];
 
-/// A question or a task said in class. Only marks it; nothing is answered (plan 7.7 d).
+/// What a teacher asks the group with, for when the recogniser leaves out the "?" (it often does
+/// in Ukrainian).
+const QUESTION_CUES: &[&str] = &[
+    "хто знає",
+    "хто може",
+    "хто скаже",
+    "хто пам'ятає",
+    "хто пам’ятає",
+    "хто відповість",
+    "як ви думаєте",
+    "як ви вважаєте",
+    "що ви думаєте",
+    "чи може хтось",
+    "скажіть",
+    "назвіть",
+    "поясніть",
+    "наведіть приклад",
+    "кто знает",
+    "кто может",
+    "кто скажет",
+    "кто помнит",
+    "кто ответит",
+    "как вы думаете",
+    "как вы считаете",
+    "что вы думаете",
+    "может кто-то",
+    "скажите",
+    "назовите",
+    "объясните",
+    "приведите пример",
+];
+
+/// A question or a task said in class. Only marks it; answering is the engine's opt-in.
 pub fn detect_flag(text: &str) -> Option<FlagKind> {
     let lower = format!("{} ", text.to_lowercase());
     if TASK_WORDS.iter().any(|w| lower.contains(w)) {
         Some(FlagKind::Task)
-    } else if text.trim_end().ends_with('?') {
+    } else if text.contains('?') || QUESTION_CUES.iter().any(|c| lower.contains(c)) {
         Some(FlagKind::Question)
     } else {
         None
@@ -219,5 +251,18 @@ mod tests {
             Some(FlagKind::Task)
         );
         assert_eq!(detect_flag("Отже, дерево це зв'язний граф."), None);
+        // Mid-text, and without the mark whisper often leaves out.
+        assert_eq!(
+            detect_flag("Що таке граф? Отже, почнемо з вершин."),
+            Some(FlagKind::Question)
+        );
+        assert_eq!(
+            detect_flag("Хто знає, як називається цей метод"),
+            Some(FlagKind::Question)
+        );
+        assert_eq!(
+            detect_flag("Как вы думаете, почему так происходит"),
+            Some(FlagKind::Question)
+        );
     }
 }
