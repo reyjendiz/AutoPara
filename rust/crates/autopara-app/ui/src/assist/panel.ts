@@ -175,14 +175,20 @@ function body(): HTMLElement {
     notes?.topic ? h("p", { class: "topic" }, notes.topic) : null,
     section("assist_notes", [...(notes?.key_points ?? []), ...(notes?.definitions ?? []), ...(notes?.deadlines ?? [])]),
     section("assist_terms", terms.map((term) => `${term.term} — ${term.explanation}`)),
-    section("assist_flagged", [...flagged, ...(notes?.flagged ?? [])]),
+    // The engine and the notes both list a question they heard; once is enough.
+    section("assist_flagged", [...new Set([...flagged, ...(notes?.flagged ?? [])])]),
     reply ? h("section", { class: "reply" }, reply) : null,
     aiOff
       ? h("p", { class: "faint" }, t("assist_ai_is_off"))
       : h(
           "div",
           { class: "helpers" },
-          button("assist_recap", () => ask("recap")),
+          button("assist_answer_now", () => {
+        // The answer block, for whatever was said last: no flagged question to show above it.
+        answer = { question: "", text: "", done: false };
+        ask("answer");
+      }),
+      button("assist_recap", () => ask("recap")),
           button("assist_simplify", () => ask("simplify")),
           button("assist_topic", () => ask("topic")),
         ),

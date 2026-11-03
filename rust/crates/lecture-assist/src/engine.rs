@@ -171,6 +171,9 @@ struct Worker {
     previous: String,
     previous_forced: bool,
     notes_task: Option<JoinHandle<()>>,
+    /// The question last answered unasked, normalised: the same words heard again are not answered
+    /// twice.
+    last_answered: String,
 }
 
 impl Worker {
@@ -181,7 +184,7 @@ impl Worker {
         events: UnboundedSender<AssistEvent>,
         runtime: tokio::runtime::Handle,
     ) -> Self {
-        let prompt = text::initial_prompt(&context, &config.glossary);
+        let prompt = text::initial_prompt(&config.glossary);
         let rate = Arc::new(Mutex::new(RateGuard::new(config.requests_per_minute)));
         Self {
             config,
@@ -196,6 +199,7 @@ impl Worker {
             previous: String::new(),
             previous_forced: false,
             notes_task: None,
+            last_answered: String::new(),
         }
     }
 
@@ -457,13 +461,18 @@ impl Worker {
 
     /// Like `ask`, but quiet: with no provider or no request left this minute, the question just
     /// stays in the list instead of putting an error over the class.
-    fn answer(&self, question: String) {
+    fn answer(&mut self, question: String) {
         let Some(chat) = self.chat() else {
             return;
         };
+        let key = text::normalise(&question);
+        if key == self.last_answered {
+            return;
+        }
         if !lock(&self.rate).try_acquire(Instant::now()) {
             return;
         }
+        self.last_answered = key;
         let messages = self.helper(AskKind::Answer, &question);
         let events = self.events.clone();
         self.runtime

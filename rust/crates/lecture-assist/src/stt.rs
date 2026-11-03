@@ -11,7 +11,7 @@ pub struct Piece {
 }
 
 pub trait Recognizer: Send {
-    /// `prompt` primes spelling (class, teacher, glossary); see `text::initial_prompt`.
+    /// `prompt` primes spelling (the user's glossary); see `text::initial_prompt`.
     fn transcribe(&mut self, audio: &[f32], prompt: &str) -> Result<Vec<Piece>, AssistError>;
 }
 

@@ -92,6 +92,12 @@ Their transitive packages are MIT, Apache-2.0, BSD-2/3-Clause, ISC and BlueOak-1
 | Gemma 4 12B and E4B, Google's QAT q4_0 GGUF | Apache-2.0 |
 | MamayLM Gemma 3 12B v2.0, INSAIT's Q4_K_M GGUF | Gemma Terms of Use |
 
+## Adapted code
+
+| Source | Licence | What |
+|---|---|---|
+| Magerko/copilot (`src/main/session/detector.ts`, `src/main/asr/whisper.ts`) | MIT | the Ukrainian and Russian question-opening word lists and the "no class text in whisper's prompt" finding, reworked in `lecture-assist/src/text.rs` |
+
 ## Assets
 
 | Asset | Licence |

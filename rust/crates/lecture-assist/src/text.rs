@@ -1,12 +1,20 @@
 //! Cleaning recogniser output and building prompts (plan steps 7.5 and 7.7 d).
 
-use crate::{ClassContext, FlagKind};
+use crate::FlagKind;
 
 /// Phrases whisper makes up on silence or music, mostly from subtitle credits in its training
 /// data. Matched after [`normalise`].
 const PHANTOMS: &[&str] = &[
     "дякую за перегляд",
     "дякуємо за перегляд",
+    "дякуємо за підтримку",
+    "дякую за підтримку",
+    "підпишись на канал",
+    "підписуйтеся на канал",
+    "ставте лайк",
+    "не забудьте підписатися",
+    "редактор субтитрів",
+    "субтитри зроблено",
     "підписуйтесь на канал",
     "спасибо за просмотр",
     "продолжение следует",
@@ -90,17 +98,11 @@ pub fn clean(previous: &str, text: &str) -> Option<String> {
     (!normalise(&text).is_empty()).then_some(text)
 }
 
-/// whisper's initial prompt: the class and the user's glossary, so names and terms come out
-/// spelled right. Kept well under its 224-token limit.
-pub fn initial_prompt(context: &ClassContext, glossary: &[String]) -> String {
-    let mut parts = Vec::new();
-    if !context.subject.is_empty() {
-        parts.push(context.subject.clone());
-    }
-    if !context.teacher.is_empty() {
-        parts.push(context.teacher.clone());
-    }
-    let mut prompt = parts.join(". ");
+/// whisper's initial prompt: only the user's own glossary. whisper.cpp repeats its prompt on noise,
+/// so the class's subject and teacher, put there unasked, came back as phantom lines (as
+/// Magerko/copilot found too). Kept well under its 224-token limit.
+pub fn initial_prompt(glossary: &[String]) -> String {
+    let mut prompt = String::new();
     for term in glossary.iter().map(|t| t.trim()).filter(|t| !t.is_empty()) {
         if prompt.chars().count() + term.chars().count() > 400 {
             break;
@@ -169,12 +171,114 @@ const QUESTION_CUES: &[&str] = &[
     "приведите пример",
 ];
 
+/// Words a question opens with, Ukrainian then Russian; with three words or more, a sentence that
+/// starts with one is asked even without a "?" (lists adapted from Magerko/copilot, MIT).
+const LEAD_WORDS: &[&str] = &[
+    "що",
+    "чим",
+    "чому",
+    "навіщо",
+    "як",
+    "коли",
+    "де",
+    "куди",
+    "звідки",
+    "який",
+    "яка",
+    "яке",
+    "які",
+    "яким",
+    "яких",
+    "хто",
+    "кого",
+    "скільки",
+    "чи",
+    "розкажіть",
+    "опишіть",
+    "порівняйте",
+    "что",
+    "чем",
+    "почему",
+    "зачем",
+    "как",
+    "когда",
+    "где",
+    "куда",
+    "откуда",
+    "какой",
+    "какая",
+    "какое",
+    "какие",
+    "каким",
+    "каких",
+    "кто",
+    "кого",
+    "сколько",
+    "расскажите",
+    "опишите",
+    "сравните",
+];
+
+/// Openings that look like a question but tell instead ("Як ми бачили, ...").
+const TELLING: &[&str] = &[
+    "як ми",
+    "як бачите",
+    "як відомо",
+    "як я",
+    "що стосується",
+    "коли ми",
+    "де ми",
+    "как мы",
+    "как видите",
+    "как известно",
+    "как я",
+    "что касается",
+    "когда мы",
+    "где мы",
+];
+
+/// Checking the line, not asking the class.
+const SMALL_TALK: &[&str] = &[
+    "як справи",
+    "мене чути",
+    "чуєте мене",
+    "чути мене",
+    "мене видно",
+    "как дела",
+    "меня слышно",
+    "слышите меня",
+    "слышно меня",
+    "меня видно",
+];
+
+/// One sentence asks: a question word first, or "ли" second, and long enough to mean it. A first
+/// word set off by a comma (a name, "Отже,") is skipped: "Артеме, скільки тобі років".
+fn asks(sentence: &str) -> bool {
+    let mut raw = sentence.split_whitespace().peekable();
+    if raw.peek().is_some_and(|w| w.ends_with(',')) {
+        raw.next();
+    }
+    let words: Vec<String> = raw.map(normalise).filter(|w| !w.is_empty()).collect();
+    let opening = words.iter().take(2).cloned().collect::<Vec<_>>().join(" ");
+    let first = words.first().map_or("", String::as_str);
+    words.len() >= 3
+        && !TELLING.iter().any(|t| opening.starts_with(t))
+        && (LEAD_WORDS.contains(&first) || words.get(1).is_some_and(|w| w == "ли"))
+}
+
 /// A question or a task said in class. Only marks it; answering is the engine's opt-in.
 pub fn detect_flag(text: &str) -> Option<FlagKind> {
     let lower = format!("{} ", text.to_lowercase());
+    let small_talk = text.split_whitespace().count() <= 8
+        && SMALL_TALK.iter().any(|s| normalise(text).contains(s));
     if TASK_WORDS.iter().any(|w| lower.contains(w)) {
         Some(FlagKind::Task)
-    } else if text.contains('?') || QUESTION_CUES.iter().any(|c| lower.contains(c)) {
+    } else if small_talk {
+        None
+    } else if text.contains('?')
+        || QUESTION_CUES.iter().any(|c| lower.contains(c))
+        || text.split(['.', '!', '?', ';']).any(asks)
+    {
         Some(FlagKind::Question)
     } else {
         None
@@ -220,20 +324,12 @@ mod tests {
     }
 
     #[test]
-    fn prompt_names_the_class() {
-        let context = ClassContext {
-            subject: "Дискретна математика".into(),
-            teacher: "Іваненко О. П.".into(),
-            ..ClassContext::default()
-        };
-        let prompt = initial_prompt(&context, &["граф".into(), " ".into(), "ізоморфізм".into()]);
-        assert_eq!(
-            prompt,
-            "Дискретна математика. Іваненко О. П., граф, ізоморфізм."
-        );
-        assert_eq!(initial_prompt(&ClassContext::default(), &[]), "");
+    fn prompt_is_the_glossary_only() {
+        let prompt = initial_prompt(&["граф".into(), " ".into(), "ізоморфізм".into()]);
+        assert_eq!(prompt, "граф, ізоморфізм.");
+        assert_eq!(initial_prompt(&[]), "");
         let long: Vec<String> = (0..200).map(|i| format!("термін{i}")).collect();
-        assert!(initial_prompt(&context, &long).chars().count() <= 420);
+        assert!(initial_prompt(&long).chars().count() <= 420);
     }
 
     #[test]
@@ -264,5 +360,22 @@ mod tests {
             detect_flag("Как вы думаете, почему так происходит"),
             Some(FlagKind::Question)
         );
+        // A question word first, or "ли" second, with no mark at all.
+        assert_eq!(
+            detect_flag("Артеме, скільки тобі років"),
+            Some(FlagKind::Question)
+        );
+        assert_eq!(detect_flag("Отже, як ми бачили, граф має вершини."), None);
+        assert_eq!(detect_flag("Ми знаємо, що граф має вершини."), None);
+        assert_eq!(
+            detect_flag("Скільки років триває навчання в університеті"),
+            Some(FlagKind::Question)
+        );
+        assert_eq!(
+            detect_flag("Знаете ли вы теорему Пифагора"),
+            Some(FlagKind::Question)
+        );
+        assert_eq!(detect_flag("Як ми бачили, граф має вершини."), None);
+        assert_eq!(detect_flag("Мене чути?"), None);
     }
 }

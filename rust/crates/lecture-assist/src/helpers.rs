@@ -47,6 +47,16 @@ pub fn helper_messages(
              {summary}\nRecent:\n{}",
             transcript.window(5)
         ),
+        // Nothing typed ("Відповісти зараз"): whatever was said last holds the question.
+        AskKind::Answer if text.trim().is_empty() => format!(
+            "{class}\nThe teacher has just said this; answer the question in it, or the last thing \
+             asked: {}\nWrite the answer the student can say aloud, as short as possible: a few \
+             words, or one short sentence when words are not enough. No preamble, no \
+             explanation. Use what was said in class first, general knowledge where it says \
+             nothing.\n\nSummary so far: {summary}\nRecent:\n{}",
+            transcript.since(transcript.end_ms().saturating_sub(15_000)),
+            transcript.window(3)
+        ),
         AskKind::Answer => format!(
             "{class}\nThe teacher just asked the class: {text}\nWrite the answer the student can \
              say aloud, as short as possible: a few words, or one short sentence when words are \
@@ -116,6 +126,11 @@ mod tests {
         let answer = ask(AskKind::Answer, "Хто знає, що таке дерево?");
         assert!(answer.contains("asked the class: Хто знає, що таке дерево?"));
         assert!(answer.contains("say aloud, as short as possible"));
+        let now = ask(AskKind::Answer, "");
+        assert!(
+            now.contains("answer the question in it") && now.contains("Граф"),
+            "{now}"
+        );
         let summary = ask(AskKind::Summary, "");
         assert!(summary.contains("Markdown") && summary.contains("do not answer"));
         for kind in [

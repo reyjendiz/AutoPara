@@ -541,5 +541,12 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
 - **Questions** are flagged when a "?" appears anywhere in the line, or on phrases a teacher asks
   the group with ("хто знає", "як ви думаєте", "назвіть", "кто знает", ...): whisper often leaves
   out the question mark in Ukrainian.
+- **Taken from Magerko/copilot** (MIT; the owner pointed to it, 2026-11-03: "it hears nonsense and
+  does not answer"): no subject or teacher in whisper's prompt (whisper.cpp repeats its prompt on
+  noise), more phantom lines ("Дякуємо за підтримку!"), questions recognised by their opening word
+  in Ukrainian or Russian (3+ words, a leading name skipped, "Як ми бачили" and "мене чути?" not
+  counted) or by "ли", one answer per question even when it is heard twice, and "Відповісти
+  зараз", which answers whatever the teacher said in the last 15 s whether or not a question was
+  recognised. Automatic answers stay behind the opt-in setting.
 - **Answers** to the teacher's questions are now asked for as short as possible (a few words or
   one short sentence), and the panel sets them apart from the transcript.
