@@ -201,3 +201,20 @@
 .assist footer input[type="range"] {
   width: 90px;
 }
+
+.assist-meter {
+  flex: none;
+  width: 40px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--chip-bg);
+  overflow: hidden;
+}
+
+.assist-meter > span {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: var(--success-fg);
+  transition: width 100ms linear;
+}

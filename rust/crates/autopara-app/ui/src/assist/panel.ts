@@ -57,6 +57,9 @@ let aiOff = false;
 
 const root = h("aside", { class: "assist", "aria-label": t("assist_title"), hidden: true });
 const clock = h("span", { class: "assist-clock" });
+// How loud what is captured is, so silence (a muted class, the wrong source) shows at a glance.
+const meterBar = h("span", {});
+const meter = h("span", { class: "assist-meter", role: "meter", "aria-label": t("assist_level"), "aria-valuemin": 0, "aria-valuemax": 100 }, meterBar);
 
 function applyLook(): void {
   style(root, { "--assist-font": `${look.font}px` });
@@ -93,6 +96,7 @@ function header(): HTMLElement {
     {},
     dot,
     clock,
+    meter,
     title,
     button(look.collapsed ? "assist_expand" : "assist_collapse", () => setCollapsed(!look.collapsed)),
     running ? null : h("button", { class: "btn plain", type: "button", title: t("assist_hide"), "aria-label": t("assist_hide"), onclick: close }, icon("close", 14)),
@@ -259,6 +263,8 @@ function onEvent(event: AssistEvent): void {
       error = event.code;
       break;
     case "level":
+      style(meterBar, { width: `${Math.round(event.level * 100)}%` });
+      meter.setAttribute("aria-valuenow", String(Math.round(event.level * 100)));
       return;
   }
   render();

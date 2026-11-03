@@ -89,6 +89,13 @@ pub fn page(link: &str) -> Option<Url> {
     None
 }
 
+/// Every webview of the app shares one WebView2 environment, so all get the same arguments: wry's
+/// defaults plus the audio service inside the browser process. Out of process (Chromium's default)
+/// the class's sound is not part of AutoPara's process tree, and the assistant's process loopback
+/// (`lecture_assist::audio::app`) hears silence; measured with Edge, 2026-11-03.
+pub const BROWSER_ARGS: &str =
+    "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,AudioServiceOutOfProcess";
+
 /// Show `page` in the tab, replacing whatever it showed. Creating a webview waits on the main
 /// thread, so this is never called from it (a synchronous command would deadlock WebView2).
 pub fn open(app: &AppHandle, page: Url) -> tauri::Result<()> {
@@ -104,6 +111,7 @@ pub fn open(app: &AppHandle, page: Url) -> tauri::Result<()> {
             let window = app.get_window("main").ok_or(tauri::Error::WindowNotFound)?;
             window.add_child(
                 WebviewBuilder::new(LABEL, WebviewUrl::External(page.clone()))
+                    .additional_browser_args(BROWSER_ARGS)
                     .initialization_script(corners(&border, &background))
                     // The script above has the colours of when the tab was made; a page that
                     // loads after a theme change gets today's.

@@ -456,8 +456,14 @@ pub fn start(app: &AppHandle, lesson_id: Option<i64>) -> CommandResult<()> {
     let language = settings.language;
     // The default hears only AutoPara when the class is in its tab, so nothing else the computer
     // plays gets in; `system` is the whole output, as before.
+    // A class AutoPara is opening in the tab counts too: listening may start before its page exists.
     #[cfg(windows)]
-    let class_only = settings.device.is_empty() && crate::meeting::is_open(app);
+    let class_only = settings.device.is_empty()
+        && (crate::meeting::is_open(app)
+            || lesson
+                .as_ref()
+                .and_then(|l| l.url.as_deref())
+                .is_some_and(|link| crate::meeting::page(link).is_some()));
     let device = Some(settings.device.clone()).filter(|d| !d.is_empty() && d != SYSTEM_SOUND);
     let parts = Parts {
         source: Box::new(move || {

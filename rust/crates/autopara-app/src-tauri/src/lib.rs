@@ -198,7 +198,9 @@ pub fn run() {
             // The pages call commands as soon as they load, so the windows ("create": false in
             // tauri.conf.json) are made only once every piece of state above exists.
             for config in &app.config().app.windows {
-                tauri::WebviewWindowBuilder::from_config(&handle, config)?.build()?;
+                tauri::WebviewWindowBuilder::from_config(&handle, config)?
+                    .additional_browser_args(meeting::BROWSER_ARGS)
+                    .build()?;
             }
             if let Some(window) = app.get_webview_window("main") {
                 window.set_title(t("app_title"))?;

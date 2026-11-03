@@ -517,6 +517,14 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
   else the computer plays. The engine converts to 16 kHz mono itself. "Весь звук комп’ютера"
   (`system`) and the device list stay for a class in a browser or the Zoom app.
 - **Alternative:** cpal, which has no process loopback.
+- **WebView2's audio service** (owner's report, 2026-11-03: "it does not hear the teacher at
+  all"): Chromium plays sound from an out-of-process audio service that a process loopback of
+  AutoPara's tree does not hear, although the process is in the tree. Measured with a WebView2
+  probe built on the same wry: peak 0 with wry's default arguments, 0.34 with
+  `AudioServiceOutOfProcess` disabled. Every webview now gets that argument
+  (`meeting::BROWSER_ARGS`, with wry's three defaults, since one environment means one set).
+  Listening that starts as AutoPara opens the class in its tab also counts as class-only now; it
+  used to begin before the page existed and fell back to the whole output.
 - **Limits:** chosen when listening starts; a class moved to the browser later is no longer heard
   until listening restarts. Windows 10 2004 or later. Teacher-only listening is a separate step.
 - **Answers** to the teacher's questions are now asked for as short as possible (a few words or
