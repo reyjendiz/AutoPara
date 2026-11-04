@@ -21,7 +21,7 @@ failure never stops a class from opening.
 
 ```
 audio source ─▶ 16 kHz mono ─▶ voice detector ─▶ segmenter ─▶ whisper ─▶ text clean-up
-(capture.rs,                    (vad.rs: Silero   (≤ 10 s,      (stt.rs)   (text.rs: phantoms,
+(capture.rs,                    (vad.rs: Silero   (≤ 20 s,      (stt.rs)   (text.rs: phantoms,
  macos.rs, fake.rs)              or energy)        0.5 s overlap)           repeats, flags)
                                                                               │
                panel + database ◀── events ◀── engine.rs ◀── notes.rs / helpers.rs ◀── llm/

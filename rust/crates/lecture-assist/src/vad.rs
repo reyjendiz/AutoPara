@@ -117,9 +117,10 @@ impl Default for SegmenterConfig {
             threshold: 0.5,
             min_silence_frames: frames(700),
             pre_roll_frames: frames(200),
-            // A teacher who talks without pausing still gets a saved line every 10 s, and each
-            // partial re-reads at most that much audio.
-            max_frames: frames(10_000),
+            // A teacher who talks without pausing still gets a saved line every 20 s, and each
+            // partial re-reads at most that much. 10 s cut too much context away: WER on a real
+            // lecture 31% -> 24% at 20 s, for RTF 0.15 -> 0.19 on the GPU (docs/ASSIST_BENCH.md).
+            max_frames: frames(20_000),
             overlap_frames: frames(500),
         }
     }
