@@ -4,7 +4,7 @@
 recogniser the way the engine does, only as fast as the machine allows:
 
 - the energy voice detector and the engine's segmenter cut the audio into utterances
-  (700 ms of silence ends one, 10 s is the longest);
+  (700 ms of silence ends one, 20 s is the longest);
 - every second, the open utterance is transcribed again (the partial the overlay shows);
 - each finished utterance is transcribed once more (the final line that is saved).
 
@@ -62,3 +62,85 @@ To do:
 
 The recording is synthetic (the Windows English voice, monotone, regular pauses). Use it for
 timing only, not for accuracy.
+
+## Accuracy under bad microphones (2026-11-04)
+
+Owner: "it still recognises the teacher's words very badly in real classes". Word error rate (WER,
+word-level Levenshtein after lower-casing and removing punctuation and apostrophes) through the
+app's chain: 16 kHz mono, Silero, the engine's segmenter, `stt::Whisper` with `Language::Auto` on
+Vulkan, `text::clean`; only the saved (final) lines are scored. Recordings and scripts stay
+outside the repository.
+
+- **Lecture:** 7 min (10:00-17:00) of M. Ilnytskyi's talk on Ye. Malaniuk, Lviv 2017
+  (archive.org `Ilnyckyi-Malaniuk`, CC BY-NC-SA 4.0): one speaker in a bookstore, room microphone,
+  quoted verse. No transcript exists, so the reference is whisper large-v3 (f16, beam 5, whole
+  recording with context) on the clean audio, with names corrected by hand (Теліга, Білецький,
+  Сосюра, празька школа...). Models of the large-v3 family are favoured by it; compare them on
+  FLEURS.
+- **FLEURS uk:** 40 sentences of the dev set (CC BY 4.0), one recording each, 0.8 s apart
+  (8.3 min): read speech, many speakers, human transcripts.
+- **Russian:** 4 min of the LibriVox reading the earlier probes used, reference by large-v3 (ru).
+
+Conditions (ffmpeg and numpy): `laptop` 300-3400 Hz, speech at -30 dBFS, hiss 30 dB below;
+`reverb` RT60 0.7 s, `reverb-light` 0.4 s; `babble` six other FLEURS voices at 20/10/5 dB SNR;
+`fan10` brown noise at 10 dB; `clip` the top 1% of samples clipped; `opus16/24` libopus voip at
+16/24 kbit/s; `loss5` 5% of 20 ms frames lost in bursts, no concealment; `meet` laptop + light
+room + babble 20 dB + Opus 16 + 3% loss; `combo` laptop + reverb + babble 10 dB + Opus 16 + 3%;
+`worst` adds clipping and 5% loss at 5 dB.
+
+Before = the settings until 2026-11-03 (10 s cuts, greedy, language fixed on the first phrase of
+3 s); after = this commit (language voted over a minute with a margin for Russian, 20 s cuts,
+beam 5 on finals, lone "Дякую." dropped). large-v3-turbo-q5_0, RTX 4080 SUPER.
+
+| WER, % | clean | laptop | reverb | reverb-light | babble 20 | babble 10 | babble 5 | fan 10 | clip | opus 16 | opus 24 | opus 24 + loss 5 | meet | combo | worst |
+|--------|------:|-------:|-------:|-------------:|----------:|----------:|---------:|-------:|-----:|--------:|--------:|-----------------:|-----:|------:|------:|
+| Lecture, before | 30.3 | 86.2 | 97.6 | 85.7 | 30.7 | 92.8 | 97.1 | 87.4 | 83.8 | 85.9 | 82.4 | 86.1 | 96.0 | 98.1 | 98.7 |
+| Lecture, after  | 21.4 | 25.1 | 49.6 | 31.8 | 24.5 | 54.0 | 90.5 | 33.1 | 23.1 | 26.0 | 23.5 | 24.8 | 96.1 | 99.2 | 99.1 |
+| FLEURS, before  | 14.6 | 31.9 | 38.5 | 28.5 | 45.4 | 97.2 | 94.7 | 46.4 | 14.4 | 18.2 | 18.1 | 20.9 | 94.9 | 98.3 | 98.3 |
+| FLEURS, after   | 11.9 | 31.7 | 35.4 | 26.3 | 35.5 | 83.5 | 94.4 | 46.9 | 12.1 | 15.6 | 15.3 | 17.7 | 80.0 | 99.0 | 99.0 |
+| Russian, before | 20.8 | 19.0 | 28.3 | - | - | 32.0 | - | 20.1 | - | 21.4 | - | - | - | 81.9 | - |
+| Russian, after  | 17.4 | 18.8 | 26.7 | - | - | 29.8 | - | 20.1 | - | 17.7 | - | - | - | 86.3 | - |
+
+What each change did (lecture / FLEURS WER, %, clean · laptop · reverb · babble 20 · opus 16).
+Rows from "30 s cuts" to "q8" and "large-v3" build on the 60 s vote, 20 s cuts and greedy decoding;
+the rows below them on the 30 s vote and 10 s cuts, and compare with that row:
+
+| Setting | Lecture | FLEURS | Kept |
+|---------|---------|--------|------|
+| before | 30.3 · 86.2 · 97.6 · 30.7 · 85.9 | 14.6 · 31.9 · 38.5 · 45.4 · 18.2 | |
+| language over 30 s instead of the first phrase | 30.7 · 31.8 · 61.8 · 32.6 · 31.8 | 13.8 · 32.1 · 37.9 · 45.4 · 17.2 | yes, 60 s + margin |
+| + 20 s cuts | 23.6 · 25.9 · 51.2 · 27.5 · 25.7 | 13.1 · 32.4 · 35.6 · 41.7 · 17.3 | yes |
+| 30 s cuts | 22.4 · 25.5 · 52.7 · 23.9 · 24.7 | 12.7 · 31.5 · 34.7 · 45.6 · 16.2 | no: lines twice as late for ~1 point |
+| + beam 5 on finals | 22.0 · 26.1 · 50.3 · 23.9 · 25.3 | 11.4 · 31.8 · 35.4 · 37.4 · 15.5 | yes (GPU) |
+| turbo q8_0 instead of q5_0 | 24.0 · 25.3 · 52.7 · 25.1 · 25.9 | 12.7 · 31.2 · 36.2 · 40.6 · 16.8 | no: ±1 point, 300 MB more |
+| large-v3 q5_0 | 19.4 · 27.6 · 41.3 · 20.6 · 21.3 | 13.1 · 30.9 · 36.0 · 49.4 · 16.3 | no: the lecture reference is large-v3's own; on FLEURS no better, 3x slower |
+| medium-q5_0 (30 s vote, 10 s cuts) | 37.7 · 42.9 · 69.6 · 43.6 · 39.0 | 21.5 · 37.2 · 49.1 · 52.1 · 23.5 | no: 7-8 points worse than turbo |
+| beam 5 everywhere (10 s cuts) | 28.0 · 30.8 · 60.9 · 28.8 · 31.0 | 13.6 · 31.8 · 37.6 · 40.0 · 17.6 | finals only |
+| temperature fallback 0.2 | 30.8 · 32.0 · 62.9 · 32.6 · 32.0 | 13.8 · 32.1 · 37.9 · 45.4 · 17.2 | no |
+| `no_speech_thold` 1.0 (never drop) | same as 0.6 | same | no effect |
+| energy detector instead of Silero | 32.6 · 35.7 · 93.2 · 43.4 · 34.5 | 32.7 · 34.5 · 46.3 · 47.6 · 31.5 | no |
+| high-pass + AGC (ffmpeg `dynaudnorm`) | 29.8 · 28.7 · 64.5 · 31.4 · 32.6 | 11.5 · 32.1 · 23.2 · 46.8 · 11.4 | no: mixed, worse on the lecture's room |
+| high-pass + FFT denoise (`afftdn`) + AGC | 30.3 · 33.0 · 64.7 · 34.2 · 34.2 | 12.8 · 32.2 · 27.1 · 42.4 · 12.8 | no: mixed, a denoiser to write |
+| level normalised per utterance | 25.1 · 26.1 · 50.3 · 27.7 · 26.3 | 12.3 · 32.6 · 35.1 · 39.6 · 17.2 | no: ±1 point |
+
+The big loss was the language. The lecture opens on a quoted line of verse; whisper scored it 0.47
+Ukrainian / 0.43 Russian clean and Russian through a laptop microphone, Opus, clipping, a room or
+fan noise, and the whole class then came out in Russian (WER 82-98%). Over the first minute of
+speech, weighted by length, degraded Ukrainian scored at most 1.2 times as Russian as Ukrainian
+(except `meet` 2.3 and `combo` 5.0), while degraded Russian scored 2.4 to 38 times more Russian,
+hence the 1.5 margin. `meet`, `combo` and `worst` are lost with any setting, even with Ukrainian
+forced (86% / 98%): past a point no decoding setting helps, only a better microphone does.
+A lone "Дякую." came 1-5 times in every 7 min of clean speech and up to 66 times in noise, and
+never in the references; "Субтитрувальниця Оля Шор" too.
+
+Speed, after (Vulkan, turbo, partials every second, quiet GPU):
+
+| Audio | RTF finals | RTF with partials | Final p95 | Partial p95 |
+|-------|-----------:|------------------:|----------:|------------:|
+| lecture 7 min, before | 0.021 | 0.13 | 0.21 s | 0.18 s |
+| lecture 7 min, after | 0.045 | 0.21 | 0.93 s | 0.33 s |
+| 90 s without pauses (en), before | 0.014 | 0.13 | 0.26 s | 0.26 s |
+| 90 s without pauses (en), after | 0.024 | 0.23 | 0.75 s | 0.40 s |
+
+The first minute also runs language detection on every call. The owner's settings had
+`medium-q5_0` as the speech model; large-v3-turbo-q5_0 (the GPU default) is the better choice.

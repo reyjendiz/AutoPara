@@ -302,11 +302,17 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
 
 ## Lecture Assist: language detection
 
-- **Decision:** with "auto", the language is detected once, on the first utterance of at least
-  three seconds, choosing only among Ukrainian, Russian and English, and kept for the session.
-- **Alternative:** whisper's own detection on every window, among all languages.
-- **Why:** a class keeps its language; per-window detection doubles the encoder work and flips
-  between close languages on short phrases.
+- **Decision:** with "auto", whisper's Ukrainian and Russian scores are added up, weighted by
+  the length of audio, over the first minute of speech (a partial replaces its utterance's earlier
+  vote), and the winner is kept for the session; Russian wins only with 1.5 times Ukrainian's
+  score. Until then each call uses the current leader. English is still there to pick by hand.
+- **Alternative:** detection once on the first utterance of 3 s (until 2026-11-04); whisper's own
+  detection on every window, among all languages.
+- **Why:** a class keeps its language, and per-window detection flips between close languages on
+  short phrases. One phrase was too little: on a real Ukrainian lecture through a laptop
+  microphone, Opus, a room or fan noise, the first phrase read as Russian and the whole class came
+  out in Russian (WER 82-98% instead of 25-50%). Whisper hears degraded Ukrainian as Russian,
+  never the other way round (`docs/ASSIST_BENCH.md`, "Accuracy under bad microphones").
 
 ## Lecture Assist: GPU builds on Windows
 
@@ -566,3 +572,25 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
   phrase table is in `text.rs` tests.
 - **Answers** to the teacher's questions are now asked for as short as possible (a few words or
   one short sentence), and the panel sets them apart from the transcript.
+
+## Lecture Assist: recognition under bad microphones
+
+- **Owner, 2026-11-04:** "it still recognises the teacher's words very badly in real classes".
+- **Measured** on a real Ukrainian lecture (archive.org, CC BY-NC-SA), FLEURS uk (human
+  transcripts) and a Russian reading, each clean and through a laptop microphone, room echo,
+  babble and fan noise, clipping, Opus 16/24 kbit/s and packet loss (`docs/ASSIST_BENCH.md`).
+- **Decision:** the language vote above; nonstop speech cut every 20 s instead of 10 s; beam
+  search (5) for the saved line of each utterance on GPU builds, greedy for partials and on the
+  CPU; a lone "Дякую." / "Спасибо." line and "Субтитрувальниця ..." dropped as phantoms. Lecture
+  WER: clean 30 → 21%, laptop 86 → 25%, room 98 → 50%, Opus 16 86 → 26%; FLEURS clean 15 → 12%;
+  Russian clean 21 → 17%. RTF with partials 0.13 → 0.21, final p95 0.2 → 0.9 s on the RTX 4080.
+- **Kept:** large-v3-turbo-q5_0 as the GPU default: q8_0 is within a point for 300 MB more,
+  large-v3 is no better on FLEURS and three times slower, medium-q5_0 is 7-8 points worse.
+  Silero (the energy detector was worse everywhere), `no_speech_thold` 0.6 (1.0 changed nothing),
+  no temperature fallback (no gain).
+- **Not done:** input clean-up. A high-pass with AGC or an FFT denoiser helped FLEURS in a room
+  (38 → 23%) but made the lecture worse; per-utterance level normalisation moved WER by a point.
+  30 s cuts gained about a point more for saved lines twice as late.
+- **Limit:** with a laptop microphone, a room, students talking and Opus all at once ("meet" in
+  the bench) no setting helps (80-96%); a Ukrainian class there may still be voted Russian.
+  Setting the language to "Українська" in Settings avoids that, not the errors.

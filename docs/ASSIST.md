@@ -35,9 +35,10 @@ audio source ─▶ 16 kHz mono ─▶ voice detector ─▶ segmenter ─▶ wh
   ScreenCaptureKit audio (`macos.rs`, untested on hardware); a chosen input device such as
   BlackHole is used instead when picked, or when the permission is missing. Resampled with
   `rubato`.
-- **Recognition** (`stt.rs`): whisper.cpp through `whisper-rs`. The language is detected once
-  among Ukrainian, Russian and English unless set. The class, teacher and glossary prime the
-  spelling. A partial line every second, a final line per utterance.
+- **Recognition** (`stt.rs`): whisper.cpp through `whisper-rs`. Unless set, the language is
+  voted between Ukrainian and Russian over the first minute of speech and then kept. The glossary
+  primes the spelling. A greedy partial line every second, a final line per utterance (beam search
+  on the GPU).
 - **Notes** (`notes.rs`, `llm/`): every 75 seconds the last 5 minutes of transcript go to the
   chat model, which returns topic, key points, definitions, deadlines and flagged items as JSON.
   The default chat model is built in (`llm/local.rs`): llama.cpp's `llama-server`, downloaded
