@@ -452,6 +452,11 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
   `volume` on `<audio>`/`<video>` (Meet); frames get the level by `postMessage`. The assistant's
   process loopback hears the page after that gain, so `Meeting::full_volume` divides the captured
   samples by the volume (not below 5 %: at 0 it hears nothing).
+- **Tab or browser (owner's request, 2026-11-04):** setting `open_in_app` ("Відкривати Google Meet і
+  Zoom у AutoPara", on by default, also for existing users) sends class links to the system browser
+  when off, as 1.x did; Zoom's page there offers the Zoom app. The scheduler opens links while it
+  holds the storage lock, so the opener reads the setting from an `AtomicBool` in `Meeting`, set
+  at start and on save, not from storage.
 - **Security:** the page is a remote origin with no capability. The `default` capability names the
   interface's webview (`webviews: ["main"]`), not the window, and Tauri refuses every command from
   a remote origin that no capability names, so the page cannot reach the app. Logs name only the
