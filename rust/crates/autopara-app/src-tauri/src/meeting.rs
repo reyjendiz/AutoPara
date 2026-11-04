@@ -57,11 +57,14 @@ fn corners(border: &str, background: &str) -> String {
     )
 }
 
-/// "Входити в пару одразу": `join.js`, with the guest name as a JSON string, which is also a
-/// JavaScript string literal, so no name can break out of it.
-fn join_script(name: &str) -> String {
+/// `join.js`: camera and microphone off on every class page, and with "Входити в пару одразу"
+/// (`join`) the join itself. The guest name goes in as a JSON string, which is also a JavaScript
+/// string literal, so no name can break out of it.
+fn join_script(name: &str, join: bool) -> String {
     let literal = serde_json::to_string(name).unwrap_or_else(|_| "\"\"".to_owned());
-    include_str!("join.js").replace("__NAME__", &literal)
+    include_str!("join.js")
+        .replace("__NAME__", &literal)
+        .replace("__JOIN__", if join { "true" } else { "false" })
 }
 
 /// A colour as the interface's computed style gives it (`rgb(17, 17, 19)`): nothing that could
@@ -74,7 +77,8 @@ fn is_colour(value: &str) -> bool {
 }
 
 /// The page AutoPara shows for a class link, or `None` when the link belongs in the browser:
-/// Meet as it is, and a Zoom `/j/<id>` link as Zoom's web client, so no app is handed the link.
+/// Meet and Zoom's web client (`/wc/...`) as they are, and a Zoom `/j/<id>` link as the web
+/// client, so no app is handed the link.
 pub fn page(link: &str) -> Option<Url> {
     let mut url = Url::parse(link).ok()?;
     let host = url.host_str()?.to_owned();
@@ -82,6 +86,9 @@ pub fn page(link: &str) -> Option<Url> {
         return Some(url);
     }
     if host == "zoom.us" || host.ends_with(".zoom.us") {
+        if url.path().starts_with("/wc/") {
+            return Some(url);
+        }
         let id = url.path().strip_prefix("/j/")?.to_owned();
         url.set_path(&format!("/wc/join/{id}"));
         return Some(url);
@@ -121,11 +128,10 @@ pub fn open(app: &AppHandle, page: Url) -> tauri::Result<()> {
                                 webview.state::<Meeting>().place().colours.clone();
                             let _ = webview.eval(corners(&border, &background));
                             let settings = webview.state::<AppState>().storage().settings();
-                            if let Ok(settings) = settings
-                                && settings.auto_join
-                            {
-                                let _ = webview.eval(join_script(&settings.join_name));
-                            }
+                            let (name, join) = settings
+                                .map(|s| (s.join_name, s.auto_join))
+                                .unwrap_or_default();
+                            let _ = webview.eval(join_script(&name, join));
                         }
                     }),
                 LogicalPosition::new(x, y),
@@ -253,10 +259,27 @@ mod tests {
     }
 
     #[test]
+    fn zoom_web_client_links_open_as_they_are() {
+        for link in [
+            "https://zoom.us/wc/join/78964062532?pwd=abc.1",
+            "https://us04web.zoom.us/wc/78964062532/join?pwd=abc.1",
+        ] {
+            assert_eq!(page(link).map(String::from), Some(link.to_owned()));
+        }
+    }
+
+    #[test]
     fn the_guest_name_stays_a_string() {
-        let script = join_script("Іван\"; alert(1); \"");
+        let script = join_script("Іван\"; alert(1); \"", true);
         assert!(script.contains(r#"const NAME = "Іван\"; alert(1); \"";"#));
         assert!(!script.contains("__NAME__"));
+    }
+
+    #[test]
+    fn devices_go_off_with_or_without_joining() {
+        assert!(join_script("", true).contains("const JOIN = true;"));
+        assert!(join_script("", false).contains("const JOIN = false;"));
+        assert!(!join_script("", false).contains("__JOIN__"));
     }
 
     #[test]

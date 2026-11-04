@@ -1,16 +1,25 @@
-// Joins a class page opened in AutoPara's tab, with the camera and microphone off (meeting.rs runs
-// it when the user turned "auto_join" on). It joins only once both devices are confirmed off or
+// Turns the camera and microphone off on the join screen of a class page in AutoPara's tab, and
+// keeps them off until the user first clicks or types on the page (meeting.rs runs it on every
+// page load). With "auto_join" (JOIN) it also joins, only once both devices are confirmed off or
 // unavailable; anything unexpected leaves the page to the user. The hooks below were read from
 // Meet's and Zoom's join screens in November 2026 and break when the sites change them.
 (() => {
   if (window.__autoparaJoin) return;
   window.__autoparaJoin = true;
   const NAME = __NAME__;
+  const JOIN = __JOIN__;
   const meet = location.hostname === "meet.google.com";
   const zoom = /(^|\.)zoom\.us$/.test(location.hostname) && location.pathname.includes("/wc/");
   if (!meet && !zoom) return;
   const $ = (selector) => document.querySelector(selector);
   const clicks = new Map();
+  // The user's own input (our clicks are not trusted events): from then on the page is theirs.
+  let touched = false;
+  const touch = (event) => {
+    if (event.isTrusted) touched = true;
+  };
+  addEventListener("pointerdown", touch, true);
+  addEventListener("keydown", touch, true);
 
   // A toggle is clicked at most twice; a third time means it does not do what we expect.
   const press = (button) => {
@@ -68,8 +77,9 @@
   let rounds = 0;
   const timer = setInterval(() => {
     try {
-      if (++rounds > 120) throw new Error("gave up");
-      if (!(meet ? meetOff() : zoomOff())) return;
+      // Without JOIN it keeps watching, as a site may switch a device on once permission is given.
+      if (touched || ++rounds > (JOIN ? 120 : 1200)) throw new Error("left to the user");
+      if (!(meet ? meetOff() : zoomOff()) || !JOIN) return;
       if (!named($(meet ? '[jsname="YPqjbf"]' : "#input-for-name"))) throw new Error("no name");
       const join = meet ? $('[data-promo-anchor-id="w5gBed"]') ?? $('[jsname="Qx7uuf"]') : $(".preview-join-button");
       if (!join || join.disabled || join.classList.contains("disabled")) return;
