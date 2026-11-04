@@ -475,12 +475,15 @@ pub fn start(app: &AppHandle, lesson_id: Option<i64>) -> CommandResult<()> {
                 .and_then(|l| l.url.as_deref())
                 .is_some_and(|link| crate::meeting::page(link).is_some()));
     let device = Some(settings.device.clone()).filter(|d| !d.is_empty() && d != SYSTEM_SOUND);
+    #[cfg(windows)]
+    let app_for_source = app.clone();
     let parts = Parts {
         source: Box::new(move || {
             #[cfg(windows)]
             if class_only {
                 let own = lecture_assist::audio::app::AppAudio::open(std::process::id());
-                return Ok(Box::new(own) as Box<dyn AudioSource>);
+                let meeting = app_for_source.state::<crate::meeting::Meeting>();
+                return Ok(meeting.full_volume(Box::new(own)));
             }
             // On a Mac, the default is everything it plays; a chosen device (BlackHole) wins.
             #[cfg(target_os = "macos")]

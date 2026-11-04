@@ -93,6 +93,8 @@ export const meetingPlace = (
 export const meetingSignIn = (service: "google" | "zoom"): Promise<void> => invoke("meeting_sign_in", { service });
 export const meetingInBrowser = (): Promise<void> => invoke("meeting_in_browser");
 export const meetingClose = (): Promise<void> => invoke("meeting_close");
+/** The class page's volume, 0 to 1. */
+export const meetingVolume = (volume: number): Promise<void> => invoke("meeting_volume", { volume });
 /** A class page opened in the tab; the payload is its site (`meet.google.com`, `us04web.zoom.us`). */
 export const onMeetingOpened = (handler: (site: string) => void): Promise<UnlistenFn> =>
   listen<string>("meeting-opened", (event) => handler(event.payload));

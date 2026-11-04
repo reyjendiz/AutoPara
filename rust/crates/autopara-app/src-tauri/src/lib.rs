@@ -260,6 +260,7 @@ pub fn run() {
             meeting::meeting_sign_in,
             meeting::meeting_in_browser,
             meeting::meeting_close,
+            meeting::meeting_volume,
             assist::assist_settings,
             assist::save_assist_settings,
             assist::set_assist_consent,

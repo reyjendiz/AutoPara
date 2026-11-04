@@ -4,7 +4,12 @@
 //! The page is remote. Tauri refuses every command from a remote origin unless a capability names
 //! that origin, and none does, so the page has no way into the app.
 
-use std::sync::{Mutex, PoisonError};
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::{Arc, Mutex, PoisonError};
+use std::time::Duration;
+
+use lecture_assist::AssistError;
+use lecture_assist::audio::AudioSource;
 
 use tauri::{
     AppHandle, Emitter, EventTarget, LogicalPosition, LogicalSize, Manager, State, Url,
@@ -21,8 +26,20 @@ const GOOGLE_SIGN_IN: &str =
     "https://accounts.google.com/ServiceLogin?continue=https%3A%2F%2Fmeet.google.com%2F";
 const ZOOM_SIGN_IN: &str = "https://zoom.us/signin";
 /// What the interface last said about the tab, and the page it shows.
-#[derive(Default)]
-pub struct Meeting(Mutex<Place>);
+pub struct Meeting {
+    place: Mutex<Place>,
+    /// The page's volume from the slider (0..=1, as `f32` bits), shared with the assistant.
+    volume: Arc<AtomicU32>,
+}
+
+impl Default for Meeting {
+    fn default() -> Self {
+        Self {
+            place: Mutex::default(),
+            volume: Arc::new(AtomicU32::new(1.0f32.to_bits())),
+        }
+    }
+}
 
 #[derive(Default)]
 struct Place {
@@ -65,6 +82,11 @@ fn join_script(name: &str, join: bool) -> String {
     include_str!("join.js")
         .replace("__NAME__", &literal)
         .replace("__JOIN__", if join { "true" } else { "false" })
+}
+
+/// Tells the page (`volume.js`) its volume.
+fn volume_call(volume: f32) -> String {
+    format!("window.__autoparaVolume?.({volume})")
 }
 
 /// A colour as the interface's computed style gives it (`rgb(17, 17, 19)`): nothing that could
@@ -120,6 +142,7 @@ pub fn open(app: &AppHandle, page: Url) -> tauri::Result<()> {
                 WebviewBuilder::new(LABEL, WebviewUrl::External(page.clone()))
                     .additional_browser_args(BROWSER_ARGS)
                     .initialization_script(corners(&border, &background))
+                    .initialization_script_for_all_frames(include_str!("volume.js"))
                     // The script above has the colours of when the tab was made; a page that
                     // loads after a theme change gets today's.
                     .on_page_load(|webview, payload| {
@@ -132,6 +155,8 @@ pub fn open(app: &AppHandle, page: Url) -> tauri::Result<()> {
                                 .map(|s| (s.join_name, s.auto_join))
                                 .unwrap_or_default();
                             let _ = webview.eval(join_script(&name, join));
+                            let volume = webview.state::<Meeting>().volume();
+                            let _ = webview.eval(volume_call(volume));
                         }
                     }),
                 LogicalPosition::new(x, y),
@@ -146,7 +171,43 @@ pub fn open(app: &AppHandle, page: Url) -> tauri::Result<()> {
 
 impl Meeting {
     fn place(&self) -> std::sync::MutexGuard<'_, Place> {
-        self.0.lock().unwrap_or_else(PoisonError::into_inner)
+        self.place.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn volume(&self) -> f32 {
+        f32::from_bits(self.volume.load(Ordering::Relaxed))
+    }
+
+    /// `source` as it was before the page's volume: the assistant hears the class through the
+    /// page, so a class turned down for the student would otherwise reach it quieter too.
+    pub fn full_volume(&self, source: Box<dyn AudioSource>) -> Box<dyn AudioSource> {
+        Box::new(FullVolume {
+            source,
+            volume: Arc::clone(&self.volume),
+        })
+    }
+}
+
+struct FullVolume {
+    source: Box<dyn AudioSource>,
+    volume: Arc<AtomicU32>,
+}
+
+impl AudioSource for FullVolume {
+    fn read(&mut self, timeout: Duration) -> Result<Option<Vec<f32>>, AssistError> {
+        let volume = f32::from_bits(self.volume.load(Ordering::Relaxed));
+        let mut samples = self.source.read(timeout)?;
+        // Below 5 % too little is left to bring back; the assistant hears it as it is.
+        if (0.05..1.0).contains(&volume) {
+            for sample in samples.iter_mut().flatten() {
+                *sample /= volume;
+            }
+        }
+        Ok(samples)
+    }
+
+    fn set_paused(&mut self, paused: bool) {
+        self.source.set_paused(paused);
     }
 }
 
@@ -202,6 +263,19 @@ pub fn meeting_place(
             }
         })
         .map_err(failed)
+}
+
+/// The slider in the tab's bar: the class page's volume, 0 (silent) to 1 (as the site plays it).
+#[tauri::command]
+pub fn meeting_volume(app: AppHandle, state: State<'_, Meeting>, volume: f32) -> CommandResult<()> {
+    if !(0.0..=1.0).contains(&volume) {
+        return Err("invalid_volume".into());
+    }
+    state.volume.store(volume.to_bits(), Ordering::Relaxed);
+    match app.get_webview(LABEL) {
+        Some(webview) => webview.eval(volume_call(volume)).map_err(failed),
+        None => Ok(()),
+    }
 }
 
 /// "Увійти в Google" / "Увійти в Zoom": the sign-in page in the tab. The webview keeps its cookies
@@ -280,6 +354,18 @@ mod tests {
         assert!(join_script("", true).contains("const JOIN = true;"));
         assert!(join_script("", false).contains("const JOIN = false;"));
         assert!(!join_script("", false).contains("__JOIN__"));
+    }
+
+    #[test]
+    fn the_assistant_hears_the_class_at_full_volume() {
+        use lecture_assist::audio::fake::FakeSource;
+        let meeting = Meeting::default();
+        meeting.volume.store(0.25f32.to_bits(), Ordering::Relaxed);
+        let mut source = meeting.full_volume(Box::new(FakeSource::new(vec![0.1, -0.2], 2)));
+        let samples = source.read(Duration::from_secs(1)).unwrap().unwrap();
+        assert!((samples[0] - 0.4).abs() < 1e-6 && (samples[1] + 0.8).abs() < 1e-6);
+        assert_eq!(volume_call(0.25), "window.__autoparaVolume?.(0.25)");
+        assert_eq!(volume_call(1.0), "window.__autoparaVolume?.(1)");
     }
 
     #[test]

@@ -84,6 +84,8 @@ export interface MeetingBackend {
   signIn(service: "google" | "zoom"): Promise<void>;
   inBrowser(): Promise<void>;
   close(): Promise<void>;
+  /** The class page's volume, 0 (silent) to 1 (as the site plays it). */
+  volume(volume: number): Promise<void>;
   onOpened(handler: (site: string) => void): void;
 }
 
@@ -135,6 +137,7 @@ export function tauriBackend(): Backend {
       signIn: ipc.meetingSignIn,
       inBrowser: ipc.meetingInBrowser,
       close: ipc.meetingClose,
+      volume: ipc.meetingVolume,
       onOpened: (handler) => void ipc.onMeetingOpened(handler),
     },
     assist: ipc,
@@ -268,6 +271,7 @@ export async function demoBackend(params: URLSearchParams): Promise<Backend> {
       signIn: async () => undefined,
       inBrowser: async () => undefined,
       close: async () => undefined,
+      volume: async () => undefined,
       onOpened: () => undefined,
     },
     assist: demoAssist(),

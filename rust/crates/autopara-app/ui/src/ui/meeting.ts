@@ -6,6 +6,23 @@ import { assistPanel } from "../assist/panel";
 import { h, morph } from "../dom";
 import { t } from "../i18n";
 
+function loadVolume(): number {
+  try {
+    const saved = Number(localStorage.getItem("meeting-volume") ?? "100");
+    return Number.isFinite(saved) ? Math.min(100, Math.max(0, saved)) : 100;
+  } catch {
+    return 100;
+  }
+}
+
+function saveVolume(value: number): void {
+  try {
+    localStorage.setItem("meeting-volume", String(value));
+  } catch {
+    // A preference, not data: losing it is fine.
+  }
+}
+
 function siteName(site: string): string {
   if (site === "meet.google.com") return t("meeting_site_meet");
   if (site === "zoom.us" || site.endsWith(".zoom.us")) return t("meeting_site_zoom");
@@ -37,7 +54,16 @@ export class MeetingTab {
     // The same switch as in the schedule's row, so listening starts without leaving the class.
     this.listen = h("button", { class: "btn listen", onclick: () => void (this.listening ? app.backend.assist.assistStop() : app.listenTo(null)) });
     this.setListening(false);
+    // Classes differ in loudness: the page's own volume, kept between classes.
+    const volume = h("input", { type: "range", min: 0, max: 100, value: loadVolume(), "aria-label": t("meeting_volume") });
+    const sendVolume = () => void meeting.volume(Number(volume.value) / 100);
+    volume.addEventListener("input", () => {
+      saveVolume(Number(volume.value));
+      sendVolume();
+    });
+    sendVolume();
     this.openOnly = [
+      h("label", { class: "meeting-volume" }, t("meeting_volume"), volume),
       button(t("meeting_in_browser"), () => void meeting.inBrowser().then(() => this.closed())),
       button(t("meeting_close"), () => void meeting.close().then(() => this.closed())),
     ];
