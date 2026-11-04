@@ -343,7 +343,7 @@ impl Worker {
     }
 
     fn finalize(&mut self, recognizer: &mut dyn Recognizer, utterance: Utterance) {
-        let pieces = match recognizer.transcribe(&padded(&utterance.audio), &self.prompt) {
+        let pieces = match recognizer.transcribe_final(&padded(&utterance.audio), &self.prompt) {
             Ok(pieces) => pieces,
             Err(error) => return report(&self.events, &error),
         };

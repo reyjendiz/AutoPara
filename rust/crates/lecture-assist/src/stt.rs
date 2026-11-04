@@ -13,6 +13,11 @@ pub struct Piece {
 pub trait Recognizer: Send {
     /// `prompt` primes spelling (the user's glossary); see `text::initial_prompt`.
     fn transcribe(&mut self, audio: &[f32], prompt: &str) -> Result<Vec<Piece>, AssistError>;
+
+    /// The saved line of a finished utterance, read once; may take more care than a partial.
+    fn transcribe_final(&mut self, audio: &[f32], prompt: &str) -> Result<Vec<Piece>, AssistError> {
+        self.transcribe(audio, prompt)
+    }
 }
 
 /// The languages a class may be in; detection picks among these only.
@@ -94,6 +99,37 @@ impl Whisper {
 #[cfg(feature = "whisper")]
 impl Recognizer for Whisper {
     fn transcribe(&mut self, audio: &[f32], prompt: &str) -> Result<Vec<Piece>, AssistError> {
+        self.recognise(
+            audio,
+            prompt,
+            whisper_rs::SamplingStrategy::Greedy { best_of: 1 },
+        )
+    }
+
+    /// Beam search on the GPU: 1.5-3.5 points fewer errors on a real lecture than greedy, for
+    /// a final p95 of 1.0 s instead of 0.36 s (docs/ASSIST_BENCH.md). Partials stay greedy, and the
+    /// CPU build too, where the decoder is the slow part.
+    fn transcribe_final(&mut self, audio: &[f32], prompt: &str) -> Result<Vec<Piece>, AssistError> {
+        let strategy = if self.gpu {
+            whisper_rs::SamplingStrategy::BeamSearch {
+                beam_size: 5,
+                patience: -1.0,
+            }
+        } else {
+            whisper_rs::SamplingStrategy::Greedy { best_of: 1 }
+        };
+        self.recognise(audio, prompt, strategy)
+    }
+}
+
+#[cfg(feature = "whisper")]
+impl Whisper {
+    fn recognise(
+        &mut self,
+        audio: &[f32],
+        prompt: &str,
+        strategy: whisper_rs::SamplingStrategy,
+    ) -> Result<Vec<Piece>, AssistError> {
         let language = match self.language.code() {
             Some(code) => code,
             None => match self.detected {
@@ -110,8 +146,7 @@ impl Recognizer for Whisper {
                 }
             },
         };
-        let mut params =
-            whisper_rs::FullParams::new(whisper_rs::SamplingStrategy::Greedy { best_of: 1 });
+        let mut params = whisper_rs::FullParams::new(strategy);
         params.set_language(Some(language));
         params.set_initial_prompt(prompt);
         params.set_n_threads(self.threads);
