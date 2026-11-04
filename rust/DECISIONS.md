@@ -445,6 +445,13 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
   parameter for this. Denying WebView2's camera/microphone permission was rejected: the student
   could not unmute to answer. Lecture Assist is unaffected: it hears the class by process loopback,
   not the microphone.
+- **Volume slider (owner's request, 2026-11-04):** "Гучність" in the tab's bar sets the class
+  page's volume (kept in the interface's `localStorage`). WebView2 has only mute, and Windows'
+  per-app volume would turn down the whole app, so `volume.js` (an initialization script in every
+  frame) puts one gain node before each `AudioContext`'s speakers (Zoom's web client) and sets
+  `volume` on `<audio>`/`<video>` (Meet); frames get the level by `postMessage`. The assistant's
+  process loopback hears the page after that gain, so `Meeting::full_volume` divides the captured
+  samples by the volume (not below 5 %: at 0 it hears nothing).
 - **Security:** the page is a remote origin with no capability. The `default` capability names the
   interface's webview (`webviews: ["main"]`), not the window, and Tauri refuses every command from
   a remote origin that no capability names, so the page cannot reach the app. Logs name only the
