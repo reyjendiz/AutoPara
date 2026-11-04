@@ -5,13 +5,13 @@ use std::sync::{Arc, Mutex, PoisonError};
 use autopara_core::clock::Clock;
 use autopara_core::engine::RepeatGuard;
 use autopara_core::scheduler::LinkOpener;
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 use tauri_plugin_opener::OpenerExt;
 
 use crate::meeting;
 
-/// Meet and Zoom classes in AutoPara's own tab (`meeting.rs`), anything else in the system's
-/// default browser. Only ever called with links the scheduler accepted (https).
+/// Meet and Zoom classes in AutoPara's own tab (`meeting.rs`) unless the user chose the browser,
+/// anything else in the system's default browser. Only ever called with links the scheduler accepted (https).
 pub struct SystemBrowser {
     app: AppHandle,
 }
@@ -19,7 +19,7 @@ pub struct SystemBrowser {
 impl LinkOpener for SystemBrowser {
     fn open(&mut self, url: &str) -> bool {
         let site = site(url);
-        if let Some(page) = meeting::page(url) {
+        if let Some(page) = self.app.state::<meeting::Meeting>().page(url) {
             // Off this thread: a card click arrives in a synchronous command on the main thread.
             let app = self.app.clone();
             tauri::async_runtime::spawn(async move {

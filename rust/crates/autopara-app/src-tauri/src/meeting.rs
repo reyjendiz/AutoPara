@@ -4,7 +4,7 @@
 //! The page is remote. Tauri refuses every command from a remote origin unless a capability names
 //! that origin, and none does, so the page has no way into the app.
 
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
@@ -30,6 +30,8 @@ pub struct Meeting {
     place: Mutex<Place>,
     /// The page's volume from the slider (0..=1, as `f32` bits), shared with the assistant.
     volume: Arc<AtomicU32>,
+    /// The `open_in_app` setting, kept here because links open while the storage is locked.
+    in_app: AtomicBool,
 }
 
 impl Default for Meeting {
@@ -37,6 +39,7 @@ impl Default for Meeting {
         Self {
             place: Mutex::default(),
             volume: Arc::new(AtomicU32::new(1.0f32.to_bits())),
+            in_app: AtomicBool::new(true),
         }
     }
 }
@@ -172,6 +175,15 @@ pub fn open(app: &AppHandle, page: Url) -> tauri::Result<()> {
 impl Meeting {
     fn place(&self) -> std::sync::MutexGuard<'_, Place> {
         self.place.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    pub fn set_in_app(&self, on: bool) {
+        self.in_app.store(on, Ordering::Relaxed);
+    }
+
+    /// The page for a class link while classes open in the tab, else `None` (the browser).
+    pub fn page(&self, link: &str) -> Option<Url> {
+        page(link).filter(|_| self.in_app.load(Ordering::Relaxed))
     }
 
     fn volume(&self) -> f32 {
@@ -374,6 +386,15 @@ mod tests {
         assert!(is_colour("#1c1c1f"));
         assert!(!is_colour("red\";alert(1)//"));
         assert!(!is_colour("red}body{display:none"));
+    }
+
+    #[test]
+    fn classes_go_to_the_browser_when_asked() {
+        let meeting = Meeting::default();
+        let link = "https://meet.google.com/vdc-yvjh-bxc";
+        assert!(meeting.page(link).is_some());
+        meeting.set_in_app(false);
+        assert_eq!(meeting.page(link), None);
     }
 
     #[test]

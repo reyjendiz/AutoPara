@@ -288,6 +288,9 @@ pub struct Settings {
     pub auto_join: bool,
     /// The name a class page asks for when nobody is signed in.
     pub join_name: String,
+    /// Meet and Zoom classes in AutoPara's tab; off, in the system browser (which hands a Zoom
+    /// link to the Zoom app).
+    pub open_in_app: bool,
 }
 
 impl Default for Settings {
@@ -311,6 +314,7 @@ impl Default for Settings {
             last_import_path: String::new(),
             auto_join: false,
             join_name: String::new(),
+            open_in_app: true,
         }
     }
 }

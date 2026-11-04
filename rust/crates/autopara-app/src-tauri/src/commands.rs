@@ -115,10 +115,15 @@ pub struct SettingsInput {
     pub autostart_enabled: bool,
     pub auto_join: bool,
     pub join_name: String,
+    pub open_in_app: bool,
 }
 
 #[tauri::command]
-pub fn save_settings(state: State<'_, AppState>, input: SettingsInput) -> CommandResult<Settings> {
+pub fn save_settings(
+    state: State<'_, AppState>,
+    meeting: State<'_, crate::meeting::Meeting>,
+    input: SettingsInput,
+) -> CommandResult<Settings> {
     if input.lead_minutes > 120
         || !(10..=240).contains(&input.class_duration_minutes)
         || !(1..=120).contains(&input.notify_minutes)
@@ -147,11 +152,13 @@ pub fn save_settings(state: State<'_, AppState>, input: SettingsInput) -> Comman
         ("autostart_enabled", flag(autostart).to_owned()),
         ("auto_join", flag(input.auto_join).to_owned()),
         ("join_name", input.join_name.trim().to_owned()),
+        ("open_in_app", flag(input.open_in_app).to_owned()),
     ] {
         storage.set_setting(key, &value).map_err(failed)?;
     }
     let settings = storage.settings().map_err(failed)?;
     drop(storage);
+    meeting.set_in_app(settings.open_in_app);
     state.wake();
     Ok(settings)
 }

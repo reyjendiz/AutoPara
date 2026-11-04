@@ -32,6 +32,7 @@ export function openSettings(app: App): Promise<boolean | null> {
       h("label", { class: "check" }, h("input", { type: "radio", name: "catchup", value: mode, checked: mode === s.catchup_mode }), t(key)));
     const mac = app.backend.isMac();
     const autostart = h("input", { type: "checkbox", id: "autostart", checked: s.autostart_enabled });
+    const inApp = h("input", { type: "checkbox", id: "open-in-app", checked: s.open_in_app });
     const autoJoin = h("input", { type: "checkbox", id: "auto-join", checked: s.auto_join });
     const joinName = h("input", { class: "input", type: "text", maxlength: "60", value: s.join_name, "aria-label": t("settings_join_name") });
     const updates = choices<UpdateMode>([["ask", "settings_update_ask"], ["auto", "settings_update_auto"], ["off", "settings_update_off"]], s.update_mode, "settings_updates");
@@ -59,6 +60,7 @@ export function openSettings(app: App): Promise<boolean | null> {
           autostart_enabled: autostart.checked,
           auto_join: autoJoin.checked,
           join_name: joinName.value.trim(),
+          open_in_app: inApp.checked,
         });
         finish(true);
       } catch {
@@ -83,6 +85,8 @@ export function openSettings(app: App): Promise<boolean | null> {
       h("label", { class: "check" }, autostart, t(mac ? "settings_autostart_mac" : "settings_autostart_windows")),
       h("p", { class: "hint" }, t(mac ? "settings_autostart_mac_hint" : "settings_autostart_windows_hint")),
       h("div", { class: "section" }, t("settings_class_tab")),
+      h("label", { class: "check" }, inApp, t("settings_open_in_app")),
+      h("p", { class: "hint" }, t("settings_open_in_app_hint")),
       h("label", { class: "check" }, autoJoin, t("settings_auto_join")),
       h("div", { class: "form" }, h("label", {}, t("settings_join_name")), joinName),
       h("p", { class: "hint" }, t("settings_auto_join_hint")),

@@ -267,6 +267,7 @@ impl Storage {
             // Off until the user turns it on (`flag` defaults to on).
             auto_join: raw("auto_join").is_some_and(|value| value == "1"),
             join_name: get("join_name")?,
+            open_in_app: flag("open_in_app")?,
         })
     }
 

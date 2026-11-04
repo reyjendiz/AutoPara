@@ -473,7 +473,7 @@ pub fn start(app: &AppHandle, lesson_id: Option<i64>) -> CommandResult<()> {
             || lesson
                 .as_ref()
                 .and_then(|l| l.url.as_deref())
-                .is_some_and(|link| crate::meeting::page(link).is_some()));
+                .is_some_and(|link| app.state::<crate::meeting::Meeting>().page(link).is_some()));
     let device = Some(settings.device.clone()).filter(|d| !d.is_empty() && d != SYSTEM_SOUND);
     #[cfg(windows)]
     let app_for_source = app.clone();

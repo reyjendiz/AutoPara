@@ -15,4 +15,9 @@ auto_join: boolean,
 /**
  * The name a class page asks for when nobody is signed in.
  */
-join_name: string, };
+join_name: string, 
+/**
+ * Meet and Zoom classes in AutoPara's tab; off, in the system browser (which hands a Zoom
+ * link to the Zoom app).
+ */
+open_in_app: boolean, };

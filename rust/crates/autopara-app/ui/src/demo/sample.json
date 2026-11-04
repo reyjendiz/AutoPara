@@ -891,6 +891,7 @@
     "autostart_enabled": true,
     "catchup_mode": "notify",
     "join_name": "",
+    "open_in_app": true,
     "class_duration_minutes": 80,
     "last_import_path": "",
     "last_update_check": null,

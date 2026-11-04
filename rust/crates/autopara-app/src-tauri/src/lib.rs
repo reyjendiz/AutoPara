@@ -167,6 +167,11 @@ pub fn run() {
                 Err(error) => tracing::warn!(%error, "could not update the autostart entry"),
             }
 
+            // Before the engine: its opener asks where classes open.
+            let meeting = meeting::Meeting::default();
+            meeting.set_in_app(storage.settings()?.open_in_app);
+            app.manage(meeting);
+
             let shared = Arc::new(Shared {
                 storage: Mutex::new(storage),
                 scheduler: Mutex::new(Scheduler::new()),
@@ -193,7 +198,6 @@ pub fn run() {
             app.manage(Mutex::new(log_guard));
             app.manage(assist::Assist::default());
             app.manage(updates::Updates::default());
-            app.manage(meeting::Meeting::default());
 
             // The pages call commands as soon as they load, so the windows ("create": false in
             // tauri.conf.json) are made only once every piece of state above exists.
