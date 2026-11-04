@@ -43,10 +43,16 @@ pub fn normalise(text: &str) -> String {
         .join(" ")
 }
 
+/// Whole lines whisper makes up on pauses and noise: a lone "Дякую." came 1-5 times in 7 min of
+/// clean speech and up to 66 times in noise, never in the reference text (docs/ASSIST_BENCH.md).
+/// Only the bare word: "Дякую, сідайте" stays.
+const LONE_PHANTOMS: &[&str] = &["дякую", "дякую вам", "спасибо"];
+
 /// A short line that is only a known phantom phrase.
 pub fn is_phantom(text: &str) -> bool {
     let norm = normalise(text);
     norm.is_empty()
+        || LONE_PHANTOMS.contains(&norm.as_str())
         || PHANTOMS
             .iter()
             .any(|p| norm.starts_with(p) && norm.len() <= p.len() + 24)
@@ -356,6 +362,8 @@ mod tests {
         assert!(is_phantom("Субтитры сделал DimaTorzok"));
         assert!(is_phantom(" [Music] "));
         assert!(is_phantom("..."));
+        assert!(is_phantom("Дякую."));
+        assert!(!is_phantom("Дякую, сідайте."));
         assert!(!is_phantom(
             "Дякую за увагу, переходимо до другої частини лекції про графи"
         ));
