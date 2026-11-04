@@ -416,7 +416,7 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
 
 ## Classes open in AutoPara's own tab
 
-- **Decision:** at the owner's request, Google Meet links and Zoom `/j/<id>` links open in a
+- **Decision:** at the owner's request, Google Meet links and Zoom `/j/<id>` and `/wc/...` links open in a
   "Відкрита пара" tab inside the main window instead of the system browser (1.x and 2.0 until now
   opened the browser). A Zoom link becomes Zoom's web client (`/wc/join/<id>`, same query), so no
   Zoom app is involved. Any other link still goes to the browser, and "Відкрити в браузері" moves a
@@ -438,6 +438,13 @@ Each entry: what was decided, the alternatives, and why. Differences from the Py
   `#preview-*` ids and icon class names) were read from the live join screens in November 2026
   and break silently when the sites change them. The name reaches the script as a JSON string.
   Lecture Assist's rule (never act in the meeting) is unchanged; this is the opener's job.
+- **Camera and microphone off on every class (owner's request, 2026-11-04):** `join.js` now runs
+  on every class page, not only with "Входити в пару одразу"; without it the script only turns both
+  devices off and keeps them off (a site may switch one on once permission is given) until the
+  user's first own click or key on the page (`isTrusted`), or 10 minutes. Neither site has a URL
+  parameter for this. Denying WebView2's camera/microphone permission was rejected: the student
+  could not unmute to answer. Lecture Assist is unaffected: it hears the class by process loopback,
+  not the microphone.
 - **Security:** the page is a remote origin with no capability. The `default` capability names the
   interface's webview (`webviews: ["main"]`), not the window, and Tauri refuses every command from
   a remote origin that no capability names, so the page cannot reach the app. Logs name only the
