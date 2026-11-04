@@ -25,8 +25,9 @@ pub struct Whisper {
     context: whisper_rs::WhisperContext,
     state: whisper_rs::WhisperState,
     language: crate::Language,
-    /// Fixed after the first long enough utterance: a class keeps its language.
+    /// Fixed once [`LanguageVote`] has heard enough: a class keeps its language.
     detected: Option<&'static str>,
+    vote: LanguageVote,
     threads: i32,
     no_speech_threshold: f32,
     /// On the GPU the encoder reads whisper's whole 30 s window; see [`audio_context`].
@@ -67,28 +68,26 @@ impl Whisper {
             state,
             language,
             detected: None,
+            vote: LanguageVote::default(),
             threads,
             no_speech_threshold: 0.6,
             gpu,
         })
     }
 
-    /// The likeliest of [`CANDIDATES`]; needs a few seconds of speech to be worth trusting. It runs
-    /// on a state of its own: detecting on the recogniser's state left every later window garbled
-    /// ("a a a a" for clear Ukrainian, measured on a LibriVox recording).
-    fn detect(&self, audio: &[f32]) -> Option<&'static str> {
+    /// How likely each of [`CANDIDATES`] is. It runs on a state of its own: detecting on the
+    /// recogniser's state left every later window garbled ("a a a a" for clear Ukrainian, measured
+    /// on a LibriVox recording).
+    fn detect(&self, audio: &[f32]) -> Option<[f32; 2]> {
         let threads = self.threads as usize;
         let mut probe = self.context.create_state().ok()?;
         probe.pcm_to_mel(audio, threads).ok()?;
         let (_, probs) = probe.lang_detect(0, threads).ok()?;
-        CANDIDATES.into_iter().max_by(|a, b| {
-            let p = |l: &str| {
-                whisper_rs::get_lang_id(l)
-                    .and_then(|id| probs.get(id as usize).copied())
-                    .unwrap_or(0.0)
-            };
-            p(a).total_cmp(&p(b))
-        })
+        Some(CANDIDATES.map(|l| {
+            whisper_rs::get_lang_id(l)
+                .and_then(|id| probs.get(id as usize).copied())
+                .unwrap_or(0.0)
+        }))
     }
 }
 
@@ -96,19 +95,24 @@ impl Whisper {
 impl Recognizer for Whisper {
     fn transcribe(&mut self, audio: &[f32], prompt: &str) -> Result<Vec<Piece>, AssistError> {
         let language = match self.language.code() {
-            Some(code) => Some(code),
-            None if self.detected.is_some() => self.detected,
-            None if audio.len() >= 3 * crate::SAMPLE_RATE as usize => {
-                self.detected = self.detect(audio);
-                self.detected
-            }
-            None => None,
+            Some(code) => code,
+            None => match self.detected {
+                Some(code) => code,
+                None => {
+                    if let Some(probabilities) = self.detect(audio) {
+                        self.vote.add(audio, probabilities);
+                    }
+                    let leader = self.vote.leader();
+                    if self.vote.settled() {
+                        self.detected = Some(leader);
+                    }
+                    leader
+                }
+            },
         };
         let mut params =
             whisper_rs::FullParams::new(whisper_rs::SamplingStrategy::Greedy { best_of: 1 });
-        // Until a long enough utterance settles the class language, assume the usual one:
-        // whisper's own guess on a short phrase was often wrong (Russian for English speech).
-        params.set_language(Some(language.unwrap_or("uk")));
+        params.set_language(Some(language));
         params.set_initial_prompt(prompt);
         params.set_n_threads(self.threads);
         if !self.gpu {
@@ -148,6 +152,58 @@ impl Recognizer for Whisper {
             });
         }
         Ok(pieces)
+    }
+}
+
+/// Speech heard before the class language is fixed. One phrase was too little: a quoted line of
+/// verse, or the same lecture through a laptop microphone, Opus or a noisy room, read as Russian,
+/// and then the whole Ukrainian class came out in Russian (WER 31% -> 82-98%, docs/ASSIST_BENCH.md).
+#[cfg(feature = "whisper")]
+const VOTE_SECONDS: f32 = 60.0;
+
+/// How much more Russian must score. Whisper hears degraded Ukrainian as Russian (up to 1.2 times
+/// the Ukrainian score over a minute), never the other way round: degraded Russian scored 2.4 to
+/// 38 times Ukrainian.
+#[cfg(feature = "whisper")]
+const RUSSIAN_MARGIN: f32 = 1.5;
+
+/// Whisper's language guesses, weighted by the length of audio they were made on.
+#[cfg(feature = "whisper")]
+#[derive(Debug, Default)]
+struct LanguageVote {
+    heard: f32,
+    scores: [f32; 2],
+    /// The last call's start and vote: a partial re-reads its utterance every second, so a call
+    /// that starts the same way replaces that vote instead of counting the audio again.
+    last: Option<(Vec<f32>, f32, [f32; 2])>,
+}
+
+#[cfg(feature = "whisper")]
+impl LanguageVote {
+    /// A quarter of a second tells one utterance from the next.
+    const HEAD: usize = crate::SAMPLE_RATE as usize / 4;
+
+    fn add(&mut self, audio: &[f32], probabilities: [f32; 2]) {
+        let head = &audio[..audio.len().min(Self::HEAD)];
+        if let Some((last_head, seconds, last)) = &self.last
+            && last_head.as_slice() == head
+        {
+            self.heard -= seconds;
+            self.scores = [0, 1].map(|i| self.scores[i] - seconds * last[i]);
+        }
+        let seconds = audio.len() as f32 / crate::SAMPLE_RATE as f32;
+        self.heard += seconds;
+        self.scores = [0, 1].map(|i| self.scores[i] + seconds * probabilities[i]);
+        self.last = Some((head.to_vec(), seconds, probabilities));
+    }
+
+    /// Ukrainian until Russian clearly scores higher.
+    fn leader(&self) -> &'static str {
+        CANDIDATES[usize::from(self.scores[1] > RUSSIAN_MARGIN * self.scores[0])]
+    }
+
+    fn settled(&self) -> bool {
+        self.heard >= VOTE_SECONDS
     }
 }
 
@@ -191,6 +247,47 @@ mod tests {
         let pieces = recognizer.transcribe(&[0.0; 8000], "").unwrap();
         assert_eq!(pieces[0].end_ms, 500);
         assert!(recognizer.transcribe(&[0.0; 10], "").unwrap().is_empty());
+    }
+
+    #[cfg(feature = "whisper")]
+    #[test]
+    fn one_russian_sounding_phrase_does_not_settle_a_ukrainian_class() {
+        let mut vote = LanguageVote::default();
+        let phrase = |seed: f32, seconds: usize| vec![seed; seconds * 16_000];
+        vote.add(&phrase(0.1, 5), [0.14, 0.76]);
+        assert_eq!(vote.leader(), "ru");
+        assert!(!vote.settled());
+        for k in 0..7 {
+            assert!(!vote.settled());
+            vote.add(&phrase(0.2 + k as f32 / 10.0, 8), [0.5, 0.6]);
+        }
+        assert!(vote.settled());
+        assert_eq!(vote.leader(), "uk");
+    }
+
+    #[cfg(feature = "whisper")]
+    #[test]
+    fn a_russian_class_is_still_russian() {
+        let mut vote = LanguageVote::default();
+        for k in 0..6 {
+            vote.add(&vec![k as f32; 10 * 16_000], [0.25, 0.65]);
+        }
+        assert!(vote.settled());
+        assert_eq!(vote.leader(), "ru");
+    }
+
+    #[cfg(feature = "whisper")]
+    #[test]
+    fn partials_of_one_utterance_vote_once() {
+        let mut vote = LanguageVote::default();
+        let utterance: Vec<f32> = (0..10 * 16_000).map(|i| (i % 7) as f32).collect();
+        for second in 1..=10 {
+            vote.add(&utterance[..second * 16_000], [0.2, 0.8]);
+        }
+        assert_eq!(vote.heard, 10.0);
+        assert!((vote.scores[1] - 8.0).abs() < 1e-3);
+        vote.add(&[0.5; 16_000], [1.0, 0.0]);
+        assert_eq!(vote.heard, 11.0);
     }
 
     #[cfg(feature = "whisper")]
