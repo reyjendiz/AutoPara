@@ -146,12 +146,12 @@ pub fn show_calendar(
         ui.ctx().request_repaint();
     }
 
-    Frame::NONE
+    let frame_rect = Frame::NONE
         .fill(p.surface)
         .stroke(Stroke::new(1.0_f32, p.border))
         .corner_radius(CornerRadius::same(14))
-        // keep the today highlight off the border and out of the rounded corners
-        .inner_margin(egui::Margin::symmetric(2, 8))
+        // 1px keeps the grid off the border line; corners are masked below
+        .inner_margin(egui::Margin::same(1))
         .show(ui, |ui| {
             let avail = ui.available_size();
             ui.set_min_size(avail);
@@ -170,7 +170,10 @@ pub fn show_calendar(
                 p,
                 lang,
             );
-        });
+        })
+        .response
+        .rect;
+    mask_round_corners(ui.painter(), frame_rect, 14.0, p);
 
     // Floating ghost while dragging a card
     if let Some(d) = drag.as_ref()
@@ -215,6 +218,32 @@ pub fn show_calendar(
     }
 
     action
+}
+
+/// egui clips to rectangles, so the grid (e.g. today's column) can fill the
+/// rounded corners of its frame. Paint the canvas back over them and redraw the border.
+fn mask_round_corners(painter: &egui::Painter, r: Rect, rad: f32, p: Palette) {
+    for (c, sx, sy) in [
+        (r.left_top(), 1.0, 1.0),
+        (r.right_top(), -1.0, 1.0),
+        (r.left_bottom(), 1.0, -1.0),
+        (r.right_bottom(), -1.0, -1.0),
+    ] {
+        let center = c + vec2(sx * rad, sy * rad);
+        // fan from the square corner to the arc: exactly the area outside the rounding
+        let mut pts = vec![c];
+        pts.extend((0..=8).map(|i| {
+            let a = i as f32 / 8.0 * std::f32::consts::FRAC_PI_2;
+            center + vec2(-sx * rad * a.cos(), -sy * rad * a.sin())
+        }));
+        painter.add(egui::Shape::convex_polygon(pts, p.canvas, Stroke::NONE));
+    }
+    painter.rect_stroke(
+        r,
+        CornerRadius::same(rad as u8),
+        Stroke::new(1.0_f32, p.border),
+        StrokeKind::Inside,
+    );
 }
 
 #[allow(clippy::too_many_arguments)]
