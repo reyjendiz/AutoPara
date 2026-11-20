@@ -1,14 +1,7 @@
-__pycache__/
-*.py[cod]
-build/
-dist/
-*.spec.bak
-.venv/
-.pytest_cache/
-
-# Never commit the personal timetable: it contains live meeting links.
-*.docx
-
-# The synthetic fixture the Android parser tests read (no personal content; see tests/sample_timetable.py).
-!android/core/src/test/resources/sample_timetable.docx
-!android/app/src/androidTest/assets/sample_timetable.docx
+/target/
+/dist/
+/build/
+*.db
+*.log
+.DS_Store
+.playwright-mcp/

@@ -1,0 +1,33 @@
+[package]
+name = "autopara-core"
+version = "2.0.0"
+edition = "2024"
+description = "Core timetable parser, SQLite storage, fire-once scheduler, and launcher for AutoPara"
+
+[dependencies]
+chrono = { version = "0.4", features = ["serde"] }
+md-5 = "0.10"
+quick-xml = "0.37"
+rusqlite = { version = "0.34", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+thiserror = "2"
+unicode-normalization = "0.1"
+ureq = { version = "3", default-features = false, features = ["rustls"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+] }
+winreg = "0.55"
+
+[[bin]]
+name = "autopara-verify"
+path = "src/bin/verify.rs"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }

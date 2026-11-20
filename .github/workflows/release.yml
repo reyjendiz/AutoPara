@@ -1,0 +1,100 @@
+name: Release (Windows + macOS Apple Silicon)
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    env:
+      AUTOPARA_GITHUB_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Read version
+        id: ver
+        shell: pwsh
+        run: |
+          $toml = Get-Content crates/autopara-app/Cargo.toml -Raw
+          if ($toml -notmatch '(?m)^version\s*=\s*"([^"]+)"') { throw "version not found" }
+          "version=$($Matches[1])" >> $env:GITHUB_OUTPUT
+
+      - name: Lint & test
+        shell: pwsh
+        run: |
+          cargo clippy --workspace --all-targets -- -D warnings
+          cargo test --workspace
+
+      - name: Build Windows release binary
+        shell: pwsh
+        run: |
+          cargo build --release -p autopara
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item target/release/autopara.exe "dist/AutoPara-$($env:VER)-Windows.exe"
+        env:
+          VER: ${{ steps.ver.outputs.version }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: autopara-windows
+          path: dist/AutoPara-*-Windows.exe
+          if-no-files-found: error
+
+  build-macos-arm64:
+    runs-on: macos-14
+    env:
+      AUTOPARA_GITHUB_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+          components: clippy
+
+      - name: Lint & test
+        run: |
+          cargo clippy --workspace --all-targets -- -D warnings
+          cargo test --workspace
+
+      - name: Build macOS Apple Silicon .app & .dmg
+        run: |
+          chmod +x scripts/build_macos_arm64.sh
+          ./scripts/build_macos_arm64.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: autopara-macos-arm64
+          path: dist/AutoPara-*.dmg
+          if-no-files-found: error
+
+  publish-release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build-windows, build-macos-arm64]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VER="${TAG#v}"
+          gh release create "$TAG" \
+            artifacts/autopara-windows/* \
+            artifacts/autopara-macos-arm64/* \
+            --title "AutoPara $VER" \
+            --notes "Pure Rust build of AutoPara $VER for Windows (x64) and macOS (Apple Silicon M1/M2/M3/M4)."
