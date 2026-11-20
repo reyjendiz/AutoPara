@@ -14,7 +14,11 @@ The same week in English:
 
 ## Download
 
-Windows exe and macOS dmg (Apple Silicon) are on the [Releases](https://github.com/reyjendiz/AutoPara/releases/latest) page.
+On the [Releases](https://github.com/reyjendiz/AutoPara/releases/latest) page:
+
+- `AutoPara-<version>-Setup.exe`: Windows installer. Adds a desktop shortcut and starts AutoPara with Windows (both can be unticked). No admin rights needed.
+- `AutoPara-<version>-Windows.exe`: the same app as a single portable exe.
+- `AutoPara-<version>.dmg`: macOS, Apple Silicon.
 
 ## Features
 - **Start from scratch or import `.docx`**: create personal meeting schedules from zero or import university `.docx` timetables.
