@@ -254,6 +254,8 @@ fn show_modal_frame(
 ) {
     draw_backdrop(ctx, t);
     let y_shift = (1.0 - t) * 14.0;
+    // fit the window: 16px gap above/below + 24px inner margin on each side
+    let max_h = (ctx.screen_rect().height() - 2.0 * (16.0 + 24.0)).max(120.0);
     egui::Area::new(egui::Id::new(id))
         .anchor(egui::Align2::CENTER_CENTER, vec2(0.0, y_shift))
         .order(egui::Order::Foreground)
@@ -266,7 +268,14 @@ fn show_modal_frame(
                 .inner_margin(egui::Margin::same(24))
                 .show(ui, |ui| {
                     ui.set_width(width);
-                    add_contents(ui);
+                    // solid bar takes its own strip instead of covering the right-aligned buttons
+                    ui.spacing_mut().scroll = egui::style::ScrollStyle::solid();
+                    egui::ScrollArea::vertical()
+                        .id_salt(id)
+                        .max_height(max_h)
+                        // the Area only offers last frame's size; without this it stays stuck small
+                        .min_scrolled_height(max_h)
+                        .show(ui, add_contents);
                 });
         });
 }
