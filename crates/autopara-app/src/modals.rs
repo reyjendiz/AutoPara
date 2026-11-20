@@ -188,6 +188,24 @@ pub fn primary_button(text: &str, p: Palette) -> Button<'_> {
         .min_size(vec2(0.0, 36.0))
 }
 
+/// Left padding that centres a row of our 13.5pt buttons separated by `gap`.
+pub fn center_pad(ui: &egui::Ui, labels: &[&str], gap: f32) -> f32 {
+    let pad_x = ui.spacing().button_padding.x;
+    let row: f32 = labels
+        .iter()
+        .map(|s| {
+            let g = ui.painter().layout_no_wrap(
+                (*s).to_owned(),
+                egui::FontId::proportional(13.5),
+                Color32::WHITE,
+            );
+            g.size().x + 2.0 * pad_x
+        })
+        .sum::<f32>()
+        + (gap + ui.spacing().item_spacing.x) * (labels.len().saturating_sub(1)) as f32;
+    ((ui.available_width() - row) * 0.5).max(0.0)
+}
+
 pub fn secondary_button(text: &str, p: Palette) -> Button<'_> {
     Button::new(RichText::new(text).color(p.text).strong().size(13.5))
         .fill(p.surface)

@@ -29,7 +29,7 @@ use egui::{
 use i18n::{Lang, Tr, format_week_title};
 use modals::{
     DeleteConfirmModal, EditModal, EditResult, GroupModal, ImportModal, ModalOutcome,
-    MoveScopeModal, SettingsModal, plain_button, primary_button, secondary_button,
+    MoveScopeModal, SettingsModal, center_pad, plain_button, primary_button, secondary_button,
 };
 use palette::Palette;
 use std::collections::{BTreeSet, HashMap, HashSet};
@@ -1148,9 +1148,14 @@ impl AutoParaApp {
 
                     ui.add_space(14.0);
                     ui.horizontal(|ui| {
-                        let total_w = 340.0;
-                        let pad = ((ui.available_width() - total_w) * 0.5).max(0.0);
-                        ui.add_space(pad);
+                        ui.add_space(center_pad(
+                            ui,
+                            &[
+                                tr.pick("Додати перший созвон", "Add first call"),
+                                tr.pick("Почати з нуля", "Start from scratch"),
+                            ],
+                            8.0,
+                        ));
                         if ui
                             .add(primary_button(
                                 tr.pick("Додати перший созвон", "Add first call"),
@@ -1174,14 +1179,19 @@ impl AutoParaApp {
                     });
 
                     ui.add_space(18.0);
-                    ui.label(
-                        RichText::new(tr.pick(
-                            "────────  або імпортуйте файл розкладу  ────────",
-                            "────────  or import a timetable file  ────────",
-                        ))
-                        .size(12.0)
-                        .color(p.text_faint),
+                    // Divider drawn as lines: Inter has no box-drawing glyphs.
+                    let (div_rect, _) = ui.allocate_exact_size(vec2(460.0, 16.0), Sense::hover());
+                    let div_text = ui.painter().layout_no_wrap(
+                        tr.pick("або імпортуйте файл розкладу", "or import a timetable file").to_owned(),
+                        FontId::proportional(12.0),
+                        p.text_faint,
                     );
+                    let c = div_rect.center();
+                    let gap = div_text.size().x / 2.0 + 12.0;
+                    let line = Stroke::new(1.0_f32, p.drop_border);
+                    ui.painter().hline(div_rect.left()..=c.x - gap, c.y, line);
+                    ui.painter().hline(c.x + gap..=div_rect.right(), c.y, line);
+                    ui.painter().galley(c - div_text.size() / 2.0, div_text, p.text_faint);
                     ui.add_space(12.0);
 
                     // .docx Drop Well

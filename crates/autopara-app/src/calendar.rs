@@ -547,7 +547,14 @@ fn show_week_view(
                                 );
                                 ui.add_space(10.0);
                                 ui.horizontal(|ui| {
-                                    ui.add_space(18.0);
+                                    ui.add_space(crate::modals::center_pad(
+                                        ui,
+                                        &[
+                                            tr.pick("Додати созвон", "Add call"),
+                                            tr.pick("Імпорт .docx", "Import .docx"),
+                                        ],
+                                        8.0,
+                                    ));
                                     if ui
                                         .add(primary_button(
                                             tr.pick("Додати созвон", "Add call"),
@@ -560,6 +567,7 @@ fn show_week_view(
                                             start_time: None,
                                         };
                                     }
+                                    ui.add_space(8.0);
                                     if ui
                                         .add(secondary_button(
                                             tr.pick("Імпорт .docx", "Import .docx"),
