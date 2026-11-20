@@ -1,2 +1,6 @@
 *.sh text eol=lf
 *.yml text eol=lf
+# build and check helpers, not the app itself
+verify/** linguist-detectable=false
+installer/** linguist-detectable=false
+scripts/** linguist-detectable=false
