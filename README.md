@@ -2,6 +2,20 @@
 
 100% pure Rust desktop app for auto-joining calls and university classes (Zoom, Google Meet, Microsoft Teams, Discord, Jitsi, Webex, Telegram, or any `http(s)://` link). Zero WebView, zero Electron, zero Python runtime, zero AI bloat.
 
+![Week view](assets/screenshots/week.png)
+
+| First launch | Settings |
+| --- | --- |
+| ![Welcome screen](assets/screenshots/welcome.png) | ![Settings](assets/screenshots/settings.png) |
+
+The same week in English:
+
+![Week view in English](assets/screenshots/week-en.png)
+
+## Download
+
+Windows exe and macOS dmg (Apple Silicon) are on the [Releases](https://github.com/reyjendiz/AutoPara/releases/latest) page.
+
 ## Features
 - **Start from scratch or import `.docx`**: create personal meeting schedules from zero or import university `.docx` timetables.
 - **Fire-once scheduler & reminders**: opens links automatically N minutes ahead, native OS notifications, catch-up banner for missed starts, system tray background mode.
