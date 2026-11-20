@@ -51,7 +51,7 @@ jobs:
           if-no-files-found: error
 
   build-macos-arm64:
-    runs-on: macos-14
+    runs-on: macos-15
     env:
       AUTOPARA_GITHUB_REPO: ${{ github.repository }}
     steps:
