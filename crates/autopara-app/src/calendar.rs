@@ -150,6 +150,8 @@ pub fn show_calendar(
         .fill(p.surface)
         .stroke(Stroke::new(1.0_f32, p.border))
         .corner_radius(CornerRadius::same(14))
+        // keep the today highlight off the border and out of the rounded corners
+        .inner_margin(egui::Margin::symmetric(2, 8))
         .show(ui, |ui| {
             let avail = ui.available_size();
             ui.set_min_size(avail);
