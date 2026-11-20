@@ -17,7 +17,6 @@ The same week in English:
 On the [Releases](https://github.com/reyjendiz/AutoPara/releases/latest) page:
 
 - `AutoPara-<version>-Setup.exe`: Windows installer. Adds a desktop shortcut and starts AutoPara with Windows (both can be unticked). No admin rights needed.
-- `AutoPara-<version>-Windows.exe`: the same app as a single portable exe.
 - `AutoPara-<version>.dmg`: macOS, Apple Silicon.
 
 ## Features
@@ -60,4 +59,4 @@ git tag v2.0.0
 git push origin main --tags
 ```
 
-GitHub Actions (`.github/workflows/release.yml`) automatically runs `clippy`, `cargo test`, builds `AutoPara-<version>-Windows.exe` and `AutoPara-<version>.dmg` (Apple Silicon), and publishes a GitHub Release that the in-app auto-updater detects immediately.
+GitHub Actions (`.github/workflows/release.yml`) automatically runs `clippy`, `cargo test`, builds `AutoPara-<version>-Setup.exe` and `AutoPara-<version>.dmg` (Apple Silicon), and publishes a GitHub Release that the in-app auto-updater detects immediately.

@@ -40,7 +40,6 @@ jobs:
         run: |
           cargo build --release -p autopara
           New-Item -ItemType Directory -Force -Path dist | Out-Null
-          Copy-Item target/release/autopara.exe "dist/AutoPara-$($env:VER)-Windows.exe"
         env:
           VER: ${{ steps.ver.outputs.version }}
 
@@ -63,9 +62,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: autopara-windows
-          path: |
-            dist/AutoPara-*-Windows.exe
-            dist/AutoPara-*-Setup.exe
+          path: dist/AutoPara-*-Setup.exe
           if-no-files-found: error
 
   build-macos-arm64:
