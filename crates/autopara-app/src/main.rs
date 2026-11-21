@@ -13,7 +13,7 @@ use autopara_core::autostart;
 use autopara_core::filters::{self, LessonFilter};
 use autopara_core::launcher;
 use autopara_core::models::{
-    Course, Group, LANG_EN, LANG_UK, Lesson, PERSONAL_COURSE_ORDINAL, STATUS_MISSED, Settings, UPDATE_AUTO, UPDATE_OFF,
+    Course, Group, LANG_EN, LANG_UK, Lesson, PERSONAL_COURSE_ORDINAL, STATUS_MISSED, VIEW_LIST, VIEW_WEEK, Settings, UPDATE_AUTO, UPDATE_OFF,
 };
 use autopara_core::nextup;
 use autopara_core::normalize::{detect_provider, pair_slot, week_start};
@@ -51,6 +51,26 @@ const INTER_BOLD: &[u8] = include_bytes!("../../../assets/fonts/Inter-Bold.ttf")
 const NATIVE_MAC_FRAME: bool = cfg!(target_os = "macos");
 /// Room for the traffic lights at the left of the top bar on macOS.
 const MAC_TRAFFIC_LIGHTS_W: f32 = 78.0;
+
+/// Window size and minimum size for the week grid and for the narrow list.
+fn window_sizes(list_view: bool) -> ([f32; 2], [f32; 2]) {
+    if list_view {
+        ([560.0, 820.0], [440.0, 560.0])
+    } else {
+        ([1280.0, 820.0], [1100.0, 660.0])
+    }
+}
+
+/// Resize the window when the view changes: narrow for the list, wide for the grid.
+fn resize_for_view(ctx: &egui::Context, list_view: bool) {
+    let (size, min) = window_sizes(list_view);
+    let height = ctx
+        .input(|i| i.viewport().inner_rect)
+        .map_or(size[1], |r| r.height());
+    ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(false));
+    ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(min.into()));
+    ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(size[0], height)));
+}
 
 fn bold_font(size: f32) -> FontId {
     FontId::new(size, FontFamily::Name("bold".into()))
@@ -502,6 +522,9 @@ impl AutoParaApp {
             let _ = guard.storage.set_setting("update_mode", &s.update_mode);
             let _ = guard
                 .storage
+                .set_setting("view_mode", if s.list_view { VIEW_LIST } else { VIEW_WEEK });
+            let _ = guard
+                .storage
                 .set_setting("gcal_auto_open", if s.gcal_auto_open { "1" } else { "0" });
             autostart::sync(s.autostart_enabled);
         }
@@ -742,6 +765,8 @@ impl AutoParaApp {
     fn show_header_bar(&mut self, ctx: &egui::Context, p: Palette) {
         let lang = self.lang();
         let has_schedule = self.cache.selected_group.is_some();
+        // the narrow list window keeps only the week arrows: no week title, no next-up pill
+        let list_mode = self.cache.settings.view_mode == VIEW_LIST;
 
         egui::TopBottomPanel::top("autopara_titlebar")
             .exact_height(64.0)
@@ -803,22 +828,26 @@ impl AutoParaApp {
                     let title_w = main_g.size().x + 8.0 + year_g.size().x;
                     // the two arrows plus their gaps: 36 + 8 + 36 + 16
                     const ARROWS_W: f32 = 96.0;
-                    let (title_x, arrows_x, after) = if NATIVE_MAC_FRAME {
+                    let (title_x, arrows_x, after) = if list_mode {
+                        (x, x, x + ARROWS_W)
+                    } else if NATIVE_MAC_FRAME {
                         (x + ARROWS_W, x, x + ARROWS_W + title_w + 16.0)
                     } else {
                         (x, x + title_w + 16.0, x + title_w + 16.0 + ARROWS_W)
                     };
 
-                    ui.painter().galley(
-                        pos2(title_x, cy - main_g.size().y * 0.52),
-                        main_g.clone(),
-                        p.text,
-                    );
-                    ui.painter().galley(
-                        pos2(title_x + main_g.size().x + 8.0, cy - year_g.size().y * 0.52),
-                        year_g.clone(),
-                        p.text_faint,
-                    );
+                    if !list_mode {
+                        ui.painter().galley(
+                            pos2(title_x, cy - main_g.size().y * 0.52),
+                            main_g.clone(),
+                            p.text,
+                        );
+                        ui.painter().galley(
+                            pos2(title_x + main_g.size().x + 8.0, cy - year_g.size().y * 0.52),
+                            year_g.clone(),
+                            p.text_faint,
+                        );
+                    }
                     x = arrows_x;
 
                     // Prev '<' week circle (36x36)
@@ -888,7 +917,7 @@ impl AutoParaApp {
                 x += 68.0;
 
                 // Optional next-up status pill when enough breathing room remains for the drag strip
-                if has_schedule && let Some(next_lbl) = &self.cache.next_up_label {
+                if has_schedule && !list_mode && let Some(next_lbl) = &self.cache.next_up_label {
                     let avail_for_pill = (controls_left - 72.0 - (x + 14.0)).max(0.0);
                     if avail_for_pill >= 150.0 {
                         let ng = ui
@@ -1990,6 +2019,7 @@ impl eframe::App for AutoParaApp {
                     &mut self.drag,
                     &mut self.popup,
                     &mut self.morph,
+                    self.cache.settings.view_mode == VIEW_LIST,
                     p,
                     cur_lang,
                 );
@@ -2058,7 +2088,12 @@ impl eframe::App for AutoParaApp {
             }
             ModalOutcome::SaveSettings(s) => {
                 self.active_modal = None;
+                let was_list = self.cache.settings.view_mode == VIEW_LIST;
+                let list = s.list_view;
                 self.save_settings(s);
+                if list != was_list {
+                    resize_for_view(ctx, list);
+                }
             }
             ModalOutcome::CheckUpdatesNow => {
                 self.request_manual_update_check(ctx);
@@ -2363,9 +2398,14 @@ fn main() -> eframe::Result<()> {
 
     let start_hidden = std::env::args().any(|a| a == "--hidden");
     let storage = Storage::open(default_db_path()).expect("open autopara sqlite database");
-    if let Ok(settings) = storage.settings() {
-        autostart::sync(settings.autostart_enabled);
-    }
+    let start_list = storage
+        .settings()
+        .map(|s| {
+            autostart::sync(s.autostart_enabled);
+            s.view_mode == VIEW_LIST
+        })
+        .unwrap_or(false);
+    let (start_size, start_min) = window_sizes(start_list);
 
     let backend = Arc::new(Mutex::new(SharedBackend {
         storage,
@@ -2377,8 +2417,8 @@ fn main() -> eframe::Result<()> {
     let mut viewport = egui::ViewportBuilder::default()
         .with_title("AutoPara")
         .with_decorations(false)
-        .with_inner_size([1280.0, 820.0])
-        .with_min_inner_size([1100.0, 660.0]);
+        .with_inner_size(start_size)
+        .with_min_inner_size(start_min);
     if let Some(icon) = load_window_icon() {
         viewport = viewport.with_icon(icon);
     }

@@ -20,7 +20,9 @@ pub const CATCHUP_MISSED: &str = "missed";
 pub const VIEW_DAY: &str = "day";
 pub const VIEW_WEEK: &str = "week";
 pub const VIEW_MONTH: &str = "month";
-pub const VIEW_MODES: [&str; 3] = [VIEW_DAY, VIEW_WEEK, VIEW_MONTH];
+/// No grid: upcoming classes and calls stacked by day.
+pub const VIEW_LIST: &str = "list";
+pub const VIEW_MODES: [&str; 4] = [VIEW_DAY, VIEW_WEEK, VIEW_MONTH, VIEW_LIST];
 
 pub const UPDATE_ASK: &str = "ask";
 pub const UPDATE_AUTO: &str = "auto";

@@ -158,6 +158,7 @@ pub fn show_calendar(
     drag: &mut Option<DragState>,
     popup: &mut Option<ContextPopup>,
     morph: &mut MorphState,
+    list_view: bool,
     p: Palette,
     lang: Lang,
 ) -> CalendarAction {
@@ -177,20 +178,24 @@ pub fn show_calendar(
             let avail = ui.available_size();
             ui.set_min_size(avail);
 
-            action = show_week_view(
-                ui,
-                anchor,
-                lessons,
-                total_workspace_lessons,
-                occurrences,
-                next_up_id,
-                drag,
-                popup,
-                morph,
-                cal_t,
-                p,
-                lang,
-            );
+            action = if list_view {
+                show_list_view(ui, anchor, lessons, occurrences, next_up_id, popup, morph, p, lang)
+            } else {
+                show_week_view(
+                    ui,
+                    anchor,
+                    lessons,
+                    total_workspace_lessons,
+                    occurrences,
+                    next_up_id,
+                    drag,
+                    popup,
+                    morph,
+                    cal_t,
+                    p,
+                    lang,
+                )
+            };
         })
         .response
         .rect;
@@ -265,6 +270,134 @@ fn mask_round_corners(painter: &egui::Painter, r: Rect, rad: f32, p: Palette) {
         Stroke::new(1.0_f32, p.border),
         StrokeKind::Inside,
     );
+}
+
+/// No grid: the days of the week of `anchor` (switched with the top bar arrows), each with its
+/// classes and calls as full cards in time order. Empty days are skipped; in the current week
+/// the days already over and today's finished calls are hidden.
+#[allow(clippy::too_many_arguments)]
+fn show_list_view(
+    ui: &mut Ui,
+    anchor: NaiveDate,
+    lessons: &[Lesson],
+    occurrences: &HashMap<(i64, String), String>,
+    next_up_id: Option<i64>,
+    popup: &mut Option<ContextPopup>,
+    morph: &mut MorphState,
+    p: Palette,
+    lang: Lang,
+) -> CalendarAction {
+    let tr = Tr::new(lang);
+    let mut action = CalendarAction::None;
+    let now = Local::now();
+    let today = now.date_naive();
+    let now_hhmm = now.format("%H:%M").to_string();
+
+    egui::ScrollArea::vertical()
+        .id_salt("list_view_scroll")
+        .auto_shrink([false, false])
+        .show(ui, |ui| {
+            ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
+            let full_w = ui.available_width();
+            let card_w = (full_w - 48.0).min(760.0);
+            let left = ui.max_rect().left() + (full_w - card_w) * 0.5;
+            let mut shown_any = false;
+            ui.add_space(14.0);
+
+            let mon = week_start(anchor);
+
+            for offset in 0..7 {
+                let day = mon + Duration::days(offset);
+                // in the current week skip what is already over; other weeks show in full
+                let this_week = mon <= today && today <= mon + Duration::days(6);
+                if this_week && day < today {
+                    continue;
+                }
+                let mut items: Vec<&Lesson> = lessons
+                    .iter()
+                    .filter(|l| l.occurs_on(day))
+                    .filter(|l| day != today || l.end_time > now_hhmm)
+                    .collect();
+                if items.is_empty() {
+                    continue;
+                }
+                items.sort_by(|a, b| a.start_time.cmp(&b.start_time));
+                shown_any = true;
+
+                let weekday = days_full(lang)[day.weekday().num_days_from_monday() as usize];
+                let days_ahead = (day - today).num_days();
+                let name = match days_ahead {
+                    0 => tr.pick("Сьогодні", "Today").to_string(),
+                    1 => tr.pick("Завтра", "Tomorrow").to_string(),
+                    _ => weekday.to_string(),
+                };
+                let (head_rect, _) = ui.allocate_exact_size(vec2(full_w, 34.0), Sense::hover());
+                let g = ui.painter().layout_no_wrap(name, semibold_font(17.0), p.text);
+                let base = head_rect.bottom() - 10.0;
+                let name_w = g.size().x;
+                ui.painter().galley(pos2(left, base - g.size().y), g, p.text);
+                let date_label = if days_ahead <= 1 {
+                    format!("{weekday}, {}", crate::i18n::format_short_date(day, lang))
+                } else {
+                    crate::i18n::format_short_date(day, lang)
+                };
+                let dg = ui
+                    .painter()
+                    .layout_no_wrap(date_label, FontId::proportional(13.0), p.text_faint);
+                ui.painter()
+                    .galley(pos2(left + name_w + 10.0, base - dg.size().y - 1.0), dg, p.text_faint);
+                ui.add_space(6.0);
+
+                let day_iso = day.format("%Y-%m-%d").to_string();
+                for lesson in items {
+                    let h = card_height_for(ui.painter(), lesson, card_w, p).max(72.0);
+                    let (row, _) = ui.allocate_exact_size(vec2(full_w, h + 10.0), Sense::hover());
+                    let card_rect = Rect::from_min_size(pos2(left, row.top()), vec2(card_w, h));
+                    let status = occurrences.get(&(lesson.id, day_iso.clone())).map(String::as_str);
+                    let is_next = day == today && next_up_id == Some(lesson.id);
+                    let resp = draw_lesson_card(
+                        ui,
+                        card_rect,
+                        1.0,
+                        lesson,
+                        status,
+                        is_next,
+                        morph,
+                        p,
+                        lang,
+                        ("list", lesson.id, offset as usize),
+                    );
+                    let pos = resp.interact_pointer_pos().unwrap_or(card_rect.center());
+                    let has_url = lesson.url.as_ref().is_some_and(|u| !u.is_empty());
+                    if resp.clicked() && has_url {
+                        action = CalendarAction::OpenLesson { lesson_id: lesson.id, day };
+                    } else if resp.clicked() || resp.secondary_clicked() {
+                        morph.begin_popup();
+                        *popup = Some(ContextPopup::Lesson {
+                            pos,
+                            lesson_id: lesson.id,
+                            day,
+                            has_url,
+                            has_status: status.is_some(),
+                        });
+                    }
+                }
+                ui.add_space(10.0);
+            }
+
+            if !shown_any {
+                let (r, _) = ui.allocate_exact_size(vec2(full_w, 120.0), Sense::hover());
+                ui.painter().text(
+                    r.center(),
+                    Align2::CENTER_CENTER,
+                    tr.pick("На цьому тижні нічого немає", "Nothing this week"),
+                    FontId::proportional(14.0),
+                    p.text_muted,
+                );
+            }
+            ui.add_space(18.0);
+        });
+    action
 }
 
 #[allow(clippy::too_many_arguments)]

@@ -1,6 +1,6 @@
 use autopara_core::models::{
     CATCHUP_MISSED, CATCHUP_NOTIFY, CATCHUP_OPEN, Course, Group, LANG_EN, LANG_UK, Lesson,
-    PERSONAL_COURSE_ORDINAL, Settings, UPDATE_ASK, UPDATE_AUTO, UPDATE_OFF,
+    PERSONAL_COURSE_ORDINAL, Settings, UPDATE_ASK, UPDATE_AUTO, UPDATE_OFF, VIEW_LIST,
 };
 use autopara_core::normalize::{add_minutes, minutes_between, parse_time};
 use autopara_core::schedule_parser::ParsedCourse;
@@ -120,6 +120,8 @@ pub struct SettingsModal {
     pub autostart_enabled: bool,
     pub update_mode: String,
     pub gcal_auto_open: bool,
+    /// Show upcoming classes and calls as a list instead of the week grid
+    pub list_view: bool,
     /// "Delete timetable" was pressed once and waits for "yes"
     pub confirm_delete_timetable: bool,
 }
@@ -136,6 +138,7 @@ impl SettingsModal {
             autostart_enabled: s.autostart_enabled,
             update_mode: s.update_mode.clone(),
             gcal_auto_open: s.gcal_auto_open,
+            list_view: s.view_mode == VIEW_LIST,
             confirm_delete_timetable: false,
         }
     }
@@ -315,6 +318,48 @@ fn modal_footer(ui: &mut Ui, add_buttons: impl FnOnce(&mut Ui)) {
             add_buttons(ui);
         },
     );
+}
+
+/// Two-option pill switch (as for the interface language). Returns the clicked option.
+fn segmented(ui: &mut Ui, id: &str, labels: [&str; 2], selected: usize, p: Palette) -> Option<usize> {
+    let (seg_rect, _) = ui.allocate_exact_size(vec2(224.0, 34.0), egui::Sense::hover());
+    ui.painter().rect(
+        seg_rect,
+        CornerRadius::same(17),
+        p.sunken,
+        Stroke::new(1.0_f32, p.border),
+        egui::StrokeKind::Inside,
+    );
+    let half_w = (seg_rect.width() - 6.0) * 0.5;
+    let mut clicked = None;
+    for (i, title) in labels.iter().enumerate() {
+        let r = egui::Rect::from_min_size(
+            egui::pos2(seg_rect.left() + 3.0 + i as f32 * half_w, seg_rect.top() + 3.0),
+            vec2(half_w, 28.0),
+        );
+        let resp = ui.interact(r, ui.id().with((id, i)), egui::Sense::click());
+        let active = selected == i;
+        let bg = if active {
+            p.accent_fill
+        } else if resp.hovered() {
+            p.accent_soft
+        } else {
+            Color32::TRANSPARENT
+        };
+        let fg = if active { p.accent_text } else { p.text_muted };
+        ui.painter().rect_filled(r, CornerRadius::same(14), bg);
+        ui.painter().text(
+            r.center(),
+            egui::Align2::CENTER_CENTER,
+            *title,
+            egui::FontId::new(12.5, egui::FontFamily::Name("semibold".into())),
+            fg,
+        );
+        if resp.clicked() {
+            clicked = Some(i);
+        }
+    }
+    clicked
 }
 
 fn form_row(ui: &mut Ui, label: &str, add_field: impl FnOnce(&mut Ui)) {
@@ -646,42 +691,16 @@ pub fn show_settings_modal(
         });
 
         form_row(ui, tr.pick("Мова інтерфейсу", "Interface language"), |ui| {
-            let (seg_rect, _) = ui.allocate_exact_size(vec2(224.0, 34.0), egui::Sense::hover());
-            ui.painter().rect(
-                seg_rect,
-                CornerRadius::same(17),
-                p.sunken,
-                Stroke::new(1.0_f32, p.border),
-                egui::StrokeKind::Inside,
-            );
-            let opts = [(LANG_UK, "Українська"), (LANG_EN, "English")];
-            let half_w = (seg_rect.width() - 6.0) * 0.5;
-            for (i, (code, title)) in opts.iter().enumerate() {
-                let r = egui::Rect::from_min_size(
-                    egui::pos2(seg_rect.left() + 3.0 + i as f32 * half_w, seg_rect.top() + 3.0),
-                    vec2(half_w, 28.0),
-                );
-                let resp = ui.interact(r, ui.id().with(("lang_seg", i)), egui::Sense::click());
-                let active = modal.language == *code;
-                let bg = if active {
-                    p.accent_fill
-                } else if resp.hovered() {
-                    p.accent_soft
-                } else {
-                    Color32::TRANSPARENT
-                };
-                let fg = if active { p.accent_text } else { p.text_muted };
-                ui.painter().rect_filled(r, CornerRadius::same(14), bg);
-                ui.painter().text(
-                    r.center(),
-                    egui::Align2::CENTER_CENTER,
-                    *title,
-                    egui::FontId::new(12.5, egui::FontFamily::Name("semibold".into())),
-                    fg,
-                );
-                if resp.clicked() {
-                    modal.language = (*code).to_string();
-                }
+            let current = usize::from(modal.language == LANG_EN);
+            if let Some(i) = segmented(ui, "lang_seg", ["Українська", "English"], current, p) {
+                modal.language = [LANG_UK, LANG_EN][i].to_string();
+            }
+        });
+
+        form_row(ui, tr.pick("Вигляд", "View"), |ui| {
+            let labels = [tr.pick("Календар", "Calendar"), tr.pick("Список", "List")];
+            if let Some(i) = segmented(ui, "view_seg", labels, usize::from(modal.list_view), p) {
+                modal.list_view = i == 1;
             }
         });
 
