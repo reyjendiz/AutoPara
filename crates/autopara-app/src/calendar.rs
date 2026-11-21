@@ -506,7 +506,15 @@ fn show_week_view(
                     );
                     let (card_rect, card_alpha) = morph.morph_card_rect(lesson.id, target_rect, cal_t);
                     if covers[i] {
-                        // card fills are translucent: give the covering card a solid base
+                        // lift the covering card off the one below: a drop shadow, then a
+                        // solid base (card fills are translucent)
+                        let shadow = egui::epaint::Shadow {
+                            offset: [0, 3],
+                            blur: 12,
+                            spread: 0,
+                            color: Color32::from_black_alpha((150.0 * card_alpha) as u8),
+                        };
+                        ui.painter().add(shadow.as_shape(card_rect, CornerRadius::same(11)));
                         ui.painter().rect_filled(
                             card_rect,
                             CornerRadius::same(11),
@@ -530,6 +538,15 @@ fn show_week_view(
                         lang,
                         ("card", lesson.id, c_idx),
                     );
+                    if covers[i] {
+                        // 1px light frame so its edge reads clearly over the card below
+                        ui.painter().rect_stroke(
+                            card_rect,
+                            CornerRadius::same(11),
+                            Stroke::new(1.0_f32, Color32::from_white_alpha((55.0 * card_alpha) as u8)),
+                            StrokeKind::Inside,
+                        );
+                    }
 
                     if card_resp.drag_started() {
                         *drag = Some(DragState {
