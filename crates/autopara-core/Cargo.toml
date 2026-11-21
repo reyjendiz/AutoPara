@@ -1,6 +1,6 @@
 [package]
 name = "autopara-core"
-version = "2.0.5"
+version = "2.1.0"
 edition = "2024"
 description = "Core timetable parser, SQLite storage, fire-once scheduler, and launcher for AutoPara"
 
