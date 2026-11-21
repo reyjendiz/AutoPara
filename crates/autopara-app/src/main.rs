@@ -51,6 +51,8 @@ const INTER_BOLD: &[u8] = include_bytes!("../../../assets/fonts/Inter-Bold.ttf")
 const NATIVE_MAC_FRAME: bool = cfg!(target_os = "macos");
 /// Room for the traffic lights at the left of the top bar on macOS.
 const MAC_TRAFFIC_LIGHTS_W: f32 = 78.0;
+/// Width of the HH:MM:SS clock (monospace 12.5).
+const MAC_CLOCK_W: f32 = 64.0;
 
 /// Window size and minimum size for the week grid and for the narrow list.
 fn window_sizes(list_view: bool) -> ([f32; 2], [f32; 2]) {
@@ -828,10 +830,15 @@ impl AutoParaApp {
                     let title_w = main_g.size().x + 8.0 + year_g.size().x;
                     // the two arrows plus their gaps: 36 + 8 + 36 + 16
                     const ARROWS_W: f32 = 96.0;
-                    let (title_x, arrows_x, after) = if list_mode {
-                        (x, x, x + ARROWS_W)
+                    // macOS: arrows next to the capsule, the title before them, the clock first
+                    let mac_arrows_x = controls_left - (ARROWS_W - 16.0);
+                    let mac_title_x = mac_arrows_x - 16.0 - title_w;
+                    let (title_x, arrows_x, after) = if NATIVE_MAC_FRAME && list_mode {
+                        (mac_arrows_x, mac_arrows_x, mac_arrows_x - 16.0 - MAC_CLOCK_W)
                     } else if NATIVE_MAC_FRAME {
-                        (x + ARROWS_W, x, x + ARROWS_W + title_w + 16.0)
+                        (mac_title_x, mac_arrows_x, mac_title_x - 16.0 - MAC_CLOCK_W)
+                    } else if list_mode {
+                        (x, x, x + ARROWS_W)
                     } else {
                         (x, x + title_w + 16.0, x + title_w + 16.0 + ARROWS_W)
                     };
@@ -905,6 +912,11 @@ impl AutoParaApp {
                     x = after;
                 }
 
+                if NATIVE_MAC_FRAME && !has_schedule {
+                    x = controls_left - 16.0 - MAC_CLOCK_W;
+                }
+                let clock_x = x;
+
                 // Live HH:MM:SS monospace clock to the right of the date & arrows (zero jitter)
                 let clock = Local::now().format("%H:%M:%S").to_string();
                 ui.painter().text(
@@ -917,7 +929,11 @@ impl AutoParaApp {
                 x += 68.0;
 
                 // Optional next-up status pill when enough breathing room remains for the drag strip
-                if has_schedule && !list_mode && let Some(next_lbl) = &self.cache.next_up_label {
+                if has_schedule
+                    && !list_mode
+                    && !NATIVE_MAC_FRAME
+                    && let Some(next_lbl) = &self.cache.next_up_label
+                {
                     let avail_for_pill = (controls_left - 72.0 - (x + 14.0)).max(0.0);
                     if avail_for_pill >= 150.0 {
                         let ng = ui
@@ -946,10 +962,19 @@ impl AutoParaApp {
                 }
 
                 // Clean frameless drag strip between the action capsule and window controls (plus top edge)
-                let drag_rect = egui::Rect::from_min_max(
-                    pos2((x + 10.0).min(controls_left), bar_rect.top()),
-                    pos2((controls_left - 10.0).max(x + 10.0), bar_rect.bottom()),
-                );
+                let drag_rect = if NATIVE_MAC_FRAME {
+                    // macOS: the free space between the traffic lights and the clock
+                    let left = bar_rect.left() + MAC_TRAFFIC_LIGHTS_W;
+                    egui::Rect::from_min_max(
+                        pos2(left, bar_rect.top()),
+                        pos2((clock_x - 10.0).max(left), bar_rect.bottom()),
+                    )
+                } else {
+                    egui::Rect::from_min_max(
+                        pos2((x + 10.0).min(controls_left), bar_rect.top()),
+                        pos2((controls_left - 10.0).max(x + 10.0), bar_rect.bottom()),
+                    )
+                };
                 let drag_resp = ui.interact(
                     drag_rect,
                     ui.id().with("titlebar_drag"),
