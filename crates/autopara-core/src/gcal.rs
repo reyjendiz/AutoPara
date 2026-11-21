@@ -1,9 +1,5 @@
 //! Google Calendar: sign-in (OAuth for installed apps: loopback redirect + PKCE), token refresh,
 //! and reading the primary calendar's upcoming events as calls.
-//!
-//! The OAuth client comes from build-time env vars (AUTOPARA_GOOGLE_CLIENT_ID / _SECRET).
-//! Without them the feature is simply not offered. For a "Desktop app" client Google does not
-//! treat the secret as confidential; it still is kept out of the repo.
 
 use chrono::{DateTime, Local, NaiveDate, Utc};
 use serde_json::Value;
@@ -17,8 +13,16 @@ use thiserror::Error;
 use crate::models::{GCAL_KEY_PREFIX, Lesson};
 use crate::normalize::{detect_provider, find_urls, pair_slot};
 
-pub const CLIENT_ID: Option<&str> = option_env!("AUTOPARA_GOOGLE_CLIENT_ID");
-pub const CLIENT_SECRET: Option<&str> = option_env!("AUTOPARA_GOOGLE_CLIENT_SECRET");
+// The Google "Desktop app" client is injected at build time (release CI reads it from
+// repository secrets). Without it the sign-in is simply not offered.
+pub const CLIENT_ID: &str = match option_env!("AUTOPARA_GOOGLE_CLIENT_ID") {
+    Some(v) => v,
+    None => "",
+};
+pub const CLIENT_SECRET: &str = match option_env!("AUTOPARA_GOOGLE_CLIENT_SECRET") {
+    Some(v) => v,
+    None => "",
+};
 
 const AUTH_URL: &str = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
@@ -45,13 +49,14 @@ pub enum GcalError {
 }
 
 pub fn is_configured() -> bool {
-    CLIENT_ID.is_some_and(|s| !s.is_empty()) && CLIENT_SECRET.is_some_and(|s| !s.is_empty())
+    !CLIENT_ID.is_empty() && !CLIENT_SECRET.is_empty()
 }
 
 fn client() -> Result<(&'static str, &'static str), GcalError> {
-    match (CLIENT_ID, CLIENT_SECRET) {
-        (Some(id), Some(secret)) if !id.is_empty() && !secret.is_empty() => Ok((id, secret)),
-        _ => Err(GcalError::NotConfigured),
+    if is_configured() {
+        Ok((CLIENT_ID, CLIENT_SECRET))
+    } else {
+        Err(GcalError::NotConfigured)
     }
 }
 
