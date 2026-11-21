@@ -92,6 +92,40 @@ fn hhmm_minutes(s: &str) -> i64 {
     h * 60 + m
 }
 
+/// Side-by-side layout for overlapping cards, like Google Calendar: for each (top, bottom)
+/// span, sorted by top, returns (lane, lanes in its overlap group).
+fn overlap_lanes(spans: &[(f32, f32)]) -> Vec<(usize, usize)> {
+    let mut out = vec![(0, 1); spans.len()];
+    let mut group_start = 0;
+    let mut lane_ends: Vec<f32> = Vec::new(); // bottom of the last card in each lane
+    let mut group_bottom = f32::MIN;
+    for (i, &(top, bottom)) in spans.iter().enumerate() {
+        if top >= group_bottom {
+            // nothing above reaches this card: close the previous group
+            for o in &mut out[group_start..i] {
+                o.1 = lane_ends.len();
+            }
+            group_start = i;
+            lane_ends.clear();
+        }
+        let lane = match lane_ends.iter().position(|&end| end <= top) {
+            Some(l) => l,
+            None => {
+                lane_ends.push(0.0);
+                lane_ends.len() - 1
+            }
+        };
+        lane_ends[lane] = bottom;
+        out[i].0 = lane;
+        group_bottom = if i == group_start { bottom } else { group_bottom.max(bottom) };
+    }
+    for o in &mut out[group_start..] {
+        o.1 = lane_ends.len().max(1);
+    }
+    out
+}
+
+
 fn chip_colors(kind: ProviderKind, p: Palette) -> (Color32, Color32) {
     match kind {
         ProviderKind::Zoom => (p.zoom_bg, p.zoom_fg),
@@ -450,15 +484,28 @@ fn show_week_view(
                     lessons.iter().filter(|l| l.occurs_on(day)).collect();
                 day_lessons.sort_by(|a, b| a.start_time.cmp(&b.start_time));
 
-                for lesson in day_lessons {
-                    let start_m = hhmm_minutes(&lesson.start_time);
-                    let end_m = hhmm_minutes(&lesson.end_time).max(start_m + 30);
-                    let top_px = ((start_m - min_hour * 60) as f32 / 60.0 * HOUR_HEIGHT).max(0.0);
-                    let height_px =
-                        (((end_m - start_m) as f32 / 60.0) * HOUR_HEIGHT - 6.0).max(46.0);
+                let spans: Vec<(f32, f32)> = day_lessons
+                    .iter()
+                    .map(|lesson| {
+                        let start_m = hhmm_minutes(&lesson.start_time);
+                        let end_m = hhmm_minutes(&lesson.end_time).max(start_m + 30);
+                        let top_px =
+                            ((start_m - min_hour * 60) as f32 / 60.0 * HOUR_HEIGHT).max(0.0);
+                        let height_px =
+                            (((end_m - start_m) as f32 / 60.0) * HOUR_HEIGHT - 6.0).max(46.0);
+                        (top_px, top_px + height_px)
+                    })
+                    .collect();
+                let lanes = overlap_lanes(&spans);
+
+                for (i, lesson) in day_lessons.into_iter().enumerate() {
+                    let (top_px, bottom_px) = spans[i];
+                    let (lane, lane_count) = lanes[i];
+                    let lane_w = (col_w - 12.0) / lane_count as f32;
+                    let gap = if lane_count > 1 { 3.0 } else { 0.0 };
                     let target_rect = Rect::from_min_size(
-                        pos2(x0 + 6.0, grid_rect.top() + top_px + 3.0),
-                        vec2(col_w - 12.0, height_px),
+                        pos2(x0 + 6.0 + lane as f32 * lane_w, grid_rect.top() + top_px + 3.0),
+                        vec2(lane_w - gap, bottom_px - top_px),
                     );
                     let (card_rect, card_alpha) = morph.morph_card_rect(lesson.id, target_rect, cal_t);
 
@@ -947,4 +994,23 @@ fn show_context_popup(
     }
 
     action
+}
+
+#[cfg(test)]
+mod tests {
+    use super::overlap_lanes;
+
+    #[test]
+    fn overlapping_cards_share_the_column() {
+        // class 13:00-14:20 and a meeting 14:00-14:30: two lanes
+        assert_eq!(overlap_lanes(&[(0.0, 80.0), (60.0, 106.0)]), vec![(0, 2), (1, 2)]);
+        // back to back: one lane each
+        assert_eq!(overlap_lanes(&[(0.0, 50.0), (50.0, 100.0)]), vec![(0, 1), (0, 1)]);
+        // a long card overlaps two short ones: they take lane 1 in turn; a later card is alone
+        assert_eq!(
+            overlap_lanes(&[(0.0, 300.0), (10.0, 60.0), (100.0, 150.0), (400.0, 450.0)]),
+            vec![(0, 2), (1, 2), (1, 2), (0, 1)]
+        );
+        assert!(overlap_lanes(&[]).is_empty());
+    }
 }
