@@ -46,6 +46,12 @@ const INTER_REGULAR: &[u8] = include_bytes!("../../../assets/fonts/Inter-Regular
 const INTER_SEMIBOLD: &[u8] = include_bytes!("../../../assets/fonts/Inter-SemiBold.ttf");
 const INTER_BOLD: &[u8] = include_bytes!("../../../assets/fonts/Inter-Bold.ttf");
 
+/// On macOS the window uses the system frame (rounded corners, traffic lights) instead of
+/// our frameless one with Windows-style buttons. Windows is unchanged.
+const NATIVE_MAC_FRAME: bool = cfg!(target_os = "macos");
+/// Room for the traffic lights at the left of the top bar on macOS.
+const MAC_TRAFFIC_LIGHTS_W: f32 = 78.0;
+
 fn bold_font(size: f32) -> FontId {
     FontId::new(size, FontFamily::Name("bold".into()))
 }
@@ -763,8 +769,17 @@ impl AutoParaApp {
                     vec2(btn_d, btn_d),
                 );
 
+                // Left edge of the window controls (or of the bar's padding on macOS, where the
+                // system draws its own buttons on the left)
+                let controls_left = if NATIVE_MAC_FRAME {
+                    bar_rect.right() - edge_pad
+                } else {
+                    mn_rect.left()
+                };
+
                 // Left-to-right header order: [Action Capsule]  [Week Title + < >]  [Clock]  ...  [– □ ×]
-                let mut x = bar_rect.left() + edge_pad;
+                let mut x = bar_rect.left()
+                    + if NATIVE_MAC_FRAME { MAC_TRAFFIC_LIGHTS_W } else { edge_pad };
                 x = self.draw_top_action_menu_from_left(ui, x, cy, p);
                 x += 20.0;
 
@@ -861,7 +876,7 @@ impl AutoParaApp {
 
                 // Optional next-up status pill when enough breathing room remains for the drag strip
                 if has_schedule && let Some(next_lbl) = &self.cache.next_up_label {
-                    let avail_for_pill = (mn_rect.left() - 72.0 - (x + 14.0)).max(0.0);
+                    let avail_for_pill = (controls_left - 72.0 - (x + 14.0)).max(0.0);
                     if avail_for_pill >= 150.0 {
                         let ng = ui
                             .painter()
@@ -890,8 +905,8 @@ impl AutoParaApp {
 
                 // Clean frameless drag strip between the action capsule and window controls (plus top edge)
                 let drag_rect = egui::Rect::from_min_max(
-                    pos2((x + 10.0).min(mn_rect.left()), bar_rect.top()),
-                    pos2((mn_rect.left() - 10.0).max(x + 10.0), bar_rect.bottom()),
+                    pos2((x + 10.0).min(controls_left), bar_rect.top()),
+                    pos2((controls_left - 10.0).max(x + 10.0), bar_rect.bottom()),
                 );
                 let drag_resp = ui.interact(
                     drag_rect,
@@ -904,6 +919,10 @@ impl AutoParaApp {
                 if drag_resp.double_clicked() {
                     let is_max = ctx.input(|i| i.viewport().maximized.unwrap_or(false));
                     ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(!is_max));
+                }
+
+                if NATIVE_MAC_FRAME {
+                    return;
                 }
 
                 // Minimize
@@ -1911,7 +1930,9 @@ impl eframe::App for AutoParaApp {
 
         // Unified top bar (title + < > + clock + action capsule + window controls)
         self.show_header_bar(ctx, p);
-        handle_frameless_resize(ctx);
+        if !NATIVE_MAC_FRAME {
+            handle_frameless_resize(ctx);
+        }
 
         // Full-width main content area aligned flush with the 16px outer grid.
         egui::CentralPanel::default()
@@ -2343,6 +2364,16 @@ fn main() -> eframe::Result<()> {
         .with_min_inner_size([1100.0, 660.0]);
     if let Some(icon) = load_window_icon() {
         viewport = viewport.with_icon(icon);
+    }
+    if NATIVE_MAC_FRAME {
+        // macOS draws the rounded corners, shadow and traffic lights; content runs under the
+        // transparent title bar so our own top bar stays where it is
+        viewport = viewport
+            .with_decorations(true)
+            .with_fullsize_content_view(true)
+            .with_titlebar_shown(false)
+            .with_title_shown(false)
+            .with_titlebar_buttons_shown(true);
     }
 
     let options = eframe::NativeOptions {
