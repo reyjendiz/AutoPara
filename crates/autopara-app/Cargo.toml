@@ -1,6 +1,6 @@
 [package]
 name = "autopara"
-version = "2.2.0"
+version = "2.2.1"
 edition = "2024"
 description = "AutoPara — 100% pure Rust native desktop app for auto-joining calls and classes"
 

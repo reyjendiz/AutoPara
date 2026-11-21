@@ -57,10 +57,7 @@ fn subject_galley(
 /// (mirrors the layout in `draw_lesson_card`).
 fn card_height_for(painter: &egui::Painter, lesson: &Lesson, card_w: f32, p: Palette) -> f32 {
     let title = subject_galley(painter, lesson, card_w, p.text, 12);
-    let teacher = if lesson.teacher.is_empty() { 0.0 } else { 16.0 };
-    // draw_lesson_card shows the time line only from 48px of text area (66 with a teacher)
-    let min_text = if lesson.teacher.is_empty() { 48.0 } else { 66.0 };
-    (34.0 + title.size().y + 4.0 + teacher + 14.0 + 9.0).max(34.0 + min_text + 9.0)
+    34.0 + title.size().y + 3.0 + 13.0 + 9.0
 }
 
 fn semibold_font(size: f32) -> FontId {
@@ -486,17 +483,17 @@ fn show_week_view(
                         (top_px, top_px + height_px)
                     })
                     .collect();
-                // A card that starts while an earlier one is still on screen is drawn over it
-                // (cards go in start order), opaque and tall enough to show all its details.
+                // Every card is tall enough for its whole title and the time line. A card that
+                // starts while an earlier one is still on screen is drawn over it (cards go in
+                // start order) on a solid base with a shadow.
                 let card_w = col_w - 12.0;
-                let mut covers = vec![false; spans.len()];
-                for i in 1..spans.len() {
-                    if spans[..i].iter().any(|&(_, bottom)| bottom > spans[i].0) {
-                        covers[i] = true;
-                        let need = card_height_for(ui.painter(), day_lessons[i], card_w, p);
-                        spans[i].1 = spans[i].1.max(spans[i].0 + need);
-                    }
+                for (i, lesson) in day_lessons.iter().enumerate() {
+                    let need = card_height_for(ui.painter(), lesson, card_w, p);
+                    spans[i].1 = spans[i].1.max(spans[i].0 + need);
                 }
+                let covers: Vec<bool> = (0..spans.len())
+                    .map(|i| spans[..i].iter().any(|&(_, bottom)| bottom > spans[i].0))
+                    .collect();
 
                 for (i, lesson) in day_lessons.into_iter().enumerate() {
                     let (top_px, bottom_px) = spans[i];
@@ -782,57 +779,35 @@ fn draw_lesson_card(
         draw_chip(&painter, &mut cx, cy, max_x, &badge, p.chip_bg, p.text_muted);
     }
 
-    // Subject + teacher + time: airy spacing & strict whole-line clamping with ellipsis
-    let text_w = (max_x - content_x).max(24.0);
-    let subj_y = cy + 25.0;
-    let bottom_limit = rect.bottom() - 9.0;
-    let avail_h = (bottom_limit - subj_y).max(0.0);
-    let has_teacher = !lesson.teacher.is_empty();
-
-    let (subj_rows, show_teacher, show_time) = if avail_h >= 66.0 {
-        // as many title lines as fit after ~30px for the teacher and time lines
-        let full = subject_galley(&painter, lesson, rect.width(), p.text, 12);
-        let row_h = full.size().y / full.rows.len().max(1) as f32;
-        let extra_rows = (((avail_h - 30.0) / row_h).floor() as usize).clamp(2, 12);
-        (extra_rows, has_teacher, true)
-    } else if avail_h >= 48.0 {
-        (2, has_teacher, !has_teacher)
-    } else if avail_h >= 34.0 {
-        (2, false, false)
+    // Bottom line on every card: "13:00–14:20 · teacher"
+    let meta = if lesson.teacher.is_empty() {
+        lesson.time_range()
     } else {
-        (1, false, false)
+        format!("{} · {}", lesson.time_range(), lesson.teacher)
+    };
+    let meta_galley = |w: f32| {
+        layout_clamped(
+            &painter,
+            &meta,
+            FontId::proportional(11.0),
+            p.text_faint.linear_multiply(alpha),
+            w,
+            1,
+        )
     };
 
-    let subj_galley =
-        subject_galley(&painter, lesson, rect.width(), p.text.linear_multiply(alpha), subj_rows);
-    painter.galley(pos2(content_x, subj_y), subj_galley.clone(), p.text);
-
-    let mut cursor_y = subj_y + subj_galley.size().y + 4.0;
-
-    if show_teacher && cursor_y + 14.0 <= bottom_limit {
-        let tg = layout_clamped(
-            &painter,
-            &lesson.teacher,
-            FontId::proportional(11.5),
-            p.text_muted.linear_multiply(alpha),
-            text_w,
-            1,
-        );
-        painter.galley(pos2(content_x, cursor_y), tg.clone(), p.text_muted);
-        cursor_y += tg.size().y + 3.0;
-    }
-
-    if show_time && cursor_y + 13.0 <= bottom_limit {
-        let time_y = (bottom_limit - 13.5).max(cursor_y);
-        if time_y + 12.0 <= rect.bottom() - 6.0 {
-            painter.text(
-                pos2(content_x, time_y),
-                Align2::LEFT_TOP,
-                lesson.time_range(),
-                FontId::proportional(11.0),
-                p.text_faint.linear_multiply(alpha),
-            );
-        }
+    {
+        let text_w = (max_x - content_x).max(24.0);
+        let subj_y = cy + 25.0;
+        let meta_y = rect.bottom() - 9.0 - 13.0;
+        // title gets every whole line that fits above the bottom line
+        let full = subject_galley(&painter, lesson, rect.width(), p.text, 12);
+        let row_h = full.size().y / full.rows.len().max(1) as f32;
+        let rows = (((meta_y - 3.0 - subj_y) / row_h).floor() as usize).clamp(1, 12);
+        let subj_galley =
+            subject_galley(&painter, lesson, rect.width(), p.text.linear_multiply(alpha), rows);
+        painter.galley(pos2(content_x, subj_y), subj_galley, p.text);
+        painter.galley(pos2(content_x, meta_y), meta_galley(text_w), p.text_faint);
     }
 
     // Rich hover tooltip with full details
