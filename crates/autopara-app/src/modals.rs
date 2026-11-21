@@ -120,6 +120,8 @@ pub struct SettingsModal {
     pub autostart_enabled: bool,
     pub update_mode: String,
     pub gcal_auto_open: bool,
+    /// "Delete timetable" was pressed once and waits for "yes"
+    pub confirm_delete_timetable: bool,
 }
 
 impl SettingsModal {
@@ -134,6 +136,7 @@ impl SettingsModal {
             autostart_enabled: s.autostart_enabled,
             update_mode: s.update_mode.clone(),
             gcal_auto_open: s.gcal_auto_open,
+            confirm_delete_timetable: false,
         }
     }
 }
@@ -177,6 +180,7 @@ pub enum ModalOutcome {
     SaveSettings(SettingsModal),
     CheckUpdatesNow,
     GcalSignIn,
+    DeleteTimetable,
     GcalSignOut,
     SelectGroup { course_id: i64, group_id: i64 },
     PickDocxForImport,
@@ -591,6 +595,7 @@ pub fn show_settings_modal(
     update_status: Option<&str>,
     checking_updates: bool,
     gcal: Option<&GcalStatus>,
+    has_timetable: bool,
     p: Palette,
     lang: Lang,
     t: f32,
@@ -732,6 +737,51 @@ pub fn show_settings_modal(
             )
         };
         ui.checkbox(&mut modal.autostart_enabled, autostart_label);
+
+        if has_timetable {
+            ui.add_space(6.0);
+            ui.label(
+                RichText::new(tr.pick("Розклад", "Timetable"))
+                    .size(12.5)
+                    .strong()
+                    .color(p.text_muted),
+            );
+            ui.allocate_ui_with_layout(
+                vec2(ui.available_width(), 36.0),
+                Layout::left_to_right(Align::Center),
+                |ui| {
+                    if modal.confirm_delete_timetable {
+                        ui.label(
+                            RichText::new(tr.pick("Точно видалити розклад?", "Delete the timetable?"))
+                                .size(12.5),
+                        );
+                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                            ui.spacing_mut().item_spacing.x = 8.0;
+                            if ui.add(danger_button(tr.pick("Так, видалити", "Yes, delete"), p)).clicked() {
+                                modal.confirm_delete_timetable = false;
+                                outcome = ModalOutcome::DeleteTimetable;
+                            }
+                            if ui.add(secondary_button(tr.pick("Ні", "No"), p)).clicked() {
+                                modal.confirm_delete_timetable = false;
+                            }
+                        });
+                    } else if ui
+                        .add(secondary_button(tr.pick("Видалити розклад", "Delete timetable"), p))
+                        .clicked()
+                    {
+                        modal.confirm_delete_timetable = true;
+                    }
+                },
+            );
+            ui.label(
+                RichText::new(tr.pick(
+                    "Прибирає імпортований розклад пар. Ваші созвони та зустрічі з Google Календаря залишаться.",
+                    "Removes the imported class timetable. Your own calls and Google Calendar meetings stay.",
+                ))
+                .size(11.5)
+                .color(p.text_muted),
+            );
+        }
 
         // None = this build has no Google client configured: no section at all
         if let Some(g) = gcal {

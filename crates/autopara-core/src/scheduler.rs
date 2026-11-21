@@ -441,6 +441,43 @@ mod tests {
     }
 
     #[test]
+    fn deleting_timetable_keeps_own_calls_and_calendar() {
+        let storage = Storage::open_in_memory().unwrap();
+        let (personal, mine_group) = storage.ensure_personal_workspace().unwrap();
+        let mut mine = sample_lesson("12:00", "13:00");
+        mine.course_id = personal.id;
+        storage.add_lesson(&mine, &[mine_group.id]).unwrap();
+        let day = NaiveDate::from_ymd_opt(2026, 3, 2).unwrap();
+        let mut meeting = sample_lesson("15:00", "16:00");
+        meeting.source_key = format!("{GCAL_KEY_PREFIX}m1");
+        meeting.on_date = Some(day);
+        storage.sync_calendar_lessons(&[meeting], day).unwrap();
+
+        // an imported timetable with one class, selected
+        storage
+            .conn_for_tests()
+            .execute_batch(
+                "INSERT INTO courses(ordinal, name) VALUES (2, 'II курс');
+                 INSERT INTO groups(course_id, name) VALUES ((SELECT id FROM courses WHERE ordinal=2), '22 група');",
+            )
+            .unwrap();
+        let course = storage.courses().unwrap().into_iter().find(|c| c.ordinal == 2).unwrap();
+        let group = storage.groups(course.id).unwrap()[0].clone();
+        let mut class = sample_lesson("09:00", "10:20");
+        class.course_id = course.id;
+        storage.add_lesson(&class, &[group.id]).unwrap();
+        storage.set_setting("selected_group_id", &group.id.to_string()).unwrap();
+
+        storage.delete_imported_timetables().unwrap();
+
+        assert!(storage.courses().unwrap().iter().all(|c| c.ordinal == 0));
+        assert_eq!(storage.settings().unwrap().selected_group_id, Some(mine_group.id));
+        let left = storage.lessons_for_group(mine_group.id).unwrap();
+        assert_eq!(left.len(), 2, "own call and calendar meeting stay");
+        assert!(left.iter().any(|l| l.is_from_calendar()));
+    }
+
+    #[test]
     fn calendar_sync_inserts_updates_deletes_only_its_own() {
         let storage = Storage::open_in_memory().unwrap();
         let (course, group) = storage.ensure_personal_workspace().unwrap();

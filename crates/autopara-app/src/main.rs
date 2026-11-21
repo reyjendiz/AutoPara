@@ -13,7 +13,7 @@ use autopara_core::autostart;
 use autopara_core::filters::{self, LessonFilter};
 use autopara_core::launcher;
 use autopara_core::models::{
-    Course, Group, LANG_EN, LANG_UK, Lesson, STATUS_MISSED, Settings, UPDATE_AUTO, UPDATE_OFF,
+    Course, Group, LANG_EN, LANG_UK, Lesson, PERSONAL_COURSE_ORDINAL, STATUS_MISSED, Settings, UPDATE_AUTO, UPDATE_OFF,
 };
 use autopara_core::nextup;
 use autopara_core::normalize::{detect_provider, pair_slot, week_start};
@@ -1983,6 +1983,10 @@ impl eframe::App for AutoParaApp {
                         self.update_status.as_deref(),
                         self.update_checking,
                         gcal_status.as_ref(),
+                        self.cache
+                            .courses
+                            .iter()
+                            .any(|c| c.ordinal != PERSONAL_COURSE_ORDINAL),
                         p,
                         lang,
                         modal_t,
@@ -2025,6 +2029,14 @@ impl eframe::App for AutoParaApp {
                 if let Some(g) = &self.gcal {
                     g.sign_in(ctx);
                 }
+            }
+            ModalOutcome::DeleteTimetable => {
+                if let Ok(mut g) = self.backend.lock() {
+                    let _ = g.storage.delete_imported_timetables();
+                    g.pending_catchups.clear();
+                }
+                self.view_group_id = None;
+                self.reload();
             }
             ModalOutcome::GcalSignOut => {
                 if let Some(g) = &self.gcal {

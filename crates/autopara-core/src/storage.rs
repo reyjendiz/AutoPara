@@ -870,6 +870,24 @@ impl Storage {
         Ok(changed)
     }
 
+    #[cfg(test)]
+    pub(crate) fn conn_for_tests(&self) -> &Connection {
+        &self.conn
+    }
+
+    /// Remove every imported timetable: its courses, groups and classes (cascade). The
+    /// personal workspace stays, with the calls added by hand and the Google Calendar meetings.
+    pub fn delete_imported_timetables(&self) -> Result<(), StorageError> {
+        self.conn.execute(
+            "DELETE FROM courses WHERE ordinal != ?1",
+            params![PERSONAL_COURSE_ORDINAL],
+        )?;
+        self.set_setting("schedule_active_from", "")?;
+        // the selected group is gone: this points the selection back at the personal one
+        self.ensure_personal_workspace()?;
+        Ok(())
+    }
+
     /// Remove every calendar call (on sign-out).
     pub fn delete_calendar_lessons(&self) -> Result<(), StorageError> {
         self.conn.execute(
