@@ -39,6 +39,30 @@ fn layout_clamped(
     painter.layout_job(job)
 }
 
+/// Card title, wrapped to `rows` at the card's text width. Narrow cards (two side by side)
+/// use a smaller font so whole words fit on a line.
+fn subject_galley(
+    painter: &egui::Painter,
+    lesson: &Lesson,
+    card_w: f32,
+    color: Color32,
+    rows: usize,
+) -> std::sync::Arc<egui::Galley> {
+    let size = if card_w < 140.0 { 11.3 } else { 12.8 };
+    let text_w = (card_w - 30.0).max(24.0);
+    layout_clamped(painter, &lesson.subject, semibold_font(size), color, text_w, rows)
+}
+
+/// Height a card needs to show its full title, teacher and time at width `card_w`
+/// (mirrors the layout in `draw_lesson_card`).
+fn card_height_for(painter: &egui::Painter, lesson: &Lesson, card_w: f32, p: Palette) -> f32 {
+    let title = subject_galley(painter, lesson, card_w, p.text, 12);
+    let teacher = if lesson.teacher.is_empty() { 0.0 } else { 16.0 };
+    // draw_lesson_card shows the time line only from 48px of text area (66 with a teacher)
+    let min_text = if lesson.teacher.is_empty() { 48.0 } else { 66.0 };
+    (34.0 + title.size().y + 4.0 + teacher + 14.0 + 9.0).max(34.0 + min_text + 9.0)
+}
+
 fn semibold_font(size: f32) -> FontId {
     FontId::new(size, egui::FontFamily::Name("semibold".into()))
 }
@@ -91,40 +115,6 @@ fn hhmm_minutes(s: &str) -> i64 {
     let m = parts.next().and_then(|v| v.parse::<i64>().ok()).unwrap_or(0);
     h * 60 + m
 }
-
-/// Side-by-side layout for overlapping cards, like Google Calendar: for each (top, bottom)
-/// span, sorted by top, returns (lane, lanes in its overlap group).
-fn overlap_lanes(spans: &[(f32, f32)]) -> Vec<(usize, usize)> {
-    let mut out = vec![(0, 1); spans.len()];
-    let mut group_start = 0;
-    let mut lane_ends: Vec<f32> = Vec::new(); // bottom of the last card in each lane
-    let mut group_bottom = f32::MIN;
-    for (i, &(top, bottom)) in spans.iter().enumerate() {
-        if top >= group_bottom {
-            // nothing above reaches this card: close the previous group
-            for o in &mut out[group_start..i] {
-                o.1 = lane_ends.len();
-            }
-            group_start = i;
-            lane_ends.clear();
-        }
-        let lane = match lane_ends.iter().position(|&end| end <= top) {
-            Some(l) => l,
-            None => {
-                lane_ends.push(0.0);
-                lane_ends.len() - 1
-            }
-        };
-        lane_ends[lane] = bottom;
-        out[i].0 = lane;
-        group_bottom = if i == group_start { bottom } else { group_bottom.max(bottom) };
-    }
-    for o in &mut out[group_start..] {
-        o.1 = lane_ends.len().max(1);
-    }
-    out
-}
-
 
 fn chip_colors(kind: ProviderKind, p: Palette) -> (Color32, Color32) {
     match kind {
@@ -484,7 +474,7 @@ fn show_week_view(
                     lessons.iter().filter(|l| l.occurs_on(day)).collect();
                 day_lessons.sort_by(|a, b| a.start_time.cmp(&b.start_time));
 
-                let spans: Vec<(f32, f32)> = day_lessons
+                let mut spans: Vec<(f32, f32)> = day_lessons
                     .iter()
                     .map(|lesson| {
                         let start_m = hhmm_minutes(&lesson.start_time);
@@ -496,18 +486,33 @@ fn show_week_view(
                         (top_px, top_px + height_px)
                     })
                     .collect();
-                let lanes = overlap_lanes(&spans);
+                // A card that starts while an earlier one is still on screen is drawn over it
+                // (cards go in start order), opaque and tall enough to show all its details.
+                let card_w = col_w - 12.0;
+                let mut covers = vec![false; spans.len()];
+                for i in 1..spans.len() {
+                    if spans[..i].iter().any(|&(_, bottom)| bottom > spans[i].0) {
+                        covers[i] = true;
+                        let need = card_height_for(ui.painter(), day_lessons[i], card_w, p);
+                        spans[i].1 = spans[i].1.max(spans[i].0 + need);
+                    }
+                }
 
                 for (i, lesson) in day_lessons.into_iter().enumerate() {
                     let (top_px, bottom_px) = spans[i];
-                    let (lane, lane_count) = lanes[i];
-                    let lane_w = (col_w - 12.0) / lane_count as f32;
-                    let gap = if lane_count > 1 { 3.0 } else { 0.0 };
                     let target_rect = Rect::from_min_size(
-                        pos2(x0 + 6.0 + lane as f32 * lane_w, grid_rect.top() + top_px + 3.0),
-                        vec2(lane_w - gap, bottom_px - top_px),
+                        pos2(x0 + 6.0, grid_rect.top() + top_px + 3.0),
+                        vec2(card_w, bottom_px - top_px),
                     );
                     let (card_rect, card_alpha) = morph.morph_card_rect(lesson.id, target_rect, cal_t);
+                    if covers[i] {
+                        // card fills are translucent: give the covering card a solid base
+                        ui.painter().rect_filled(
+                            card_rect,
+                            CornerRadius::same(11),
+                            p.surface.linear_multiply(card_alpha),
+                        );
+                    }
 
                     let status = occurrences
                         .get(&(lesson.id, day_iso.clone()))
@@ -768,7 +773,10 @@ fn draw_lesson_card(
     let has_teacher = !lesson.teacher.is_empty();
 
     let (subj_rows, show_teacher, show_time) = if avail_h >= 66.0 {
-        let extra_rows = if avail_h >= 104.0 { 3 } else { 2 };
+        // as many title lines as fit after ~30px for the teacher and time lines
+        let full = subject_galley(&painter, lesson, rect.width(), p.text, 12);
+        let row_h = full.size().y / full.rows.len().max(1) as f32;
+        let extra_rows = (((avail_h - 30.0) / row_h).floor() as usize).clamp(2, 12);
         (extra_rows, has_teacher, true)
     } else if avail_h >= 48.0 {
         (2, has_teacher, !has_teacher)
@@ -778,14 +786,8 @@ fn draw_lesson_card(
         (1, false, false)
     };
 
-    let subj_galley = layout_clamped(
-        &painter,
-        &lesson.subject,
-        semibold_font(12.8),
-        p.text.linear_multiply(alpha),
-        text_w,
-        subj_rows,
-    );
+    let subj_galley =
+        subject_galley(&painter, lesson, rect.width(), p.text.linear_multiply(alpha), subj_rows);
     painter.galley(pos2(content_x, subj_y), subj_galley.clone(), p.text);
 
     let mut cursor_y = subj_y + subj_galley.size().y + 4.0;
@@ -994,23 +996,4 @@ fn show_context_popup(
     }
 
     action
-}
-
-#[cfg(test)]
-mod tests {
-    use super::overlap_lanes;
-
-    #[test]
-    fn overlapping_cards_share_the_column() {
-        // class 13:00-14:20 and a meeting 14:00-14:30: two lanes
-        assert_eq!(overlap_lanes(&[(0.0, 80.0), (60.0, 106.0)]), vec![(0, 2), (1, 2)]);
-        // back to back: one lane each
-        assert_eq!(overlap_lanes(&[(0.0, 50.0), (50.0, 100.0)]), vec![(0, 1), (0, 1)]);
-        // a long card overlaps two short ones: they take lane 1 in turn; a later card is alone
-        assert_eq!(
-            overlap_lanes(&[(0.0, 300.0), (10.0, 60.0), (100.0, 150.0), (400.0, 450.0)]),
-            vec![(0, 2), (1, 2), (1, 2), (0, 1)]
-        );
-        assert!(overlap_lanes(&[]).is_empty());
-    }
 }
