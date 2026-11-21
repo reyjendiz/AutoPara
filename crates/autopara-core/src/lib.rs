@@ -1,6 +1,7 @@
 pub mod autostart;
 pub mod docx_reader;
 pub mod filters;
+pub mod gcal;
 pub mod launcher;
 pub mod models;
 pub mod nextup;

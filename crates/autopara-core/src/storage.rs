@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use thiserror::Error;
 
 use crate::models::{
-    CATCHUP_NOTIFY, Course, Group, LANG_EN, LANG_UK, Lesson, Occurrence, PERSONAL_COURSE_ORDINAL,
+    CATCHUP_NOTIFY, Course, GCAL_KEY_PREFIX, Group, LANG_EN, LANG_UK, Lesson, Occurrence, PERSONAL_COURSE_ORDINAL,
     Settings, THEME_SYSTEM, UPDATE_ASK, UPDATE_MODES, VIEW_MODES, VIEW_WEEK,
 };
 use crate::schedule_parser::ParsedCourse;
@@ -295,6 +295,7 @@ impl Storage {
                 .unwrap_or_default(),
             schedule_copy_path: self.get_setting("schedule_copy_path")?.unwrap_or_default(),
             language,
+            gcal_auto_open: self.get_setting("gcal_auto_open")?.as_deref() == Some("1"),
         })
     }
 
@@ -629,12 +630,15 @@ impl Storage {
     }
 
     pub fn lessons_for_group(&self, group_id: i64) -> Result<Vec<Lesson>, StorageError> {
+        // Google Calendar meetings belong to the person, not to a group: show them in every group.
         let mut stmt = self.conn.prepare(
-            "SELECT l.* FROM lessons l \
-             JOIN lesson_groups lg ON lg.lesson_id = l.id \
-             WHERE lg.group_id = ?1 ORDER BY l.day_index, l.pair, l.start_time",
+            "SELECT DISTINCT l.* FROM lessons l \
+             LEFT JOIN lesson_groups lg ON lg.lesson_id = l.id \
+             WHERE lg.group_id = ?1 OR l.source_key LIKE ?2 \
+             ORDER BY l.day_index, l.pair, l.start_time",
         )?;
-        let rows = stmt.query_map(params![group_id], |r| self.hydrate_row(r))?;
+        let calendar_like = format!("{GCAL_KEY_PREFIX}%");
+        let rows = stmt.query_map(params![group_id, calendar_like], |r| self.hydrate_row(r))?;
         Ok(rows.collect::<Result<Vec<_>, _>>()?)
     }
 
@@ -656,7 +660,7 @@ impl Storage {
         self.conn.execute(
             "INSERT INTO lessons(course_id, day_index, pair, start_time, end_time, subject, \
              teacher, url, provider, needs_link, is_manual, source_key, on_date, repeat_until) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 1, '', ?11, ?12)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 1, ?13, ?11, ?12)",
             params![
                 lesson.course_id,
                 day_index,
@@ -670,6 +674,7 @@ impl Storage {
                 needs_link,
                 iso_or_none(lesson.on_date),
                 iso_or_none(lesson.repeat_until),
+                lesson.source_key,
             ],
         )?;
         let lesson_id = self.conn.last_insert_rowid();
@@ -806,6 +811,72 @@ impl Storage {
             skip_dates: BTreeSet::new(),
         };
         Ok(Some(self.add_lesson(&moved, &group_ids)?))
+    }
+
+    /// Make the calendar calls dated `from` or later match `events` exactly (insert, update,
+    /// delete by `source_key`). Older ones are kept as history. Returns whether anything changed.
+    pub fn sync_calendar_lessons(
+        &self,
+        events: &[Lesson],
+        from: NaiveDate,
+    ) -> Result<bool, StorageError> {
+        let (course, group) = self.ensure_personal_workspace()?;
+        let existing: HashMap<String, Lesson> = {
+            let mut stmt = self.conn.prepare(
+                "SELECT * FROM lessons WHERE source_key LIKE ?1 AND on_date >= ?2",
+            )?;
+            let rows = stmt.query_map(
+                params![format!("{GCAL_KEY_PREFIX}%"), from.format("%Y-%m-%d").to_string()],
+                |r| self.hydrate_row(r),
+            )?;
+            rows.filter_map(Result::ok)
+                .map(|l| (l.source_key.clone(), l))
+                .collect()
+        };
+
+        let tx = self.conn.unchecked_transaction()?;
+        let mut changed = false;
+        let mut seen = BTreeSet::new();
+        for ev in events {
+            seen.insert(ev.source_key.clone());
+            let mut lesson = ev.clone();
+            lesson.course_id = course.id;
+            match existing.get(&ev.source_key) {
+                Some(old) => {
+                    lesson.id = old.id;
+                    let same = old.start_time == lesson.start_time
+                        && old.end_time == lesson.end_time
+                        && old.on_date == lesson.on_date
+                        && old.subject == lesson.subject
+                        && old.url == lesson.url;
+                    if !same {
+                        self.update_lesson(&lesson, None)?;
+                        changed = true;
+                    }
+                }
+                None => {
+                    self.add_lesson(&lesson, &[group.id])?;
+                    changed = true;
+                }
+            }
+        }
+        for (key, old) in &existing {
+            if !seen.contains(key) {
+                self.delete_lesson(old.id)?;
+                changed = true;
+            }
+        }
+        tx.commit()?;
+        Ok(changed)
+    }
+
+    /// Remove every calendar call (on sign-out).
+    pub fn delete_calendar_lessons(&self) -> Result<(), StorageError> {
+        self.conn.execute(
+            "DELETE FROM lessons WHERE source_key LIKE ?1",
+            params![format!("{GCAL_KEY_PREFIX}%")],
+        )?;
+        Ok(())
     }
 
     pub fn delete_lesson(&self, lesson_id: i64) -> Result<(), StorageError> {

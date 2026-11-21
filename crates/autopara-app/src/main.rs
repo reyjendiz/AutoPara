@@ -2,6 +2,7 @@
 
 mod anim;
 mod calendar;
+mod gcal_sync;
 mod i18n;
 mod icons;
 mod modals;
@@ -146,6 +147,7 @@ struct AutoParaApp {
     update_checking: bool,
     update_downloading: bool,
     update_status: Option<String>,
+    gcal: Option<gcal_sync::Gcal>,
 }
 
 fn spawn_update_check(tx: Sender<UpdateMsg>, ctx: egui::Context, manual: bool) {
@@ -309,6 +311,12 @@ impl AutoParaApp {
             }
         });
 
+        let gcal = gcal_sync::Gcal::start(
+            Arc::clone(&backend),
+            Arc::clone(&should_quit),
+            cc.egui_ctx.clone(),
+        );
+
         let anchor = Local::now().date_naive();
         let cache = load_cache(&backend, anchor, None);
 
@@ -337,6 +345,7 @@ impl AutoParaApp {
             update_checking: false,
             update_downloading: false,
             update_status: None,
+            gcal,
         }
     }
 
@@ -485,6 +494,9 @@ impl AutoParaApp {
                 if s.autostart_enabled { "1" } else { "0" },
             );
             let _ = guard.storage.set_setting("update_mode", &s.update_mode);
+            let _ = guard
+                .storage
+                .set_setting("gcal_auto_open", if s.gcal_auto_open { "1" } else { "0" });
             autostart::sync(s.autostart_enabled);
         }
         self.reload();
@@ -1961,6 +1973,7 @@ impl eframe::App for AutoParaApp {
             if modal_anim {
                 ctx.request_repaint();
             }
+            let gcal_status = self.gcal.as_ref().map(|g| g.snapshot());
             if let Some(modal) = self.active_modal.as_mut() {
                 outcome = match modal {
                     ActiveModal::Edit(m) => modals::show_edit_modal(ctx, m, p, lang, modal_t),
@@ -1969,6 +1982,7 @@ impl eframe::App for AutoParaApp {
                         m,
                         self.update_status.as_deref(),
                         self.update_checking,
+                        gcal_status.as_ref(),
                         p,
                         lang,
                         modal_t,
@@ -2006,6 +2020,16 @@ impl eframe::App for AutoParaApp {
             }
             ModalOutcome::CheckUpdatesNow => {
                 self.request_manual_update_check(ctx);
+            }
+            ModalOutcome::GcalSignIn => {
+                if let Some(g) = &self.gcal {
+                    g.sign_in(ctx);
+                }
+            }
+            ModalOutcome::GcalSignOut => {
+                if let Some(g) = &self.gcal {
+                    g.sign_out(&self.backend);
+                }
             }
             ModalOutcome::SelectGroup {
                 course_id,

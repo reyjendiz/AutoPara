@@ -8,6 +8,7 @@ use autopara_core::updater::CURRENT_VERSION;
 use chrono::{Datelike, Duration, Local, NaiveDate};
 use egui::{Align, Button, Color32, ComboBox, CornerRadius, Frame, Layout, RichText, Stroke, Ui, vec2};
 
+use crate::gcal_sync::GcalStatus;
 use crate::i18n::{Lang, Tr, days_full, detect_display_provider, format_short_date};
 use crate::icons;
 use crate::palette::Palette;
@@ -118,6 +119,7 @@ pub struct SettingsModal {
     pub catchup_mode: String,
     pub autostart_enabled: bool,
     pub update_mode: String,
+    pub gcal_auto_open: bool,
 }
 
 impl SettingsModal {
@@ -131,6 +133,7 @@ impl SettingsModal {
             catchup_mode: s.catchup_mode.clone(),
             autostart_enabled: s.autostart_enabled,
             update_mode: s.update_mode.clone(),
+            gcal_auto_open: s.gcal_auto_open,
         }
     }
 }
@@ -173,6 +176,8 @@ pub enum ModalOutcome {
     SaveEdit(EditResult),
     SaveSettings(SettingsModal),
     CheckUpdatesNow,
+    GcalSignIn,
+    GcalSignOut,
     SelectGroup { course_id: i64, group_id: i64 },
     PickDocxForImport,
     CommitImport { path: String, ordinal: i64, group_name: String },
@@ -579,11 +584,13 @@ pub fn show_edit_modal(
 }
 
 /// Settings modal — exact 1-to-1 non-AI AutoPara settings (ZERO "Помічник на парі" / AI options).
+#[allow(clippy::too_many_arguments)]
 pub fn show_settings_modal(
     ctx: &egui::Context,
     modal: &mut SettingsModal,
     update_status: Option<&str>,
     checking_updates: bool,
+    gcal: Option<&GcalStatus>,
     p: Palette,
     lang: Lang,
     t: f32,
@@ -725,6 +732,78 @@ pub fn show_settings_modal(
             )
         };
         ui.checkbox(&mut modal.autostart_enabled, autostart_label);
+
+        // None = this build has no Google client configured: no section at all
+        if let Some(g) = gcal {
+            ui.add_space(6.0);
+            ui.label(
+                RichText::new(tr.pick("Google Календар", "Google Calendar"))
+                    .size(12.5)
+                    .strong()
+                    .color(p.text_muted),
+            );
+            if g.connected {
+                let who = g.account.as_deref().unwrap_or("Google");
+                let synced = match (&g.last_sync, lang.is_en()) {
+                    (Some(t), true) => format!(" · updated at {t}"),
+                    (Some(t), false) => format!(" · оновлено о {t}"),
+                    (None, _) => String::new(),
+                };
+                ui.allocate_ui_with_layout(
+                    vec2(ui.available_width(), 36.0),
+                    Layout::left_to_right(Align::Center),
+                    |ui| {
+                        ui.label(RichText::new(format!("{who}{synced}")).size(12.5));
+                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                            if ui.add(secondary_button(tr.pick("Вийти", "Sign out"), p)).clicked() {
+                                outcome = ModalOutcome::GcalSignOut;
+                            }
+                        });
+                    },
+                );
+                ui.checkbox(
+                    &mut modal.gcal_auto_open,
+                    tr.pick(
+                        "Відкривати зустрічі з календаря автоматично",
+                        "Open calendar meetings automatically",
+                    ),
+                );
+                ui.label(
+                    RichText::new(tr.pick(
+                        "Зустрічі з календаря підтягуються самі раз на хвилину. Пари з розкладу відкриваються автоматично завжди.",
+                        "Calendar meetings are pulled in every minute. Timetable classes always open automatically.",
+                    ))
+                    .size(11.5)
+                    .color(p.text_muted),
+                );
+            } else if g.signing_in {
+                ui.label(
+                    RichText::new(tr.pick(
+                        "Увійдіть у Google у браузері, що відкрився…",
+                        "Sign in to Google in the browser that just opened…",
+                    ))
+                    .size(12.5),
+                );
+            } else {
+                if ui
+                    .add(secondary_button(tr.pick("Увійти через Google", "Sign in with Google"), p))
+                    .clicked()
+                {
+                    outcome = ModalOutcome::GcalSignIn;
+                }
+                ui.label(
+                    RichText::new(tr.pick(
+                        "Зустрічі з вашого Google Календаря з'являтимуться в AutoPara самі.",
+                        "Meetings from your Google Calendar will appear in AutoPara by themselves.",
+                    ))
+                    .size(11.5)
+                    .color(p.text_muted),
+                );
+            }
+            if let Some(err) = &g.error {
+                ui.label(RichText::new(err).size(11.5).color(p.danger));
+            }
+        }
 
         ui.add_space(6.0);
         ui.label(

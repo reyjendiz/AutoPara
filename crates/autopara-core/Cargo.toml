@@ -6,6 +6,8 @@ description = "Core timetable parser, SQLite storage, fire-once scheduler, and l
 
 [dependencies]
 chrono = { version = "0.4", features = ["serde"] }
+getrandom = "0.3"
+keyring = { version = "3", features = ["apple-native", "windows-native"] }
 md-5 = "0.10"
 quick-xml = "0.37"
 rusqlite = { version = "0.34", features = ["bundled"] }

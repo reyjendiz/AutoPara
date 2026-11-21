@@ -200,6 +200,12 @@ impl SchedulerEngine {
                 }
             }
 
+            // Only calendar meetings obey the switch; classes and manual calls always open.
+            if lesson.is_from_calendar() && !settings.gcal_auto_open {
+                decisions.push(Decision::new(ACTION_NONE, lesson.id, "calendar auto-open is off"));
+                continue;
+            }
+
             let decision = evaluate(&lesson, now, settings.lead_minutes, already_fired, Some(today));
             let action = decision.action.clone();
             decisions.push(decision);
@@ -346,6 +352,7 @@ impl SchedulerEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::models::GCAL_KEY_PREFIX;
     use std::collections::BTreeSet;
 
     fn sample_lesson(start: &str, end: &str) -> Lesson {
@@ -393,5 +400,69 @@ mod tests {
             .unwrap();
         assert_eq!(opened_count, 0);
         assert!(matches!(events.first(), Some(SchedulerEvent::CatchupAvailable { .. })));
+    }
+
+    /// Classes always open; calendar meetings only when the switch is on.
+    #[test]
+    fn calendar_switch_never_blocks_classes() {
+        let monday = NaiveDate::from_ymd_opt(2026, 3, 2).unwrap();
+        for auto_open in [false, true] {
+            let storage = Storage::open_in_memory().unwrap();
+            let (course, group) = storage.ensure_personal_workspace().unwrap();
+            storage
+                .set_setting("gcal_auto_open", if auto_open { "1" } else { "0" })
+                .unwrap();
+
+            let mut class = sample_lesson("09:00", "10:00");
+            class.course_id = course.id;
+            class.url = Some("https://zoom.us/j/1".into());
+            storage.add_lesson(&class, &[group.id]).unwrap();
+
+            let mut meeting = sample_lesson("09:00", "10:00");
+            meeting.source_key = format!("{GCAL_KEY_PREFIX}evt1");
+            meeting.on_date = Some(monday);
+            storage.sync_calendar_lessons(&[meeting], monday).unwrap();
+
+            let mut engine = SchedulerEngine::new();
+            let mut opened: Vec<String> = Vec::new();
+            for (h, m) in [(8, 0), (8, 59)] {
+                let now = monday.and_hms_opt(h, m, 30).unwrap();
+                engine
+                    .tick_with_opener(&storage, now, |url| {
+                        opened.push(url.to_string());
+                        true
+                    })
+                    .unwrap();
+            }
+            assert!(opened.contains(&"https://zoom.us/j/1".to_string()), "class must open");
+            let meet_opened = opened.iter().any(|u| u.contains("meet.google.com"));
+            assert_eq!(meet_opened, auto_open, "auto_open={auto_open}");
+        }
+    }
+
+    #[test]
+    fn calendar_sync_inserts_updates_deletes_only_its_own() {
+        let storage = Storage::open_in_memory().unwrap();
+        let (course, group) = storage.ensure_personal_workspace().unwrap();
+        let day = NaiveDate::from_ymd_opt(2026, 3, 2).unwrap();
+        let mut mine = sample_lesson("12:00", "13:00");
+        mine.course_id = course.id;
+        storage.add_lesson(&mine, &[group.id]).unwrap();
+
+        let ev = |id: &str, start: &str| {
+            let mut l = sample_lesson(start, "18:00");
+            l.source_key = format!("{GCAL_KEY_PREFIX}{id}");
+            l.on_date = Some(day);
+            l
+        };
+        assert!(storage.sync_calendar_lessons(&[ev("a", "15:00"), ev("b", "16:00")], day).unwrap());
+        assert!(!storage.sync_calendar_lessons(&[ev("a", "15:00"), ev("b", "16:00")], day).unwrap());
+        assert!(storage.sync_calendar_lessons(&[ev("a", "15:30")], day).unwrap());
+
+        let all = storage.lessons_for_group(group.id).unwrap();
+        let cal: Vec<_> = all.iter().filter(|l| l.is_from_calendar()).collect();
+        assert_eq!(cal.len(), 1);
+        assert_eq!(cal[0].start_time, "15:30");
+        assert_eq!(all.iter().filter(|l| !l.is_from_calendar()).count(), 1, "own call kept");
     }
 }

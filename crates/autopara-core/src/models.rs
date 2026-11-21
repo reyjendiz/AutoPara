@@ -37,6 +37,9 @@ pub const LANG_EN: &str = "en";
 /// Reserved ordinal for the built-in personal calls workspace (no `.docx` needed).
 pub const PERSONAL_COURSE_ORDINAL: i64 = 0;
 
+/// `source_key` prefix of calls synced from Google Calendar.
+pub const GCAL_KEY_PREFIX: &str = "gcal:";
+
 pub fn parse_hhmm(value: &str) -> Option<NaiveTime> {
     let mut parts = value.split(':');
     let hour: u32 = parts.next()?.parse().ok()?;
@@ -170,6 +173,9 @@ pub struct Settings {
     pub schedule_active_from: String,
     pub schedule_copy_path: String,
     pub language: String,
+    /// Open Google Calendar meetings automatically. Timetable classes and manual calls
+    /// always open regardless of this.
+    pub gcal_auto_open: bool,
 }
 
 impl Default for Settings {
@@ -192,6 +198,13 @@ impl Default for Settings {
             schedule_active_from: String::new(),
             schedule_copy_path: String::new(),
             language: LANG_UK.to_string(),
+            gcal_auto_open: false,
         }
+    }
+}
+
+impl Lesson {
+    pub fn is_from_calendar(&self) -> bool {
+        self.source_key.starts_with(GCAL_KEY_PREFIX)
     }
 }
