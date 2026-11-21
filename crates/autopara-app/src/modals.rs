@@ -239,6 +239,17 @@ pub fn danger_button(text: &str, p: Palette) -> Button<'_> {
         .min_size(vec2(0.0, 36.0))
 }
 
+fn modal_dismissed_id() -> egui::Id {
+    egui::Id::new("modal_dismissed_by_backdrop")
+}
+
+/// True once per click on the dimmed area around a dialog. Read by the app after the
+/// dialog is drawn and treated as "Cancel".
+pub fn take_backdrop_click(ctx: &egui::Context) -> bool {
+    ctx.data_mut(|d| d.remove_temp::<bool>(modal_dismissed_id()))
+        .unwrap_or(false)
+}
+
 fn draw_backdrop(ctx: &egui::Context, t: f32) {
     let screen = ctx.screen_rect();
     let alpha = (165.0_f32 * t).round() as u8;
@@ -247,9 +258,14 @@ fn draw_backdrop(ctx: &egui::Context, t: f32) {
         .order(egui::Order::Middle)
         .interactable(true)
         .show(ctx, |ui| {
-            let (rect, _) = ui.allocate_exact_size(screen.size(), egui::Sense::click());
+            let (rect, resp) = ui.allocate_exact_size(screen.size(), egui::Sense::click());
             ui.painter()
                 .rect_filled(rect, 0.0, Color32::from_black_alpha(alpha));
+            // the dialog and its dropdowns sit on higher layers, so only a click on the
+            // dimmed area itself lands here
+            if resp.clicked() {
+                ctx.data_mut(|d| d.insert_temp(modal_dismissed_id(), true));
+            }
         });
 }
 

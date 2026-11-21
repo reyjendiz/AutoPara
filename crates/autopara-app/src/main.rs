@@ -771,17 +771,23 @@ impl AutoParaApp {
 
                 // Left edge of the window controls (or of the bar's padding on macOS, where the
                 // system draws its own buttons on the left)
+                // Windows: [Action Capsule] [Week Title] [< >] [Clock] ... [– □ ×]
+                // macOS:   (traffic lights) [< >] [Week Title] [Clock] ... [Action Capsule]
+                const CAPSULE_W: f32 = 174.0;
                 let controls_left = if NATIVE_MAC_FRAME {
-                    bar_rect.right() - edge_pad
+                    bar_rect.right() - edge_pad - CAPSULE_W - 12.0
                 } else {
                     mn_rect.left()
                 };
 
-                // Left-to-right header order: [Action Capsule]  [Week Title + < >]  [Clock]  ...  [– □ ×]
                 let mut x = bar_rect.left()
                     + if NATIVE_MAC_FRAME { MAC_TRAFFIC_LIGHTS_W } else { edge_pad };
-                x = self.draw_top_action_menu_from_left(ui, x, cy, p);
-                x += 20.0;
+                if NATIVE_MAC_FRAME {
+                    self.draw_top_action_menu_from_left(ui, controls_left + 12.0, cy, p);
+                } else {
+                    x = self.draw_top_action_menu_from_left(ui, x, cy, p);
+                    x += 20.0;
+                }
 
                 if has_schedule {
                     let mon = week_start(self.anchor);
@@ -791,22 +797,29 @@ impl AutoParaApp {
                     let main_g = ui
                         .painter()
                         .layout_no_wrap(title_main, bold_font(24.0), p.text);
-                    ui.painter().galley(
-                        pos2(x, cy - main_g.size().y * 0.52),
-                        main_g.clone(),
-                        p.text,
-                    );
-                    x += main_g.size().x + 8.0;
-
                     let year_g = ui
                         .painter()
                         .layout_no_wrap(title_year, FontId::proportional(24.0), p.text_faint);
+                    let title_w = main_g.size().x + 8.0 + year_g.size().x;
+                    // the two arrows plus their gaps: 36 + 8 + 36 + 16
+                    const ARROWS_W: f32 = 96.0;
+                    let (title_x, arrows_x, after) = if NATIVE_MAC_FRAME {
+                        (x + ARROWS_W, x, x + ARROWS_W + title_w + 16.0)
+                    } else {
+                        (x, x + title_w + 16.0, x + title_w + 16.0 + ARROWS_W)
+                    };
+
                     ui.painter().galley(
-                        pos2(x, cy - year_g.size().y * 0.52),
+                        pos2(title_x, cy - main_g.size().y * 0.52),
+                        main_g.clone(),
+                        p.text,
+                    );
+                    ui.painter().galley(
+                        pos2(title_x + main_g.size().x + 8.0, cy - year_g.size().y * 0.52),
                         year_g.clone(),
                         p.text_faint,
                     );
-                    x += year_g.size().x + 16.0;
+                    x = arrows_x;
 
                     // Prev '<' week circle (36x36)
                     let prev_rect =
@@ -860,7 +873,7 @@ impl AutoParaApp {
                     if next_resp.clicked() {
                         self.step_week(1);
                     }
-                    x += 36.0 + 16.0;
+                    x = after;
                 }
 
                 // Live HH:MM:SS monospace clock to the right of the date & arrows (zero jitter)
@@ -2030,6 +2043,10 @@ impl eframe::App for AutoParaApp {
                     }
                 };
             }
+        }
+
+        if modals::take_backdrop_click(ctx) && matches!(outcome, ModalOutcome::None) {
+            outcome = ModalOutcome::Close;
         }
 
         match outcome {
