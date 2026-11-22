@@ -777,6 +777,20 @@ impl AutoParaApp {
             .frame(Frame::NONE.fill(p.canvas))
             .show(ctx, |ui| {
                 let bar_rect = ui.max_rect();
+                // The whole bar drags the window (double click maximises). Registered first, so
+                // the buttons drawn later sit on top of it and keep their own clicks.
+                let drag_resp = ui.interact(
+                    bar_rect,
+                    ui.id().with("titlebar_drag"),
+                    Sense::click_and_drag(),
+                );
+                if drag_resp.drag_started_by(egui::PointerButton::Primary) {
+                    ctx.send_viewport_cmd(egui::ViewportCommand::StartDrag);
+                }
+                if drag_resp.double_clicked() {
+                    let is_max = ctx.input(|i| i.viewport().maximized.unwrap_or(false));
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(!is_max));
+                }
                 let edge_pad = 16.0_f32;
                 let cy = bar_rect.top() + 34.0; // Exact 16px top & 16px right for 36px window buttons
 
@@ -915,7 +929,6 @@ impl AutoParaApp {
                 if NATIVE_MAC_FRAME && !has_schedule {
                     x = controls_left - 16.0 - MAC_CLOCK_W;
                 }
-                let clock_x = x;
 
                 // Live HH:MM:SS monospace clock to the right of the date & arrows (zero jitter)
                 let clock = Local::now().format("%H:%M:%S").to_string();
@@ -957,35 +970,7 @@ impl AutoParaApp {
                             ng,
                             p.text,
                         );
-                        x = pill_rect.right();
                     }
-                }
-
-                // Clean frameless drag strip between the action capsule and window controls (plus top edge)
-                let drag_rect = if NATIVE_MAC_FRAME {
-                    // macOS: the free space between the traffic lights and the clock
-                    let left = bar_rect.left() + MAC_TRAFFIC_LIGHTS_W;
-                    egui::Rect::from_min_max(
-                        pos2(left, bar_rect.top()),
-                        pos2((clock_x - 10.0).max(left), bar_rect.bottom()),
-                    )
-                } else {
-                    egui::Rect::from_min_max(
-                        pos2((x + 10.0).min(controls_left), bar_rect.top()),
-                        pos2((controls_left - 10.0).max(x + 10.0), bar_rect.bottom()),
-                    )
-                };
-                let drag_resp = ui.interact(
-                    drag_rect,
-                    ui.id().with("titlebar_drag"),
-                    Sense::click_and_drag(),
-                );
-                if drag_resp.drag_started_by(egui::PointerButton::Primary) {
-                    ctx.send_viewport_cmd(egui::ViewportCommand::StartDrag);
-                }
-                if drag_resp.double_clicked() {
-                    let is_max = ctx.input(|i| i.viewport().maximized.unwrap_or(false));
-                    ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(!is_max));
                 }
 
                 if NATIVE_MAC_FRAME {

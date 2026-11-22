@@ -284,6 +284,8 @@ fn show_modal_frame(
     let y_shift = (1.0 - t) * 14.0;
     // fit the window: 16px gap above/below + 24px inner margin on each side
     let max_h = (ctx.screen_rect().height() - 2.0 * (16.0 + 24.0)).max(120.0);
+    // in a narrow window (the list view) leave ~48px of window on each side
+    let width = width.min(ctx.screen_rect().width() - 2.0 * (48.0 + 24.0)).max(300.0);
     egui::Area::new(egui::Id::new(id))
         .anchor(egui::Align2::CENTER_CENTER, vec2(0.0, y_shift))
         .order(egui::Order::Foreground)
