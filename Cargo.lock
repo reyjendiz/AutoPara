@@ -311,13 +311,14 @@ checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
 name = "autopara"
-version = "2.3.1"
+version = "2.3.2"
 dependencies = [
  "autopara-core",
  "chrono",
  "eframe",
  "egui",
  "image",
+ "raw-window-handle",
  "rfd",
  "tray-icon",
  "windows-sys 0.59.0",
@@ -327,7 +328,7 @@ dependencies = [
 
 [[package]]
 name = "autopara-core"
-version = "2.3.1"
+version = "2.3.2"
 dependencies = [
  "chrono",
  "getrandom 0.3.4",

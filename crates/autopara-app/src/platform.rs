@@ -90,53 +90,21 @@ pub fn acquire_single_instance() -> Option<()> {
     Some(())
 }
 
+/// Remembers our window's HWND for show/hide from the tray. Taken from eframe itself: on a
+/// `--hidden` autostart the window is never visible, so searching visible windows misses it.
 #[cfg(windows)]
-pub fn capture_hwnd_if_needed() {
+pub fn capture_hwnd_if_needed(frame: &eframe::Frame) {
     if MAIN_HWND.load(Ordering::Relaxed) != 0 {
         return;
     }
-    use windows_sys::Win32::Foundation::{BOOL, HWND, LPARAM};
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
     use windows_sys::Win32::Graphics::Dwm::{
         DWMWA_BORDER_COLOR, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND, DwmSetWindowAttribute,
     };
-    use windows_sys::Win32::System::Threading::GetCurrentProcessId;
-    use windows_sys::Win32::UI::WindowsAndMessaging::{
-        EnumWindows, GW_OWNER, GetWindow, GetWindowTextLengthW, GetWindowThreadProcessId,
-        IsWindowVisible,
-    };
 
-    struct FindCtx {
-        pid: u32,
-        found: HWND,
-    }
-
-    unsafe extern "system" fn enum_cb(hwnd: HWND, lparam: LPARAM) -> BOOL {
-        // SAFETY: `lparam` points to the live `FindCtx` on the stack during `EnumWindows`.
-        let ctx = unsafe { &mut *(lparam as *mut FindCtx) };
-        let mut wpid: u32 = 0;
-        // SAFETY: Win32 window queries on enumerated top-level HWND.
-        unsafe {
-            GetWindowThreadProcessId(hwnd, &mut wpid);
-            if wpid == ctx.pid
-                && IsWindowVisible(hwnd) != 0
-                && GetWindow(hwnd, GW_OWNER).is_null()
-                && GetWindowTextLengthW(hwnd) > 0
-            {
-                ctx.found = hwnd;
-                return 0;
-            }
-        }
-        1
-    }
-
-    // SAFETY: `GetCurrentProcessId` and `EnumWindows` with our stack-local context are sound.
-    let hwnd = unsafe {
-        let mut ctx = FindCtx {
-            pid: GetCurrentProcessId(),
-            found: std::ptr::null_mut(),
-        };
-        EnumWindows(Some(enum_cb), (&mut ctx as *mut FindCtx) as LPARAM);
-        ctx.found
+    let hwnd = match frame.window_handle().map(|h| h.as_raw()) {
+        Ok(RawWindowHandle::Win32(w)) => w.hwnd.get() as windows_sys::Win32::Foundation::HWND,
+        _ => std::ptr::null_mut(),
     };
 
     if !hwnd.is_null() {
@@ -163,7 +131,7 @@ pub fn capture_hwnd_if_needed() {
 }
 
 #[cfg(not(windows))]
-pub fn capture_hwnd_if_needed() {}
+pub fn capture_hwnd_if_needed(_frame: &eframe::Frame) {}
 
 #[cfg(windows)]
 pub fn show_main_window(ctx: &egui::Context) {
@@ -195,7 +163,6 @@ pub fn show_main_window(ctx: &egui::Context) {
 
 #[cfg(windows)]
 pub fn hide_main_window(ctx: &egui::Context) {
-    capture_hwnd_if_needed();
     let raw = MAIN_HWND.load(Ordering::Relaxed);
     if raw != 0 {
         use windows_sys::Win32::UI::WindowsAndMessaging::{SW_HIDE, ShowWindow};
@@ -204,9 +171,9 @@ pub fn hide_main_window(ctx: &egui::Context) {
         unsafe {
             ShowWindow(hwnd, SW_HIDE);
         }
-    } else {
-        ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
     }
+    // eframe must know too, or on a --hidden start it shows the window after the first frame
+    ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
 }
 
 #[cfg(not(windows))]

@@ -1933,9 +1933,9 @@ impl AutoParaApp {
 }
 
 impl eframe::App for AutoParaApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         self.morph.tick_frame();
-        platform::capture_hwnd_if_needed();
+        platform::capture_hwnd_if_needed(frame);
 
         if self.start_hidden && !self.applied_initial_hide {
             self.applied_initial_hide = true;
