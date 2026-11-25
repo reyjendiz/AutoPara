@@ -41,6 +41,8 @@ pub const PERSONAL_COURSE_ORDINAL: i64 = 0;
 
 /// `source_key` prefix of calls synced from Google Calendar.
 pub const GCAL_KEY_PREFIX: &str = "gcal:";
+/// `source_key` prefix of exams and credits imported from a session timetable.
+pub const SESSION_KEY_PREFIX: &str = "session|";
 
 pub fn parse_hhmm(value: &str) -> Option<NaiveTime> {
     let mut parts = value.split(':');

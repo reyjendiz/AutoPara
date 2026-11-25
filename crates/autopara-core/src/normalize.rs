@@ -506,6 +506,25 @@ pub fn course_label(ordinal: i64) -> String {
     }
 }
 
+/// Course number from a heading: "Розклад заліків ІІ курс" -> 2. Cyrillic "І" counts as Roman.
+pub fn course_ordinal(text: &str) -> Option<i64> {
+    let text = normalize_text(text);
+    let words: Vec<&str> = text.split_whitespace().collect();
+    let at = words.iter().position(|word| is_course_heading(word))?;
+    let number = words[at.checked_sub(1)?].replace('І', "I").to_uppercase();
+    match ROMAN.iter().position(|r| *r == number) {
+        Some(i) => Some(i as i64 + 1),
+        None => number.parse().ok(),
+    }
+}
+
+/// "27.11.2026" or "27.11.26", optionally followed by other words.
+pub fn parse_date(text: &str) -> Option<NaiveDate> {
+    let text = normalize_text(text);
+    let date = NaiveDate::parse_from_str(text.split_whitespace().next()?, "%d.%m.%Y").ok()?;
+    if date.year() < 100 { date.with_year(date.year() + 2000) } else { Some(date) }
+}
+
 /// Deterministic subject color matching Python's `hashlib.md5(subject.strip().casefold()).hexdigest()[:8]`.
 pub fn subject_color(subject: &str) -> &'static str {
     let key = casefold(subject.trim());
@@ -517,6 +536,18 @@ pub fn subject_color(subject: &str) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn course_headings_and_dates() {
+        assert_eq!(course_ordinal("Розклад заліків ІІ курс (бак.), І семестр"), Some(2));
+        assert_eq!(course_ordinal("Розклад іспитів ІV курс"), Some(4));
+        assert_eq!(course_ordinal("3 курс"), Some(3));
+        assert_eq!(course_ordinal("денна форма навчання"), None);
+        let day = NaiveDate::from_ymd_opt(2026, 11, 27);
+        assert_eq!(parse_date("27.11.2026"), day);
+        assert_eq!(parse_date(" 27.11.26 п'ятниця"), day);
+        assert_eq!(parse_date("Понеділок"), None);
+    }
 
     #[test]
     fn day_names_multilingual_and_backtick() {

@@ -1084,7 +1084,7 @@ impl AutoParaApp {
             self.open_new_call(self.anchor, None);
         }
 
-        // 1. Import .docx
+        // 1. Import .doc / .docx
         let imp_rect = egui::Rect::from_center_size(pos2(cx0 + step, cy), vec2(34.0, 34.0));
         let imp_resp = ui.interact(imp_rect, ui.id().with("top_import"), Sense::click());
         let imp_hov = self.morph.smooth_hover(&ctx, 2002, imp_resp.hovered());
@@ -1098,7 +1098,7 @@ impl AutoParaApp {
         }
         icons::draw_import(ui.painter(), imp_rect.center(), 7.2, p.rail_icon);
         if imp_resp
-            .on_hover_text(tr.pick("Імпортувати розклад .docx…", "Import .docx timetable…"))
+            .on_hover_text(tr.pick("Імпортувати розклад .doc / .docx…", "Import .doc / .docx timetable…"))
             .clicked()
         {
             self.open_import_with_path(None);
@@ -1221,8 +1221,8 @@ impl AutoParaApp {
                     ui.allocate_ui(vec2(460.0, 44.0), |ui| {
                         ui.label(
                             RichText::new(tr.pick(
-                                "Додавайте посилання на созвони з нуля (Zoom, Meet, Teams, Discord) або імпортуйте університетський розклад .docx — AutoPara відкриє кожну зустріч вчасно.",
-                                "Add meeting links from scratch (Zoom, Meet, Teams, Discord) or import a university .docx timetable — AutoPara opens each call on time.",
+                                "Додавайте посилання на созвони з нуля (Zoom, Meet, Teams, Discord) або імпортуйте університетський розклад .doc / .docx — AutoPara відкриє кожну зустріч вчасно.",
+                                "Add meeting links from scratch (Zoom, Meet, Teams, Discord) or import a university .doc / .docx timetable — AutoPara opens each call on time.",
                             ))
                             .size(13.5)
                             .color(p.text_muted),
@@ -1277,7 +1277,7 @@ impl AutoParaApp {
                     ui.painter().galley(c - div_text.size() / 2.0, div_text, p.text_faint);
                     ui.add_space(12.0);
 
-                    // .docx Drop Well
+                    // .doc / .docx Drop Well
                     let (well_rect, well_resp) =
                         ui.allocate_exact_size(vec2(460.0, 122.0), Sense::click());
                     let well_bg = if well_resp.hovered() { p.drop_hover_bg } else { p.drop_bg };
@@ -1302,8 +1302,8 @@ impl AutoParaApp {
                         pos2(well_rect.center().x, well_rect.bottom() - 32.0),
                         Align2::CENTER_CENTER,
                         tr.pick(
-                            "Перетягніть сюди файл .docx або натисніть, щоб обрати",
-                            "Drop a .docx file here or click to browse",
+                            "Перетягніть сюди файл .doc / .docx або натисніть, щоб обрати",
+                            "Drop a .doc / .docx file here or click to browse",
                         ),
                         FontId::proportional(13.0),
                         p.text_muted,
@@ -1312,14 +1312,14 @@ impl AutoParaApp {
                     ui.add_space(12.0);
                     let choose_clicked = ui
                         .add(secondary_button(
-                            tr.pick("Обрати файл .docx…", "Choose .docx file…"),
+                            tr.pick("Обрати файл .doc / .docx…", "Choose .doc / .docx file…"),
                             p,
                         ))
                         .clicked();
 
                     if (well_resp.clicked() || choose_clicked)
                         && let Some(path) = rfd::FileDialog::new()
-                            .add_filter("Word Timetable", &["docx"])
+                            .add_filter("Word Timetable", &["doc", "docx"])
                             .pick_file()
                     {
                         self.open_import_with_path(Some(path.display().to_string()));
@@ -1948,7 +1948,7 @@ impl eframe::App for AutoParaApp {
             self.reload();
         }
 
-        // Handle .docx drag-and-drop anywhere onto the window
+        // Handle .doc / .docx drag-and-drop anywhere onto the window
         let dropped_docx = ctx.input(|i| {
             i.raw
                 .dropped_files
@@ -1957,7 +1957,7 @@ impl eframe::App for AutoParaApp {
                 .find(|p| {
                     p.extension()
                         .and_then(|e| e.to_str())
-                        .is_some_and(|e| e.eq_ignore_ascii_case("docx"))
+                        .is_some_and(|e| e.eq_ignore_ascii_case("doc") || e.eq_ignore_ascii_case("docx"))
                 })
                 .map(|p| p.display().to_string())
         });
@@ -2144,7 +2144,7 @@ impl eframe::App for AutoParaApp {
             }
             ModalOutcome::PickDocxForImport => {
                 if let Some(file) = rfd::FileDialog::new()
-                    .add_filter("Word Timetable", &["docx"])
+                    .add_filter("Word Timetable", &["doc", "docx"])
                     .pick_file()
                     && let Some(ActiveModal::Import(mut imp)) = self.active_modal.take()
                 {

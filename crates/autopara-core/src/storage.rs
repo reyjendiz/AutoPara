@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use crate::models::{
     CATCHUP_NOTIFY, Course, GCAL_KEY_PREFIX, Group, LANG_EN, LANG_UK, Lesson, Occurrence, PERSONAL_COURSE_ORDINAL,
-    Settings, THEME_SYSTEM, UPDATE_ASK, UPDATE_MODES, VIEW_MODES, VIEW_WEEK,
+    SESSION_KEY_PREFIX, Settings, THEME_SYSTEM, UPDATE_ASK, UPDATE_MODES, VIEW_MODES, VIEW_WEEK,
 };
 use crate::schedule_parser::ParsedCourse;
 
@@ -452,7 +452,7 @@ impl Storage {
                     "INSERT INTO groups(course_id, name, specialty, col_lo, col_hi) \
                      VALUES (?1, ?2, ?3, ?4, ?5) \
                      ON CONFLICT(course_id, name) DO UPDATE SET \
-                     specialty = excluded.specialty, col_lo = excluded.col_lo, col_hi = excluded.col_hi",
+                     specialty = COALESCE(NULLIF(excluded.specialty, ''), specialty), col_lo = excluded.col_lo, col_hi = excluded.col_hi",
                     params![course_id, group.name, group.specialty, group.col_lo, group.col_hi],
                 )?;
                 let gid: i64 = tx.query_row(
@@ -476,8 +476,12 @@ impl Storage {
                 stmt.query_map(params![course_id], |r| Ok((r.get(0)?, r.get(1)?)))?
                     .collect::<Result<Vec<_>, _>>()?
             };
+            // a session file replaces the previous session, a weekly file the previous weeks
+            let has_session = course.lessons.iter().any(|l| l.on_date.is_some());
+            let has_weekly = !has_session || course.lessons.iter().any(|l| l.on_date.is_none());
             for (id, key) in existing {
-                if !incoming_keys.contains(&key) {
+                let replaced = if key.starts_with(SESSION_KEY_PREFIX) { has_session } else { has_weekly };
+                if replaced && !incoming_keys.contains(&key) {
                     tx.execute("DELETE FROM lessons WHERE id = ?1", params![id])?;
                 }
             }
@@ -496,7 +500,7 @@ impl Storage {
                     tx.execute(
                         "UPDATE lessons SET course_id=?1, day_index=?2, pair=?3, start_time=?4, \
                          end_time=?5, subject=?6, teacher=?7, url=?8, provider=?9, needs_link=?10, \
-                         source_key=?11 WHERE id=?12",
+                         source_key=?11, on_date=?12 WHERE id=?13",
                         params![
                             course_id,
                             lesson.day_index,
@@ -509,6 +513,7 @@ impl Storage {
                             lesson.provider,
                             needs_link,
                             key,
+                            iso_or_none(lesson.on_date),
                             id
                         ],
                     )?;
@@ -516,8 +521,8 @@ impl Storage {
                 } else {
                     tx.execute(
                         "INSERT INTO lessons(course_id, day_index, pair, start_time, end_time, \
-                         subject, teacher, url, provider, needs_link, source_key) \
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                         subject, teacher, url, provider, needs_link, source_key, on_date) \
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
                         params![
                             course_id,
                             lesson.day_index,
@@ -529,7 +534,8 @@ impl Storage {
                             lesson.url,
                             lesson.provider,
                             needs_link,
-                            key
+                            key,
+                            iso_or_none(lesson.on_date)
                         ],
                     )?;
                     tx.last_insert_rowid()
@@ -1098,5 +1104,38 @@ mod tests {
         let id = storage.add_lesson(&lesson, &[group.id]).unwrap();
         assert!(storage.claim_occurrence(id, today, "opened").unwrap());
         assert!(!storage.claim_occurrence(id, today, "opened").unwrap());
+    }
+
+    #[test]
+    fn session_and_weekly_imports_do_not_wipe_each_other() {
+        let file = concat!(env!("CARGO_MANIFEST_DIR"), "/testdata/sample.doc");
+        let parsed = crate::schedule_parser::parse_file(file, None).unwrap();
+        // put both tables of the sample into the same course
+        let weekly = [ParsedCourse { ordinal: 2, ..parsed[0].clone() }];
+        let session = [parsed[1].clone()];
+        let mut storage = Storage::open_in_memory().unwrap();
+        let counts = |storage: &Storage| {
+            let count = |sql: &str| storage.conn.query_row(sql, [], |r| r.get::<_, i64>(0)).unwrap();
+            (
+                count("SELECT COUNT(*) FROM lessons WHERE on_date IS NULL"),
+                count("SELECT COUNT(*) FROM lessons WHERE on_date IS NOT NULL"),
+            )
+        };
+        storage.import_courses(&weekly, "").unwrap();
+        storage.import_courses(&session, "").unwrap();
+        storage.import_courses(&session, "").unwrap();
+        assert_eq!(counts(&storage), (2, 4));
+        storage.import_courses(&weekly, "").unwrap();
+        assert_eq!(counts(&storage), (2, 4));
+
+        let mut shorter = session.clone();
+        shorter[0].lessons.truncate(1);
+        storage.import_courses(&shorter, "").unwrap();
+        assert_eq!(counts(&storage), (2, 1));
+        let date: String = storage
+            .conn
+            .query_row("SELECT on_date FROM lessons WHERE on_date IS NOT NULL", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(date, "2026-12-05");
     }
 }

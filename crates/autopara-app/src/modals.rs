@@ -71,7 +71,7 @@ impl EditModal {
         let until = lesson
             .repeat_until
             .unwrap_or_else(|| on_date + Duration::days(28));
-        let repeat = if !lesson.is_manual || lesson.on_date.is_none() {
+        let repeat = if lesson.on_date.is_none() {
             RepeatKind::Weekly
         } else if lesson.repeat_until.is_some() {
             RepeatKind::Until
@@ -1104,7 +1104,7 @@ pub fn show_import_modal(
     show_modal_frame(ctx, "import_modal", 460.0, p, t, |ui| {
         ui.spacing_mut().item_spacing = vec2(8.0, 12.0);
         ui.label(
-            RichText::new(tr.pick("Імпорт розкладу (.docx)", "Import timetable (.docx)"))
+            RichText::new(tr.pick("Імпорт розкладу (.doc, .docx)", "Import timetable (.doc, .docx)"))
                 .size(20.0)
                 .strong(),
         );
@@ -1137,8 +1137,8 @@ pub fn show_import_modal(
             .and_then(|n| n.to_str())
             .unwrap_or_else(|| {
                 tr.pick(
-                    "Перетягніть сюди .docx або натисніть, щоб обрати",
-                    "Drop a .docx file here or click to browse",
+                    "Перетягніть сюди .doc / .docx або натисніть, щоб обрати",
+                    "Drop a .doc / .docx file here or click to browse",
                 )
             });
         ui.painter().text(

@@ -22,7 +22,7 @@ On the [Releases](https://github.com/reyjendiz/AutoPara/releases/latest) page:
 - `AutoPara-<version>.dmg`: macOS, Apple Silicon.
 
 ## Features
-- **Start from scratch or import `.docx`**: create personal meeting schedules from zero or import university `.docx` timetables. "Delete timetable" in Settings removes the imported timetable and keeps your own calls and calendar meetings.
+- **Start from scratch or import `.doc` / `.docx`**: create personal meeting schedules from zero or import university timetables, weekly ones and exam sessions (by date). A session is added next to the weekly timetable. "Delete timetable" in Settings removes the imported timetable and keeps your own calls and calendar meetings.
 - **Google Calendar**: "Sign in with Google" in Settings, once. Meetings from your primary calendar (Meet, or a Zoom/Teams link in the event) show up next to your classes and are refreshed every minute; moved or cancelled events follow. Read-only access; the sign-in key stays in Windows Credential Manager / macOS Keychain. See [PRIVACY.md](PRIVACY.md).
 - **Classes open by themselves, meetings only if you want**: calendar meetings have their own "open automatically" switch (off by default), so you can join them from another device. Timetable classes always open on time.
 - **Fire-once scheduler & reminders**: opens links automatically N minutes ahead, native OS notifications, catch-up banner for missed starts, system tray background mode.

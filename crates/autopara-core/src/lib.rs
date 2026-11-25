@@ -1,4 +1,5 @@
 pub mod autostart;
+mod doc_reader;
 pub mod docx_reader;
 pub mod filters;
 pub mod gcal;

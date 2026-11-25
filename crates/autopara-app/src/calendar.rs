@@ -781,7 +781,7 @@ fn show_week_view(
                                         ui,
                                         &[
                                             tr.pick("Додати созвон", "Add call"),
-                                            tr.pick("Імпорт .docx", "Import .docx"),
+                                            tr.pick("Імпорт .doc / .docx", "Import .doc / .docx"),
                                         ],
                                         8.0,
                                     ));
@@ -800,7 +800,7 @@ fn show_week_view(
                                     ui.add_space(8.0);
                                     if ui
                                         .add(secondary_button(
-                                            tr.pick("Імпорт .docx", "Import .docx"),
+                                            tr.pick("Імпорт .doc / .docx", "Import .doc / .docx"),
                                             p,
                                         ))
                                         .clicked()

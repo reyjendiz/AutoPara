@@ -3,22 +3,25 @@ use quick_xml::events::{BytesStart, Event};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::Read;
+use std::io::{Read, Seek};
 use std::path::Path;
 use thiserror::Error;
 use zip::ZipArchive;
 
 const DOCUMENT_PART: &str = "word/document.xml";
+const OLE_MAGIC: [u8; 8] = [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1];
 const RELS_PART: &str = "word/_rels/document.xml.rels";
 
 #[derive(Debug, Error)]
 pub enum DocxError {
-    #[error("failed to open docx: {0}")]
+    #[error("failed to open file: {0}")]
     Io(#[from] std::io::Error),
     #[error("invalid zip archive: {0}")]
     Zip(#[from] zip::result::ZipError),
     #[error("invalid xml: {0}")]
     Xml(#[from] quick_xml::Error),
+    #[error("cannot read .doc: {0}")]
+    Doc(&'static str),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -126,14 +129,14 @@ fn read_relationships(archive: &mut ZipArchive<File>) -> Result<HashMap<String, 
 }
 
 #[derive(Default)]
-struct ParagraphBuilder {
-    buffer: String,
-    links: Vec<String>,
-    in_text: bool,
+pub(crate) struct ParagraphBuilder {
+    pub(crate) buffer: String,
+    pub(crate) links: Vec<String>,
+    pub(crate) in_text: bool,
 }
 
 impl ParagraphBuilder {
-    fn finish(self) -> (Vec<String>, Vec<String>) {
+    pub(crate) fn finish(self) -> (Vec<String>, Vec<String>) {
         let lines = self
             .buffer
             .split('\n')
@@ -177,7 +180,14 @@ impl CellBuilder {
 }
 
 pub fn read_document(path: impl AsRef<Path>) -> Result<Document, DocxError> {
-    let file = File::open(path)?;
+    let mut file = File::open(path)?;
+    // by content, not by extension: renamed files are common
+    let mut magic = Vec::new();
+    file.by_ref().take(8).read_to_end(&mut magic)?;
+    file.rewind()?;
+    if magic == OLE_MAGIC {
+        return crate::doc_reader::read_doc(file);
+    }
     let mut archive = ZipArchive::new(file)?;
     let rels = read_relationships(&mut archive)?;
 
