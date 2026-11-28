@@ -43,6 +43,8 @@ pub const PERSONAL_COURSE_ORDINAL: i64 = 0;
 pub const GCAL_KEY_PREFIX: &str = "gcal:";
 /// `source_key` prefix of exams and credits imported from a session timetable.
 pub const SESSION_KEY_PREFIX: &str = "session|";
+/// `source_key` prefix of weekly classes imported for one week only: `week|<monday>|...`.
+pub const WEEK_KEY_PREFIX: &str = "week|";
 
 pub fn parse_hhmm(value: &str) -> Option<NaiveTime> {
     let mut parts = value.split(':');

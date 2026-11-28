@@ -7,9 +7,9 @@ use thiserror::Error;
 
 use crate::models::{
     CATCHUP_NOTIFY, Course, GCAL_KEY_PREFIX, Group, LANG_EN, LANG_UK, Lesson, Occurrence, PERSONAL_COURSE_ORDINAL,
-    SESSION_KEY_PREFIX, Settings, THEME_SYSTEM, UPDATE_ASK, UPDATE_MODES, VIEW_MODES, VIEW_WEEK,
+    SESSION_KEY_PREFIX, Settings, WEEK_KEY_PREFIX, THEME_SYSTEM, UPDATE_ASK, UPDATE_MODES, VIEW_MODES, VIEW_WEEK,
 };
-use crate::schedule_parser::ParsedCourse;
+use crate::schedule_parser::{ParsedCourse, ParsedLesson};
 
 #[derive(Debug, Error)]
 pub enum StorageError {
@@ -428,13 +428,23 @@ impl Storage {
 
     // -------------------------------------------------------------------- import
 
+    /// `only_week` is the Monday of the one week the weekly classes go on; `None` repeats
+    /// them every week. Classes that already have a date in the file keep it either way.
     pub fn import_courses(
         &mut self,
         parsed: &[ParsedCourse],
         source_path: &str,
+        only_week: Option<NaiveDate>,
     ) -> Result<(), StorageError> {
         let tx = self.conn.transaction()?;
         for course in parsed {
+            let placed = |lesson: &ParsedLesson| match (lesson.on_date, only_week) {
+                (None, Some(monday)) => (
+                    format!("{WEEK_KEY_PREFIX}{monday}|{}", lesson.source_key(course.ordinal)),
+                    Some(monday + Duration::days(lesson.day_index)),
+                ),
+                _ => (lesson.source_key(course.ordinal), lesson.on_date),
+            };
             tx.execute(
                 "INSERT INTO courses(ordinal, name) VALUES (?1, ?2) \
                  ON CONFLICT(ordinal) DO UPDATE SET name = excluded.name",
@@ -466,7 +476,7 @@ impl Storage {
             let incoming_keys: BTreeSet<String> = course
                 .lessons
                 .iter()
-                .map(|l| l.source_key(course.ordinal))
+                .map(|l| placed(l).0)
                 .collect();
 
             let existing: Vec<(i64, String)> = {
@@ -476,18 +486,26 @@ impl Storage {
                 stmt.query_map(params![course_id], |r| Ok((r.get(0)?, r.get(1)?)))?
                     .collect::<Result<Vec<_>, _>>()?
             };
-            // a session file replaces the previous session, a weekly file the previous weeks
+            // A session file replaces the previous session. A weekly file replaces the repeating
+            // timetable and, for one week only, that week; repeating, every one-week import.
             let has_session = course.lessons.iter().any(|l| l.on_date.is_some());
             let has_weekly = !has_session || course.lessons.iter().any(|l| l.on_date.is_none());
+            let this_week = only_week.map(|monday| format!("{monday}|"));
             for (id, key) in existing {
-                let replaced = if key.starts_with(SESSION_KEY_PREFIX) { has_session } else { has_weekly };
+                let replaced = if key.starts_with(SESSION_KEY_PREFIX) {
+                    has_session
+                } else if let Some(week) = key.strip_prefix(WEEK_KEY_PREFIX) {
+                    has_weekly && this_week.as_ref().is_none_or(|this| week.starts_with(this.as_str()))
+                } else {
+                    has_weekly
+                };
                 if replaced && !incoming_keys.contains(&key) {
                     tx.execute("DELETE FROM lessons WHERE id = ?1", params![id])?;
                 }
             }
 
             for lesson in &course.lessons {
-                let key = lesson.source_key(course.ordinal);
+                let (key, on_date) = placed(lesson);
                 let found: Option<i64> = tx
                     .query_row(
                         "SELECT id FROM lessons WHERE course_id = ?1 AND source_key = ?2 AND is_manual = 0",
@@ -513,7 +531,7 @@ impl Storage {
                             lesson.provider,
                             needs_link,
                             key,
-                            iso_or_none(lesson.on_date),
+                            iso_or_none(on_date),
                             id
                         ],
                     )?;
@@ -535,7 +553,7 @@ impl Storage {
                             lesson.provider,
                             needs_link,
                             key,
-                            iso_or_none(lesson.on_date)
+                            iso_or_none(on_date)
                         ],
                     )?;
                     tx.last_insert_rowid()
@@ -1121,21 +1139,57 @@ mod tests {
                 count("SELECT COUNT(*) FROM lessons WHERE on_date IS NOT NULL"),
             )
         };
-        storage.import_courses(&weekly, "").unwrap();
-        storage.import_courses(&session, "").unwrap();
-        storage.import_courses(&session, "").unwrap();
+        storage.import_courses(&weekly, "", None).unwrap();
+        storage.import_courses(&session, "", None).unwrap();
+        storage.import_courses(&session, "", None).unwrap();
         assert_eq!(counts(&storage), (2, 4));
-        storage.import_courses(&weekly, "").unwrap();
+        storage.import_courses(&weekly, "", None).unwrap();
         assert_eq!(counts(&storage), (2, 4));
 
         let mut shorter = session.clone();
         shorter[0].lessons.truncate(1);
-        storage.import_courses(&shorter, "").unwrap();
+        storage.import_courses(&shorter, "", None).unwrap();
         assert_eq!(counts(&storage), (2, 1));
         let date: String = storage
             .conn
             .query_row("SELECT on_date FROM lessons WHERE on_date IS NOT NULL", [], |r| r.get(0))
             .unwrap();
         assert_eq!(date, "2026-12-05");
+    }
+
+    #[test]
+    fn one_week_import_replaces_only_that_week() {
+        let file = concat!(env!("CARGO_MANIFEST_DIR"), "/testdata/sample.doc");
+        let parsed = crate::schedule_parser::parse_file(file, None).unwrap();
+        let weekly = [ParsedCourse { ordinal: 2, ..parsed[0].clone() }];
+        let session = [parsed[1].clone()];
+        let mut storage = Storage::open_in_memory().unwrap();
+        let dates = |storage: &Storage| {
+            let mut stmt = storage
+                .conn
+                .prepare("SELECT COALESCE(on_date, 'weekly') FROM lessons ORDER BY 1")
+                .unwrap();
+            stmt.query_map([], |r| r.get::<_, String>(0))
+                .unwrap()
+                .map(Result::unwrap)
+                .collect::<Vec<_>>()
+        };
+        let week = |d| NaiveDate::from_ymd_opt(2026, 11, d);
+
+        storage.import_courses(&weekly, "", None).unwrap();
+        storage.import_courses(&session, "", None).unwrap();
+        // the sample's classes are on Monday
+        storage.import_courses(&weekly, "", week(23)).unwrap();
+        storage.import_courses(&weekly, "", week(30)).unwrap();
+        storage.import_courses(&weekly, "", week(30)).unwrap();
+        let mut once = ["2026-11-23", "2026-11-23", "2026-11-30", "2026-11-30"].to_vec();
+        once.extend(["2026-12-05", "2026-12-10", "2026-12-10", "2026-12-16"]);
+        assert_eq!(dates(&storage), once);
+
+        // repeating again: the one-week copies go, the session stays
+        storage.import_courses(&weekly, "", None).unwrap();
+        let mut repeating = ["2026-12-05", "2026-12-10", "2026-12-10", "2026-12-16"].to_vec();
+        repeating.extend(["weekly", "weekly"]);
+        assert_eq!(dates(&storage), repeating);
     }
 }

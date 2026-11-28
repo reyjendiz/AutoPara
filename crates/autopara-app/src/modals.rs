@@ -9,7 +9,7 @@ use chrono::{Datelike, Duration, Local, NaiveDate};
 use egui::{Align, Button, Color32, ComboBox, CornerRadius, Frame, Layout, RichText, Stroke, Ui, vec2};
 
 use crate::gcal_sync::GcalStatus;
-use crate::i18n::{Lang, Tr, days_full, detect_display_provider, format_short_date};
+use crate::i18n::{Lang, Tr, days_full, detect_display_provider, format_short_date, format_week_title};
 use crate::icons;
 use crate::palette::Palette;
 
@@ -157,6 +157,10 @@ pub struct ImportModal {
     pub selected_ordinal: Option<i64>,
     pub selected_group: Option<String>,
     pub error: Option<String>,
+    /// Off by default: the timetable changes every week, so it goes on `week` only.
+    pub repeat_weekly: bool,
+    /// Monday of the week the classes go on when they don't repeat.
+    pub week: NaiveDate,
 }
 
 #[derive(Debug, Clone)]
@@ -187,7 +191,7 @@ pub enum ModalOutcome {
     GcalSignOut,
     SelectGroup { course_id: i64, group_id: i64 },
     PickDocxForImport,
-    CommitImport { path: String, ordinal: i64, group_name: String },
+    CommitImport { path: String, ordinal: i64, group_name: String, only_week: Option<NaiveDate> },
     ConfirmMove { modal: MoveScopeModal, only_one: bool },
     ConfirmDelete(i64),
 }
@@ -1231,6 +1235,35 @@ pub fn show_import_modal(
                         });
                     });
             }
+
+            // classes with their own date in the file (a session) are never copied
+            let has_weekly = modal
+                .courses
+                .iter()
+                .find(|c| Some(c.ordinal) == modal.selected_ordinal)
+                .is_some_and(|c| c.lessons.iter().any(|l| l.on_date.is_none()));
+            if has_weekly {
+                ui.checkbox(
+                    &mut modal.repeat_weekly,
+                    tr.pick("Копіювати на наступні тижні", "Copy to the following weeks"),
+                );
+                if !modal.repeat_weekly {
+                    ui.horizontal(|ui| {
+                        let (week, year) =
+                            format_week_title(modal.week, modal.week + Duration::days(6), lang);
+                        ui.label(
+                            RichText::new(format!("{} {week} {year}", tr.pick("Лише на тиждень", "Only the week of")))
+                                .size(13.0),
+                        );
+                        if ui.add(plain_button("‹", p)).on_hover_text(tr.pick("Попередній тиждень", "Previous week")).clicked() {
+                            modal.week -= Duration::days(7);
+                        }
+                        if ui.add(plain_button("›", p)).on_hover_text(tr.pick("Наступний тиждень", "Next week")).clicked() {
+                            modal.week += Duration::days(7);
+                        }
+                    });
+                }
+            }
         }
 
         modal_footer(ui, |ui| {
@@ -1250,6 +1283,7 @@ pub fn show_import_modal(
                     path,
                     ordinal: ord,
                     group_name: gname,
+                    only_week: (!modal.repeat_weekly).then_some(modal.week),
                 };
             }
             if ui.add(plain_button(tr.pick("Скасувати", "Cancel"), p)).clicked() {

@@ -410,6 +410,8 @@ impl AutoParaApp {
             selected_ordinal: self.cache.selected_course.as_ref().map(|c| c.ordinal),
             selected_group: self.cache.selected_group.as_ref().map(|g| g.name.clone()),
             error: None,
+            repeat_weekly: false,
+            week: week_start(self.anchor),
         };
         if let Some(p) = path {
             self.populate_import_modal(&mut modal, p);
@@ -2156,12 +2158,13 @@ impl eframe::App for AutoParaApp {
                 path,
                 ordinal,
                 group_name,
+                only_week,
             } => {
                 self.active_modal = None;
                 let dur = self.cache.settings.class_duration_minutes;
                 if let Ok(parsed) = schedule_parser::parse_file(&path, Some(dur))
                     && let Ok(mut guard) = self.backend.lock()
-                    && guard.storage.import_courses(&parsed, &path).is_ok()
+                    && guard.storage.import_courses(&parsed, &path, only_week).is_ok()
                     && let Ok(courses) = guard.storage.courses()
                     && let Some(c) = courses.iter().find(|c| c.ordinal == ordinal)
                 {
